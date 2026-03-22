@@ -1,189 +1,169 @@
-"""
-README for Board Game Café Application
+# BoardGameCafe Application
 
-## Project Structure
+This folder contains the backend application code for the BoardGameCafe project.
+The codebase follows a layered architecture inspired by Clean Architecture and DDD.
 
-The application follows Clean Architecture principles with clear separation of concerns:
+## File Structure
 
-### Directory Structure
-
+```text
+boardgame_cafe/
+|- Dockerfile
+|- requirements.txt
+|- setup.cfg
+|- pytest.ini
+|- .env
+|- .env.example
+|- frontend/
+|- src/
+|  |- app.py
+|  |- config.py
+|  |- boardgame_cafe.db
+|  |- instance/
+|  |- application/
+|  |  |- interfaces/
+|  |  |  `- repositories.py
+|  |  `- use_cases/
+|  |     |- game_use_cases.py
+|  |     |- payment_use_cases.py
+|  |     |- reservation_use_cases.py
+|  |     `- user_use_cases.py
+|  |- domain/
+|  |  |- exceptions.py
+|  |  |- events/
+|  |  |  |- domain_event.py
+|  |  |  |- game_events.py
+|  |  |  |- payment_events.py
+|  |  |  |- reservation_events.py
+|  |  |  `- handlers.py
+|  |  `- models/
+|  |     |- game.py
+|  |     |- payment.py
+|  |     |- reservation.py
+|  |     |- table.py
+|  |     |- user.py
+|  |     `- waitlist.py
+|  |- infrastructure/
+|  |  |- extensions.py
+|  |  |- database/
+|  |  |  `- models.py
+|  |  |- repositories/
+|  |  |- payment/
+|  |  |  `- vipps.py
+|  |  |- message_bus/
+|  |  |  `- celery_app.py
+|  |  `- email/
+|  `- presentation/
+|     |- api/
+|     |  |- admin.py
+|     |  |- auth.py
+|     |  |- deps.py
+|     |  |- games.py
+|     |  |- reservations.py
+|     |  |- steward.py
+|     |  `- tables.py
+|     `- schemas/
+|        |- game.py
+|        |- payment.py
+|        |- reservation.py
+|        |- table.py
+|        `- user.py
+`- tests/
+   |- conftest.py
+   |- unit/
+   |  |- test_models.py
+   |  `- test_use_cases.py
+   `- integration/
+      `- test_api.py
 ```
-src/
-├── config.py                 # Application configuration
-├── main.py                   # Flask application entry point
-├── domain/                   # Domain layer (business logic)
-│   ├── models/              # Domain entities
-│   ├── events/              # Domain events and handlers
-│   └── exceptions.py        # Custom domain exceptions
-├── application/             # Application layer (use cases)
-│   ├── interfaces/          # Repository and service interfaces
-│   └── use_cases/           # Business logic orchestration
-├── infrastructure/          # Infrastructure layer (external concerns)
-│   ├── database/            # Database setup and ORM models
-│   ├── repositories/        # Repository implementations
-│   ├── message_bus/         # Event publishing
-│   └── email/               # Email service
-└── presentation/            # Presentation layer (API)
-    ├── api/                 # Flask blueprint route handlers
-    └── schemas/             # Pydantic request/response schemas
-```
 
-## Installation
+## Architecture Layers
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Domain
+Path: `src/domain/`
 
-2. Copy and configure environment:
-   ```bash
-   cp .env.example .env
-   ```
+Purpose:
+- Contains the core business concepts and rules.
+- Should be independent of frameworks and external services.
 
-3. Initialize the database (will be created automatically on first run)
+What is here:
+- `models/`: Core entities such as users, reservations, games, tables, and payments.
+- `exceptions.py`: Domain-specific exceptions and validation errors.
+- `events/`: Domain events and handlers for business events.
 
-## Running the Application
+### Application
+Path: `src/application/`
 
-Start the Flask development server:
+Purpose:
+- Coordinates business workflows and use cases.
+- Uses domain objects and abstracts data access behind interfaces.
 
-```bash
-python -m flask run
-```
+What is here:
+- `use_cases/`: Orchestration logic for actions like reservations, users, games, and payments.
+- `interfaces/`: Contracts (for example repository interfaces) that infrastructure implements.
 
-Or using the main entry point:
+### Infrastructure
+Path: `src/infrastructure/`
 
-```bash
-python src/main.py
-```
+Purpose:
+- Handles framework and external system concerns.
+- Implements technical details needed by higher layers.
 
-The API will be available at:
-- App: http://localhost:8000
-- Health check: http://localhost:8000/health
+What is here:
+- `database/models.py`: Persistence models.
+- `repositories/`: Repository implementations.
+- `extensions.py`: Flask extensions setup.
+- `payment/`: Payment provider integration (Vipps).
+- `message_bus/`: Async/event messaging setup (Celery).
+- `email/`: Email-related integration code.
 
-## Running Tests
+### Presentation
+Path: `src/presentation/`
 
-```bash
-pytest
-pytest tests/unit/
-pytest tests/integration/
-pytest --cov=src/
-```
+Purpose:
+- Exposes the application to clients (HTTP API).
+- Validates input/output and maps requests to use cases.
 
-## Key Features
+What is here:
+- `api/`: Flask blueprints and route modules by feature area.
+- `schemas/`: Request/response schemas.
 
-- **User Management**: Customer registration, authentication, and profile management
-- **Game Catalogue**: Browse and manage games with detailed metadata
-- **Reservations**: Book tables with specific time slots
-- **Payment Processing**: Handle reservation fees and other payments (Stripe integration ready)
-- **Game Assignment**: Assign and checkout board games for reservations
-- **Event-Driven Architecture**: Domain events for business process monitoring
-- **Role-Based Access**: Support for customers, stewards (staff), and administrators
+## Core Entry Files
 
-## Architecture Highlights
+- `src/app.py`: Flask app factory, extension initialization, blueprint registration, and error handlers.
+- `src/config.py`: Environment-specific app configuration.
+- `../run.py` (repo root): Main entry script used by Flask CLI.
 
-### Domain Layer
-- Pure business logic without external dependencies
-- Domain entities (User, Game, Reservation, etc.)
-- Custom exceptions for domain errors
-- Domain events for business process tracking
+## How Layers Interact
 
-### Application Layer
-- Use cases that orchestrate business operations
-- Repository interfaces for data access abstraction
-- Request/response DTOs
-- No external dependencies
-
-### Infrastructure Layer
-- SQLAlchemy ORM with SQLite (configurable to PostgreSQL, MySQL, etc.)
-- Repository implementations
-- Message bus for event publishing
-- Email service (SMTP with mock for development)
-
-### Presentation Layer
-- Flask REST API with blueprints
-- Pydantic schemas for validation
-- Clean separation of concerns
-- Organized by feature (auth, games, tables, reservations)
-
-## Configuration
-
-All configuration is managed through environment variables defined in `.env`.
-See `.env.example` for available options.
-
-## Development Notes
-
-- This is a template structure with many endpoints marked as "TODO"
-- Password hashing is implemented in domain models but not yet integrated
-- JWT token generation is prepared but not yet implemented
-- Email notifications are mocked in development mode
-- Database transactions and error handling are simplified for clarity
-
-## API Endpoints
-
-### Authentication
-- `POST /auth/register` - Register a new customer
-- `POST /auth/login` - Login with email and password
-- `POST /auth/logout` - Logout current user
-
-### Games
-- `GET /games` - List all games
-- `GET /games/{id}` - Get game details
-- `POST /games` - Create new game (admin)
-- `PUT /games/{id}` - Update game (admin)
-- `DELETE /games/{id}` - Delete game (admin)
-- `GET /games/search/title` - Search games by title
-- `GET /games/search/tags` - Search games by tags
-
-### Tables
-- `GET /tables` - List all tables
-- `GET /tables/{id}` - Get table details
-- `POST /tables` - Create new table (admin)
-- `PUT /tables/{id}` - Update table (admin)
-- `DELETE /tables/{id}` - Delete table (admin)
-- `GET /tables/available/search` - Find available tables
-
-### Reservations
-- `GET /reservations` - List all reservations
-- `GET /reservations/{id}` - Get reservation details
-- `POST /reservations` - Create new reservation
-- `PUT /reservations/{id}` - Update reservation
-- `DELETE /reservations/{id}` - Cancel reservation
-- `POST /reservations/{id}/confirm` - Confirm reservation
-- `GET /reservations/customer/{customer_id}` - Get customer's reservations
-
-### Steward (Staff)
-- `GET /steward/game-copies` - List all game copies
-- `GET /steward/game-copies/{id}` - Get copy details
-- `POST /steward/game-copies/{id}/assign` - Assign game to reservation
-- `POST /steward/game-copies/{id}/checkout` - Checkout game
-- `POST /steward/game-copies/{id}/return` - Return game
-- `POST /steward/game-copies/{id}/report-damage` - Report damage
-
-### Admin
-- `GET /admin/users` - List all users
-- `GET /admin/users/{id}` - Get user details
-- `DELETE /admin/users/{id}` - Delete user
-- `POST /admin/users/{id}/activate` - Activate user
-- `POST /admin/users/{id}/deactivate` - Deactivate user
-- `GET /admin/reports/revenue` - Revenue report
-- `GET /admin/reports/usage` - Usage statistics
-- `GET /admin/system/health` - System health check
+Typical request flow:
+1. A request enters through `presentation/api`.
+2. The route calls a use case in `application/use_cases`.
+3. The use case works with `domain` entities and rules.
+4. Persistence/external calls go through `infrastructure` implementations.
+5. A response is returned through `presentation` schemas.
 
 ## Next Steps
 
-1. Implement password hashing using passlib
-2. Implement JWT token generation and validation
-3. Add comprehensive error handling middleware
-4. Implement database migrations with Alembic
-5. Add logging throughout the application
-6. Implement payment provider integration
-7. Add email notification system
-8. Implement comprehensive test suite
-9. Add API request validation
-10. Deploy to production environment
+1. Implement one vertical feature slice end-to-end (recommended: Reservations).
+   - Add use case logic in `src/application/use_cases/reservation_use_cases.py`.
+   - Add repository implementation in `src/infrastructure/repositories/`.
+   - Add HTTP endpoints in `src/presentation/api/reservations.py`.
+   - Add request/response validation in `src/presentation/schemas/reservation.py`.
 
-## Contact & Support
+2. Add tests for the same slice before expanding scope.
+   - Unit tests for domain and use-case behavior in `tests/unit/`.
+   - Integration/API tests in `tests/integration/test_api.py`.
 
-For issues or questions about the project structure, refer to the design documentation
-in the Design/ directory.
-"""
+3. Implement authentication basics.
+   - Register/login flow in `src/presentation/api/auth.py`.
+   - Password hashing and verification in domain/application layer.
+   - Auth dependency wiring in `src/presentation/api/deps.py`.
+
+4. Stabilize persistence and migrations.
+   - Ensure ORM models match domain needs in `src/infrastructure/database/models.py`.
+   - Add and use migration workflow (Flask-Migrate/Alembic).
+
+5. Improve operational concerns.
+   - Add structured logging and consistent error responses.
+   - Add environment-specific settings validation in `src/config.py`.
+   - Document required environment variables in `.env.example`.
