@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{% block title %}BoardGameCafe{% endblock %}</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+	<header>
+		<div class="wrap">
+			<a class="brand" href="/">
+				<span class="brand-mark" aria-hidden="true"></span>
+				<span>BoardGameCafe</span>
+			</a>
+		</div>
+	</header>
+
+	<main>
+		<div class="wrap">
+			<section class="card">
+				{% block content %}{% endblock %}
+			</section>
+		</div>
+	</main>
+
+	<footer>
+		<div class="wrap">Built with Flask for DAT240.</div>
+	</footer>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}BoardGameCafe | Reservations{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Reservations</h1>
+<p class="page-intro">
+    Starter page for reservation flows. Add create, list, and status-management views here.
+</p>
+
+<div class="panel-grid">
+    <article class="panel">
+        <h3>New Reservation Form</h3>
+        <p>Collect customer, table, date/time, party size, and notes.</p>
+    </article>
+    <article class="panel">
+        <h3>Reservation Queue</h3>
+        <p>Display upcoming reservations and current statuses.</p>
+    </article>
+    <article class="panel">
+        <h3>Actions</h3>
+        <p>Support check-in, seating, and cancellation transitions.</p>
+    </article>
+</div>
+
+<div class="action-row action-row-top-gap">
+    <a class="button" href="/reservations">Open Reservations API</a>
+    <a class="button button-secondary" href="/">Back to Home</a>
+</div>
+{% endblock %}

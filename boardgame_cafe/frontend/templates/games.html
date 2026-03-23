@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}BoardGameCafe | Games{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Games</h1>
+<p class="page-intro">
+    Starter page for the game catalog. Add filtering, tags, and game detail navigation here.
+</p>
+
+<div class="panel-grid">
+    <article class="panel">
+        <h3>Catalog Placeholder</h3>
+        <p>Render your game list from the API or server-side data.</p>
+    </article>
+    <article class="panel">
+        <h3>Featured Tabletop Picks</h3>
+        <p>Use this area for weekly highlights and recommendations.</p>
+    </article>
+    <article class="panel">
+        <h3>Search and Filters</h3>
+        <p>Add title, player count, complexity, and duration filters.</p>
+    </article>
+</div>
+
+<div class="action-row action-row-top-gap">
+    <a class="button" href="/games/">Open Games API</a>
+    <a class="button button-secondary" href="/">Back to Home</a>
+</div>
+{% endblock %}

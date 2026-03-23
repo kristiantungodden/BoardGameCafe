@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 import os
 
 from infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery
@@ -13,7 +13,13 @@ def create_app(config_name: str = None):
         config_name: 'development', 'testing', or 'production'
                     Defaults to FLASK_ENV environment variable
     """
-    app = Flask(__name__)
+    template_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "frontend", "templates")
+    )
+    static_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "frontend", "static")
+    )
+    app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
     # Configuration
     if config_name is None:
         config_name = os.getenv("FLASK_ENV", "development")
@@ -38,6 +44,18 @@ def create_app(config_name: str = None):
 
     # Register error handlers
     register_error_handlers(app)
+
+    @app.route("/", methods=["GET"])
+    def home():
+        return render_template("index.html")
+
+    @app.route("/ui/games", methods=["GET"])
+    def games_page():
+        return render_template("games.html")
+
+    @app.route("/ui/reservations", methods=["GET"])
+    def reservations_page():
+        return render_template("reservations.html")
 
     # Create database tables
     with app.app_context():
