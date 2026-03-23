@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}BoardGameCafe | Home{% endblock %}
+
+{% block content %}
+<h1 class="hero-title">Welcome to BoardGameCafe</h1>
+<p class="hero-copy">
+	This is your starter frontend shell. Use it as a base for reservations, game catalog,
+	and admin pages while your API grows.
+</p>
+
+
+<div class="action-row">
+	<a class="button" href="/ui/games">Games Page</a>
+	<a class="button button-secondary" href="/ui/reservations">Reservations Page</a>
+</div>
+
+<p class="quick-links">
+	Need raw endpoints? Visit <a href="/games/">Games API</a> or <a href="/reservations">Reservations API</a>.
+</p>
+
+<h2 class="section-title">Next Steps</h2>
+<ul class="next-steps-list">
+	<li>Add real templates for reservations and game catalog pages.</li>
+	<li>Connect forms to your existing use cases.</li>
+	<li>Replace inline styles with a dedicated CSS file when the UI expands.</li>
+</ul>
+{% endblock %}

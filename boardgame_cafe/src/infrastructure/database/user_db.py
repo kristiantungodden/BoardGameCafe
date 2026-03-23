@@ -1,6 +1,5 @@
 from infrastructure.extensions import db
 from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class User(db.Model, UserMixin):
@@ -13,12 +12,6 @@ class User(db.Model, UserMixin):
     phone = db.Column(db.String(20), nullable=True)
     password_hash = db.Column(db.Text, nullable=False)
     force_password_change = db.Column(db.Boolean, nullable=False, default=False)
-
-    def set_password(self, password: str) -> None:
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password: str) -> bool:
-        return check_password_hash(self.password_hash, password)
 
     def to_dict(self):
         return {
