@@ -1,10 +1,11 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 
-from infrastructure import db
+from infrastructure import db, csrf
 from infrastructure.database import User, hash_password, verify_password
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
+csrf.exempt(bp)  # Exempt the entire blueprint from CSRF protection for API routes
 
 
 @bp.route('/register', methods=['POST'])
