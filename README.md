@@ -29,6 +29,13 @@ Alternativ manuel start med venv-python:
 .\.venv\Scripts\python.exe -m flask --app run.py run --debug
 ```
 
+MacOS startup:
+```bash
+chmod +x startup.sh
+./startup.sh --install-deps   # optional first time / updates
+./startup.sh
+```
+
 Når flask serveren kjører skal det da lytte på http://127.0.0.1:5000, som er spesifisert i [run.py](run.py)
 
 Dersom du prøver ulike paths så vil alle gi error kode "404", og i nettleser får man opp error: "Resource not found", som igjen er spesifisert i enden av [src/app.py](boardgame_cafe/src/app.py):
