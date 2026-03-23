@@ -2,6 +2,8 @@ from flask import Flask
 import os
 
 from infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery
+from infrastructure.database import User, init_db
+
 
 def create_app(config_name: str = None):
     """
@@ -15,9 +17,7 @@ def create_app(config_name: str = None):
     # Configuration
     if config_name is None:
         config_name = os.getenv("FLASK_ENV", "development")
-    
     app.config.from_object(f"config.{config_name.capitalize()}Config")
-    
 
     # Initialize extensions with app
     db.init_app(app)
@@ -25,26 +25,31 @@ def create_app(config_name: str = None):
     csrf.init_app(app)
     mail.init_app(app)
     login_manager.init_app(app)
-    celery = init_celery(app)
-    app.celery_app = celery
-    
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
+    celery_app = init_celery(app)
+    app.celery_app = celery_app
+
     # Register blueprints
     register_blueprints(app)
-    
+
     # Register error handlers
     register_error_handlers(app)
-    
+
     # Create database tables
     with app.app_context():
-        db.create_all()
-    
+        init_db(app)
+
     return app
 
 
 def register_blueprints(app: Flask):
     """Register all API blueprints."""
     from presentation.api import auth, games, reservations, tables, admin, steward
-    
+
     app.register_blueprint(auth.bp)
     app.register_blueprint(games.bp)
     app.register_blueprint(reservations.bp)
@@ -55,11 +60,11 @@ def register_blueprints(app: Flask):
 
 def register_error_handlers(app: Flask):
     """Register global error handlers."""
-    
+
     @app.errorhandler(404)
     def not_found(error):
         return {"error": "Resource not found"}, 404
-    
+
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()

@@ -76,3 +76,7 @@ from infrastructure import db, migrate, csrf, mail, login_manager, celery, init_
 ```
 
 Hvordan domene blir brukt vil bli implementert senere igjennom [src/application](boardgame_cafe/src/application), hovedsakelig i [src/application/use_cases](boardgame_cafe/src/application/use_cases).
+
+
+### Kommando visst du ikke har pip til siste opptadeting (Windows)
+python.exe -m pip install --upgrade pip
