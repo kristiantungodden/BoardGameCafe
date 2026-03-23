@@ -436,6 +436,17 @@ test-results/
 Icon
 
 
+# Virtual environments
+venv/
+env/
+ENV/
+*.venv
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
 # Thumbnails
 ._*
 
@@ -482,3 +493,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# venv
+.venv/
+venv/
