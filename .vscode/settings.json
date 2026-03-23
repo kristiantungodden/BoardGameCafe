@@ -1,3 +1,9 @@
 {
-    "dotnet.defaultSolution": "BordgameCafe.slnx"
+    "dotnet.defaultSolution": "BordgameCafe.slnx",
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.cwd": "${workspaceFolder}/boardgame_cafe"
 }
