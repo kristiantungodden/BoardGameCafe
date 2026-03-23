@@ -5,5 +5,8 @@
     "python.testing.pytestArgs": [
         "tests"
     ],
-    "python.testing.cwd": "${workspaceFolder}/boardgame_cafe"
+    "python.testing.cwd": "${workspaceFolder}/boardgame_cafe",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/boardgame_cafe/src"
+    ]
 }
