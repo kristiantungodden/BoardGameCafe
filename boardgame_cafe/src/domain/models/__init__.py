@@ -1,3 +1,3 @@
 from domain.models.reservation import TableReservation
-
-__all__ = ["TableReservation"]
+from domain.models.table import Table, VALID_TABLE_STATUSES
+__all__ = ["TableReservation", "Table", "VALID_TABLE_STATUSES"]
