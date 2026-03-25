@@ -1,4 +1,6 @@
 from infrastructure.extensions import db
+from application.interfaces.repositories.payment_repository import PaymentRepository
+from domain.models.payment import Payment as DomainPayment
 
 
 class Payment(db.Model):
@@ -18,3 +20,21 @@ class Payment(db.Model):
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     table_reservation = db.relationship("TableReservation", backref="payments")
+
+  
+
+
+class PaymentsRepositoryDB(PaymentRepository):
+    def add(self, payment: DomainPayment) -> DomainPayment:
+        db_payment = Payment(
+            table_reservation_id=payment.table_reservation_id,
+            type=payment.type,
+            provider=payment.provider,
+            amount_cents=payment.amount_cents,
+            currency=payment.currency,
+            status=payment.status,
+            provider_ref=payment.provider_ref,
+        )
+        db.session.add(db_payment)
+        db.session.commit()
+        return payment
