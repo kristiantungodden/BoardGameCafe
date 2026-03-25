@@ -24,7 +24,7 @@ def test_table_capacity_must_be_positive():
 
 def test_table_status_must_be_known_value():
     with pytest.raises(ValidationError) as exc_info:
-        Table(number=1, capacity=4, status="maintenance")
+        Table(number=1, capacity=4, status="abcd")
 
     expected_statuses = ", ".join(sorted(VALID_TABLE_STATUSES))
     assert str(exc_info.value) == f"status must be one of: {expected_statuses}"

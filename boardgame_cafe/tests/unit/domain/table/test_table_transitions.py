@@ -63,3 +63,45 @@ def test_free_from_available_raises():
 
     with pytest.raises(InvalidStatusTransition, match="Cannot free table"):
         table.free()
+
+
+def test_start_maintenance_from_available_sets_maintenance():
+    table = Table(number=8, capacity=4, status="available")
+    table.start_maintenance()
+    assert table.status == "maintenance"
+
+
+def test_start_maintenance_from_reserved_raises():
+    table = Table(number=9, capacity=4, status="reserved")
+    with pytest.raises(InvalidStatusTransition, match="Cannot start maintenance"):
+        table.start_maintenance()
+
+
+def test_finish_maintenance_sets_available():
+    table = Table(number=10, capacity=4, status="maintenance")
+    table.finish_maintenance()
+    assert table.status == "available"
+
+
+def test_finish_maintenance_from_non_maintenance_raises():
+    table = Table(number=11, capacity=4, status="available")
+    with pytest.raises(InvalidStatusTransition, match="Cannot finish maintenance"):
+        table.finish_maintenance()
+
+
+def test_reserve_from_maintenance_raises():
+    table = Table(number=12, capacity=4, status="maintenance")
+    with pytest.raises(InvalidStatusTransition, match="Cannot reserve table"):
+        table.reserve()
+
+
+def test_occupy_from_maintenance_raises():
+    table = Table(number=13, capacity=4, status="maintenance")
+    with pytest.raises(InvalidStatusTransition, match="Cannot occupy table"):
+        table.occupy()
+
+
+def test_free_from_maintenance_raises():
+    table = Table(number=14, capacity=4, status="maintenance")
+    with pytest.raises(InvalidStatusTransition, match="Cannot free table"):
+        table.free()
