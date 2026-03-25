@@ -11,13 +11,13 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: constr(strip_whitespace=True, min_length=8)
-    role: Optional[str] = Field(default="customer", regex=r"^(customer|staff|admin)$")
+    role: Optional[str] = Field(default="customer", pattern=r"^(customer|staff|admin)$")
 
 
 class UserUpdate(BaseModel):
     name: Optional[constr(strip_whitespace=True, min_length=1, max_length=100)] = None
     phone: Optional[constr(strip_whitespace=True, min_length=1, max_length=20)] = None
-    role: Optional[str] = Field(default=None, regex=r"^(customer|staff|admin)$")
+    role: Optional[str] = Field(default=None, pattern=r"^(customer|staff|admin)$")
 
 
 class UserResponse(BaseModel):
