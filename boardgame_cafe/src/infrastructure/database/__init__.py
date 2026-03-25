@@ -1,9 +1,9 @@
 """Database facilities for infrastructure layer."""
 
-from user import User, hash_password, verify_password
+from .user import User, hash_password, verify_password
 from .tables.cafe_table_db import CafeTable
-from reservations import TableReservation, GameReservation
-from games import Game, GameCopy, GameTag, GameTagLink, GameRating
+from .reservations import TableReservation, GameReservation
+from .games import Game, GameCopy, GameTag, GameTagLink, GameRating
 from .payments import Payment
 from .booking import WaitlistEntry
 from .setup_db import init_db

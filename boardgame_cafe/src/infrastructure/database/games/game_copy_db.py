@@ -1,4 +1,4 @@
-from infrastructure.database import db
+from infrastructure.extensions import db
 
 class GameCopy(db.Model):
     __tablename__ = "game_copies"
