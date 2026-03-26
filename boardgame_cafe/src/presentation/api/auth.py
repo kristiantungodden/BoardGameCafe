@@ -8,26 +8,31 @@ bp = Blueprint("auth", __name__, url_prefix="/auth")
 csrf.exempt(bp)  # Exempt the entire blueprint from CSRF protection for API routes
 
 
+from presentation.schemas.user import UserCreate, UserResponse
+
+
 @bp.route('/register', methods=['POST'])
 def register():
-    data = request.get_json() or {}
-    name = data.get('name')
-    role = data.get('role', 'customer')
-    email = data.get('email')
-    phone = data.get('phone')
-    password = data.get('password')
+    try:
+        payload = UserCreate(**(request.get_json() or {}))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
-    if not name or not email or not password:
-        return jsonify({'error': 'name, email and password are required'}), 400
-
-    if User.query.filter_by(email=email).first():
+    if User.query.filter_by(email=payload.email).first():
         return jsonify({'error': 'email already exists'}), 409
 
-    user = User(name=name, role=role, email=email, phone=phone, password_hash=hash_password(password))
+    user = User(
+        name=payload.name,
+        role=payload.role,
+        email=payload.email,
+        phone=payload.phone,
+        password_hash=hash_password(payload.password)
+    )
     db.session.add(user)
     db.session.commit()
 
-    return jsonify({'user': user.to_dict()}), 201
+    response = UserResponse.from_orm(user)
+    return jsonify({'user': response.dict()}), 201
 
 
 @bp.route('/login', methods=['POST'])
