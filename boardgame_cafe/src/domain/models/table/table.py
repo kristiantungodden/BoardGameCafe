@@ -69,7 +69,7 @@ class Table:
     def start_maintenance(self) -> None:
         """Mark table as under maintenance.
 
-        Allowed from: available, occupied, reserved.
+        Allowed from: available.
         """
         if self.status != "available":
             raise InvalidStatusTransition(
