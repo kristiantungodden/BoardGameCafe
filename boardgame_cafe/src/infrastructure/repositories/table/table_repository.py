@@ -5,22 +5,12 @@ from typing import Optional
 
 from sqlalchemy.orm import Query, Session
 
+from application.interfaces.repositories.table_repository import TableFilters, TableRepository as TableRepositoryInterface
 from domain.models.table import Table
 from infrastructure import db
 from infrastructure.database import CafeTable as CafeTableDB
 
-
-@dataclass
-class TableFilters:
-    zone: Optional[str] = None
-    status: Optional[str] = None
-    min_capacity: Optional[int] = None
-    max_capacity: Optional[int] = None
-    feature: Optional[str] = None
-    is_available: Optional[bool] = None
-
-
-class TableRepository:
+class TableRepository(TableRepositoryInterface):
     def __init__(self, session: Optional[Session] = None):
         self.session = session or db.session
 
