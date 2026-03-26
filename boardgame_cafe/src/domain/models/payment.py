@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass
 class Payment:
     table_reservation_id: int
-    amount_kroner: float
+    amount_cents: int
     currency: str = "NOK"
     status: str = "calculated"
     provider: str = "none"
@@ -14,5 +14,5 @@ class Payment:
     def __post_init__(self) -> None:
         if self.table_reservation_id <= 0:
             raise ValueError("table_reservation_id must be positive")
-        if self.amount_kroner < 0:
-            raise ValueError("amount_kroner cannot be negative")
+        if self.amount_cents < 0:
+            raise ValueError("amount_cents cannot be negative")
