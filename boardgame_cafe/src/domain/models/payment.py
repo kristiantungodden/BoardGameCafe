@@ -16,3 +16,7 @@ class Payment:
             raise ValueError("table_reservation_id must be positive")
         if self.amount_cents < 0:
             raise ValueError("amount_cents cannot be negative")
+
+    @property
+    def amount_kroner(self) -> float:
+        return self.amount_cents / 100.0
