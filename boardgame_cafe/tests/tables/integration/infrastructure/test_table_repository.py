@@ -93,7 +93,7 @@ def test_table_repository_delete(app, repo):
 
 def test_table_repository_count_by_status(app, repo):
     """Test aggregation: counting tables by status."""
-    from conftest import seed_tables
+    from .conftest import seed_tables
     seed_tables(repo)
 
     counts = repo.count_by_status()
