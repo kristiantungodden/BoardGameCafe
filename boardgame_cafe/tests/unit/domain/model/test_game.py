@@ -1,6 +1,6 @@
 # tests/test_game_model.py
 import pytest
-from src.domain.models.game import Game
+from features.games.domain.models.game import Game
 
 def test_is_playable_by():
     game = Game(id=None, title="Test Game", min_players=2, max_players=5, playtime_min=30, complexity=1.5)

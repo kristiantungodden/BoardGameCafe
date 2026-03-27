@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from application.use_cases.reservation_use_cases import (
+from features.reservations.application.use_cases.reservation_use_cases import (
     CreateReservationCommand,
     CreateReservationUseCase,
 )

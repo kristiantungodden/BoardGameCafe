@@ -1,9 +1,9 @@
 """Shared fixtures for table repository tests."""
-from infrastructure import db
-from infrastructure.database import CafeTable as CafeTableDB
-from domain.models.table import Table
+from shared.infrastructure import db
+from features.tables.infrastructure.database import TableDB as CafeTableDB
+from features.tables.domain.models.table import Table
 from app import create_app
-from infrastructure.repositories import TableRepository
+from features.tables.infrastructure.repositories import TableRepository
 
 import pytest
 

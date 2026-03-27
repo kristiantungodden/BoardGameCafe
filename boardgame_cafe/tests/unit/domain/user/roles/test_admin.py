@@ -1,8 +1,8 @@
 # Tests for admin-specific user functionality.
 
 import pytest
-from domain.models.user import User, Role
-from domain.services.user_service import UserDomainService
+from features.users.domain.models.user import User, Role
+from features.users.domain.services.user_service import UserDomainService
 
 
 class TestAdminPermissions:

@@ -1,9 +1,9 @@
 # Tests for customer-specific user functionality.
 
 import pytest
-from domain.models.user import User, Role
-from domain.services.user_service import UserDomainService
-from domain.exceptions import ValidationError
+from features.users.domain.models.user import User, Role
+from features.users.domain.services.user_service import UserDomainService
+from shared.domain.exceptions import ValidationError
 
 
 class TestCustomerCoreFunctionality:

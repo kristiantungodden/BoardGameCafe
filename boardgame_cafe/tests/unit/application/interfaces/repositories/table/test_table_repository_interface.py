@@ -5,8 +5,8 @@ from typing import Optional, Sequence
 
 import pytest
 
-from domain.models.table import VALID_TABLE_STATUSES, Table
-from application.interfaces.repositories.table_repository import TableFilters, TableRepository
+from features.tables.domain.models.table import VALID_TABLE_STATUSES, Table
+from features.tables.application.interfaces.table_repository import TableFilters, TableRepository
 
 
 def test_table_repository_cannot_be_instantiated_directly():

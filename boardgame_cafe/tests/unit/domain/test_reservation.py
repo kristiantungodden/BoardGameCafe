@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from domain.models.reservation import TableReservation
+from features.reservations.domain.models.reservation import TableReservation
 
 # Just a simple test to use as a template for future tests 
 def test_reservation_seat_changes_status_to_seated():

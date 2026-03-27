@@ -1,6 +1,6 @@
 from flask import Flask
-import presentation.api.reservations as reservations_module
-from domain.models.reservation import TableReservation
+import features.reservations.presentation.api.reservation_routes as reservations_module
+from features.reservations.domain.models.reservation import TableReservation
 
 
 class FakeCreateReservationUseCase:

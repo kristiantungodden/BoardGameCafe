@@ -1,6 +1,6 @@
 import pytest
 from src.app import create_app
-from infrastructure import db
+from shared.infrastructure import db
 
 @pytest.fixture
 def app():
