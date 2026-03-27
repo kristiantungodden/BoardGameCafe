@@ -1,0 +1,2 @@
+from .reservation_repository_interface import ReservationRepositoryInterface
+__all__ = ["ReservationRepositoryInterface"]
