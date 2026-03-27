@@ -1,8 +1,8 @@
 # Tests for the core User domain model.
 
 import pytest
-from domain.models.user import User, Role
-from domain.exceptions import ValidationError
+from features.users.domain.models.user import User, Role
+from shared.domain.exceptions import ValidationError
 
 
 class TestUserCreation:

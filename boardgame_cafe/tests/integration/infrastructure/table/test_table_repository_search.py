@@ -1,6 +1,6 @@
 """Search and filter tests for TableRepository."""
-from domain.models.table import Table
-from infrastructure.repositories import TableFilters
+from features.tables.domain.models.table import Table
+from features.tables.infrastructure.repositories import TableFilters
 
 import pytest
 from conftest import seed_tables

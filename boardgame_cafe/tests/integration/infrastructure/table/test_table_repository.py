@@ -1,6 +1,6 @@
 """Core CRUD and error handling tests for TableRepository."""
-from domain.models.table import Table
-from infrastructure.repositories import TableRepository
+from features.tables.domain.models.table import Table
+from features.tables.infrastructure.repositories import TableRepository
 
 import pytest
 
@@ -138,7 +138,7 @@ def test_table_repository_data_normalization_string_to_int_roundtrip(app, repo):
 def test_table_repository_validation_rejects_invalid_status(app, repo):
     """Test that repository rejects invalid status values at domain layer."""
     # The domain model validates status in __post_init__, so invalid status raises immediately
-    from domain.exceptions import ValidationError
+    from shared.domain.exceptions import ValidationError
     
     # This tests that validation is enforced at domain layer (during Table creation)
     with pytest.raises(ValidationError, match="status must be one of"):

@@ -3,9 +3,9 @@
 import pytest
 from unittest.mock import Mock
 
-from domain.models.user import User, Role
-from domain.exceptions import ValidationError
-from application.use_cases.user_use_cases import (
+from features.users.domain.models.user import User, Role
+from shared.domain.exceptions import ValidationError
+from features.users.application.use_cases.user_use_cases import (
     CreateUserUseCase,
     UpdateUserUseCase,
     ChangePasswordUseCase,

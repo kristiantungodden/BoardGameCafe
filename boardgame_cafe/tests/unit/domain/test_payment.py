@@ -1,5 +1,5 @@
 import pytest
-from domain.models.payment import Payment
+from features.payments.domain.models.payment import Payment
 
 
 def test_payment_is_created():

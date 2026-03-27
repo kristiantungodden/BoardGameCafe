@@ -1,8 +1,8 @@
 import pytest
-from src.infrastructure.repositories.game_repository import GameRepository
-from src.domain.models.game import Game
+from features.games.infrastructure.repositories.game_repository import GameRepository
+from features.games.domain.models.game import Game
 from src.app import create_app
-from infrastructure import db  # import the single db instance
+from shared.infrastructure import db  # import the single db instance
 
 @pytest.fixture(scope="module")
 def app():

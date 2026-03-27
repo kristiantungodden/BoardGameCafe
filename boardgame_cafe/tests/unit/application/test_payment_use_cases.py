@@ -1,11 +1,11 @@
 import pytest
 from datetime import datetime, timedelta
 
-from application.use_cases.payment_use_cases import (
+from features.payments.application.use_cases.payment_use_cases import (
     calculate_amount_kroner,
     create_calculated_payment,
 )
-from domain.models.reservation import TableReservation
+from features.reservations.domain.models.reservation import TableReservation
 
 
 def make_reservation(

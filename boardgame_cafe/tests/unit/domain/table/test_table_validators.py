@@ -1,7 +1,7 @@
 import pytest
 
-from domain.exceptions import ValidationError
-from domain.models.table import Table, VALID_TABLE_STATUSES
+from shared.domain.exceptions import ValidationError
+from features.tables.domain.models.table import Table, VALID_TABLE_STATUSES
 
 
 def test_table_creation_uses_expected_defaults():

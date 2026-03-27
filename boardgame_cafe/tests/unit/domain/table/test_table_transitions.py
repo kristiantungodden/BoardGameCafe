@@ -1,7 +1,7 @@
 import pytest
 
-from domain.exceptions import InvalidStatusTransition
-from domain.models.table import Table
+from shared.domain.exceptions import InvalidStatusTransition
+from features.tables.domain.models.table import Table
 
 
 def test_reserve_from_available_sets_reserved():
