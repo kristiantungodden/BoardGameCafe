@@ -1,0 +1,12 @@
+from shared.infrastructure import db
+
+
+class TableDB(db.Model):
+    __tablename__ = "cafe_tables"
+
+    id = db.Column(db.Integer, primary_key=True)
+    table_nr = db.Column(db.String(10), unique=True, nullable=False)
+    capacity = db.Column(db.Integer, nullable=False)
+    zone = db.Column(db.String(50), nullable=False)
+    features = db.Column(db.JSON, default={})
+    status = db.Column(db.String(20), nullable=False)
