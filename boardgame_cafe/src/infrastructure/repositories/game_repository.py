@@ -11,6 +11,10 @@ class GameRepository:
     def __init__(self, session: Session = None):
         self.session = session or db.session
 
+    # Compatibility method used by application use cases.
+    def add_game(self, game: Game) -> Game:
+        return self.add(game)
+
     # Match test name: add()
     def add(self, game: Game) -> Game:
         db_game = GameDB(
@@ -45,6 +49,10 @@ class GameRepository:
             created_at=db_game.created_at,
         )
 
+    # Compatibility method used by application use cases.
+    def get_game(self, game_id: int) -> Optional[Game]:
+        return self.get_by_id(game_id)
+
     # Match test name: get_all()
     def get_all(self) -> List[Game]:
         db_games = self.session.query(GameDB).all()
@@ -62,6 +70,10 @@ class GameRepository:
             )
             for g in db_games
         ]
+
+    # Compatibility method used by application use cases.
+    def get_all_games(self) -> List[Game]:
+        return self.get_all()
 
     # Optional: you can keep these for API/use case usage
     def update_game(self, game: Game) -> Game:
