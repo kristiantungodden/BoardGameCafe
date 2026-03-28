@@ -1,5 +1,5 @@
 from shared.infrastructure import db
-from features.payments.application.interfaces.payment_repository_interface import PaymentRepository
+from features.payments.application.interfaces.payment_repository_interface import PaymentRepositoryInterface as PaymentRepository
 from features.payments.domain.models.payment import Payment as DomainPayment
 
 

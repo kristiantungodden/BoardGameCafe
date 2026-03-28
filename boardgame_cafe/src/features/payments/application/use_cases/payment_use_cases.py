@@ -1,3 +1,6 @@
+from features.payments.application.interfaces.payment_repository_interface import (
+    PaymentRepositoryInterface,
+)
 from features.payments.domain.models.payment import Payment
 from features.reservations.domain.models.reservation import TableReservation
 
@@ -22,3 +25,7 @@ def create_calculated_payment(reservation: TableReservation) -> Payment:
         table_reservation_id=reservation.id,
         amount_cents=amount_cents,
     )
+
+def create_and_save_payment(reservation, repository):
+    payment = create_calculated_payment(reservation)
+    return repository.add(payment)
