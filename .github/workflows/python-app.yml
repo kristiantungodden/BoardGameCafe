@@ -1,0 +1,38 @@
+name: Python Application Testing
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: "pip"
+        cache-dependency-path: boardgame_cafe/requirements.txt
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r boardgame_cafe/requirements.txt
+
+    - name: Run Tests with Pytest
+      working-directory: ./boardgame_cafe
+      env:
+        FLASK_ENV: testing
+      run: |
+        pytest tests/

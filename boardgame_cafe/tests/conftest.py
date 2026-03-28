@@ -16,7 +16,7 @@ if str(SRC_DIR) not in sys.path:
 def app():
 	"""Create a fresh Flask app for each test using testing config."""
 	from app import create_app
-	from infrastructure import db
+	from shared.infrastructure import db
 
 	flask_app = create_app("testing")
 
@@ -43,7 +43,7 @@ def runner(app):
 @pytest.fixture(scope="function")
 def db_session(app):
 	"""Database session fixture for repository/integration tests."""
-	from infrastructure import db
+	from shared.infrastructure import db
 
 	with app.app_context():
 		yield db.session
