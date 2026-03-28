@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class Payment:
     table_reservation_id: int
     amount_cents: int
+    id: int | None = None
     currency: str = "NOK"
     status: str = "calculated"
     provider: str = "none"
