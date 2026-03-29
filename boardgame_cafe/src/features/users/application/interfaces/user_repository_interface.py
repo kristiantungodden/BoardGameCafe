@@ -6,7 +6,7 @@ from typing import Optional, Sequence
 from features.users.domain.models.user import User
 
 
-class UserRepository(ABC):
+class UserRepositoryInterface(ABC):
     """Abstract interface for user data access."""
 
     @abstractmethod
