@@ -59,11 +59,21 @@ class User:
 
     def update_profile(self, name: Optional[str] = None, phone: Optional[str] = None) -> None:
         """Update user profile information."""
+        original_name = self.name
+        original_phone = self.phone
+
         if name is not None:
             self.name = name
         if phone is not None:
             self.phone = phone
-        self._validate()  # Re-validate after changes
+
+        try:
+            self._validate()  # Re-validate after changes
+        except ValidationError:
+            # Keep updates atomic: invalid changes must not mutate persisted state.
+            self.name = original_name
+            self.phone = original_phone
+            raise
 
     def can_access_admin_features(self) -> bool:
         """Check if user has admin privileges."""

@@ -60,6 +60,14 @@ def create_app(config_name: str = None):
     def reservations_page():
         return render_template("reservations.html")
 
+    @app.route("/login", methods=["GET"])
+    def login_page():
+        return render_template("login.html")
+
+    @app.route("/register", methods=["GET"])
+    def register_page():
+        return render_template("register.html")
+
     # Create database tables
     with app.app_context():
         init_db(app)

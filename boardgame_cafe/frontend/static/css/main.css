@@ -34,6 +34,27 @@ header {
     padding: 1.1rem 0;
 }
 
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+}
+
+.auth-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.auth-status {
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
 .brand {
     display: inline-flex;
     align-items: center;
@@ -165,4 +186,67 @@ footer {
 .panel p {
     margin: 0;
     color: var(--muted);
+}
+
+.flash-stack {
+    margin-bottom: 0.9rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.flash {
+    border-radius: 10px;
+    padding: 0.7rem 0.9rem;
+    font-weight: 600;
+}
+
+.flash-success {
+    background: #dff4e9;
+    color: #1f5d44;
+    border: 1px solid #b9e4cf;
+}
+
+.flash-error {
+    background: #fbe5e7;
+    color: #8a2630;
+    border: 1px solid #f5c4c9;
+}
+
+.form-stack {
+    display: grid;
+    gap: 0.7rem;
+    max-width: 460px;
+}
+
+.form-label {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.form-input {
+    border: 1px solid #d5ccbc;
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+    font: inherit;
+    background: #fff;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--ring);
+}
+
+.inline-form {
+    display: inline;
+}
+
+@media (max-width: 640px) {
+    .topbar {
+        align-items: flex-start;
+    }
+
+    .auth-nav {
+        justify-content: flex-start;
+    }
 }
