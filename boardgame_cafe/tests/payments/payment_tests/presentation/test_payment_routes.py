@@ -43,7 +43,7 @@ def test_calculate_payment_route_returns_calculated_values():
     client = create_test_client()
 
     response = client.post(
-        "/payments/calculate",
+        "/api/payments/calculate",
         json={"table_reservation_id": 3, "party_size": 2},
     )
 
@@ -61,7 +61,7 @@ def test_calculate_payment_route_returns_400_for_invalid_party_size():
     client = create_test_client()
 
     response = client.post(
-        "/payments/calculate",
+        "/api/payments/calculate",
         json={"table_reservation_id": 3, "party_size": -1},
     )
 
@@ -73,7 +73,7 @@ def test_create_payment_route_returns_500_when_repository_not_configured():
     client = create_test_client()
 
     response = client.post(
-        "/payments/",
+        "/api/payments/",
         json={"table_reservation_id": 3, "party_size": 2},
     )
 
@@ -86,7 +86,7 @@ def test_create_payment_route_saves_payment_and_returns_created():
     client = create_test_client(repository)
 
     response = client.post(
-        "/payments/",
+        "/api/payments/",
         json={"table_reservation_id": 4, "party_size": 3},
     )
 
@@ -104,7 +104,7 @@ def test_create_payment_route_returns_400_for_missing_reservation_id():
     repository = StubRepository()
     client = create_test_client(repository)
 
-    response = client.post("/payments/", json={"party_size": 2})
+    response = client.post("/api/payments/", json={"party_size": 2})
 
     assert response.status_code == 400
     assert response.get_json() == {"error": "table_reservation_id is required"}

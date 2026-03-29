@@ -17,8 +17,7 @@ from shared.presentation.api.deps import (
     get_reservation_by_id_use_case,
 )
 
-bp = Blueprint("reservations", __name__, url_prefix="/reservations")
-csrf.exempt(bp)  # Exempt this blueprint from CSRF protection for API use
+bp = Blueprint("reservations", __name__, url_prefix="/api/reservations")
 
 
 def _serialize_reservation(reservation):

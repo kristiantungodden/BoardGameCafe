@@ -34,7 +34,7 @@ def test_post_reservations_creates_reservation(monkeypatch):
     client = app.test_client()
 
     response = client.post(
-        "/reservations",
+        "/api/reservations",
         json={
             "customer_id": 1,
             "table_id": 2,

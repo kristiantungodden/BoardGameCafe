@@ -1,4 +1,4 @@
-"""Integration tests for /auth/register.
+"""Integration tests for /api/auth/register.
 
 These tests should use the Flask app fixture and real dependency wiring.
 """
@@ -6,7 +6,7 @@ These tests should use the Flask app fixture and real dependency wiring.
 def test_register_persists_user_and_returns_201(client):
     """Test registering a new user persists to database and returns 201."""
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "Alice Johnson",
             "email": "alice@example.com",
@@ -50,7 +50,7 @@ def test_register_returns_409_for_duplicate_email(client):
 
     # Try to register with the same email
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "New User",
             "email": "existing@example.com",
@@ -67,7 +67,7 @@ def test_register_returns_400_for_invalid_payload(client):
     """Test register returns 400 for invalid/missing payload."""
     # Missing email
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "John Doe",
             "password": "SecurePassword123",
@@ -81,7 +81,7 @@ def test_register_returns_400_for_invalid_payload(client):
 
     # Invalid email format
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "John Doe",
             "email": "invalid-email",
@@ -95,7 +95,7 @@ def test_register_returns_400_for_invalid_payload(client):
 
     # Password too short
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "John Doe",
             "email": "john@example.com",
@@ -111,7 +111,7 @@ def test_register_returns_400_for_invalid_payload(client):
 def test_register_with_valid_role(client):
     """Test registering with a valid role."""
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "Staff Member",
             "email": "staff@example.com",
@@ -134,7 +134,7 @@ def test_register_with_valid_role(client):
 def test_register_defaults_role_to_customer(client):
     """Test that registration defaults role to customer."""
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "Customer User",
             "email": "customer@example.com",

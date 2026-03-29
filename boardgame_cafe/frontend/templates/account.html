@@ -27,7 +27,8 @@
 
 <div class="action-row" style="margin-top: 1rem;">
 	<a class="button button-secondary" href="/">Back Home</a>
-	<form method="post" action="/auth/logout?ui=1" class="inline-form">
+	<form method="post" action="/logout" class="inline-form">
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 		<button class="button" type="submit">Logout</button>
 	</form>
 </div>

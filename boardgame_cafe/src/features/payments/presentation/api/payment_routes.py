@@ -13,7 +13,7 @@ from features.payments.infrastructure.repositories.payment_repository import (
 )
 from features.payments.presentation.schemas.payment_schema import PaymentSchema
 
-payment_bp = Blueprint("payments", __name__, url_prefix="/payments")
+payment_bp = Blueprint("payments", __name__, url_prefix="/api/payments")
 _payment_repository: PaymentRepository | None = None
 
 

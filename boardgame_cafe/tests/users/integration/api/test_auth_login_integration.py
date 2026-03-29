@@ -1,4 +1,4 @@
-"""Integration tests for /auth/login.
+"""Integration tests for /api/auth/login.
 
 These tests should use the Flask app fixture and real dependency wiring.
 """
@@ -24,7 +24,7 @@ def test_login_returns_200_for_valid_credentials(client):
 
     # Login with valid credentials
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "test@example.com",
             "password": test_password,
@@ -59,7 +59,7 @@ def test_login_returns_401_for_invalid_credentials(client):
 
     # Try login with wrong password
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "test@example.com",
             "password": "WrongPassword123",
@@ -72,7 +72,7 @@ def test_login_returns_401_for_invalid_credentials(client):
 
     # Try login with non-existent user
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "nonexistent@example.com",
             "password": "AnyPassword123",
@@ -104,7 +104,7 @@ def test_login_then_me_returns_current_user(client):
 
     # Login
     login_response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "test@example.com",
             "password": test_password,
@@ -114,7 +114,7 @@ def test_login_then_me_returns_current_user(client):
     assert login_response.status_code == 200
 
     # Now access the /me endpoint
-    me_response = client.get("/auth/me")
+    me_response = client.get("/api/auth/me")
 
     assert me_response.status_code == 200
     data = me_response.get_json()
@@ -126,7 +126,7 @@ def test_login_then_me_returns_current_user(client):
 def test_login_returns_400_for_invalid_json(client):
     """Test login returns 400 for invalid JSON."""
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         data="invalid json {",
         content_type="application/json",
     )
@@ -140,7 +140,7 @@ def test_login_returns_400_for_missing_fields(client):
     """Test login returns 400 when required fields are missing."""
     # Missing password
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "test@example.com",
         },
@@ -153,7 +153,7 @@ def test_login_returns_400_for_missing_fields(client):
 
     # Missing email
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "password": "TestPassword123",
         },
@@ -184,7 +184,7 @@ def test_logout_removes_session(client):
 
     # Login
     login_response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "test@example.com",
             "password": test_password,
@@ -194,15 +194,15 @@ def test_logout_removes_session(client):
     assert login_response.status_code == 200
 
     # Access /me to verify logged in
-    me_response = client.get("/auth/me")
+    me_response = client.get("/api/auth/me")
     assert me_response.status_code == 200
 
     # Logout
-    logout_response = client.post("/auth/logout")
+    logout_response = client.post("/api/auth/logout")
     assert logout_response.status_code == 200
     data = logout_response.get_json()
     assert data["message"] == "Logged out"
 
     # Try to access /me again - should fail
-    me_response = client.get("/auth/me")
+    me_response = client.get("/api/auth/me")
     assert me_response.status_code == 401

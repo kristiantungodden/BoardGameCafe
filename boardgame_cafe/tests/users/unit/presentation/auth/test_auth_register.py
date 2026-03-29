@@ -1,4 +1,4 @@
-"""Unit-style presentation tests for /auth/register.
+"""Unit-style presentation tests for /api/auth/register.
 
 These tests should isolate the route by monkeypatching `get_register_use_case`.
 Tests use proper fake implementations of dependency interfaces.
@@ -81,7 +81,7 @@ def test_register_returns_201_on_valid_payload(client, monkeypatch):
     monkeypatch.setattr(auth_routes, "get_register_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "John Doe",
             "email": "john@example.com",
@@ -113,7 +113,7 @@ def test_register_returns_400_for_invalid_json(client, monkeypatch):
     monkeypatch.setattr(auth_routes, "get_register_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         data="invalid json {",
         content_type="application/json",
     )
@@ -135,7 +135,7 @@ def test_register_returns_400_for_schema_validation_error(client, monkeypatch):
 
     # Missing required fields
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "John Doe",
             # Missing email and password
@@ -169,7 +169,7 @@ def test_register_returns_409_on_duplicate_email(client, monkeypatch):
     monkeypatch.setattr(auth_routes, "get_register_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "John Doe",
             "email": "existing@example.com",
@@ -193,7 +193,7 @@ def test_register_with_valid_role(client, monkeypatch):
     monkeypatch.setattr(auth_routes, "get_register_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "Staff Member",
             "email": "staff@example.com",
@@ -219,7 +219,7 @@ def test_register_defaults_role_to_customer(client, monkeypatch):
     monkeypatch.setattr(auth_routes, "get_register_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "Customer User",
             "email": "customer@example.com",
@@ -244,7 +244,7 @@ def test_register_returns_400_for_invalid_email(client, monkeypatch):
     monkeypatch.setattr(auth_routes, "get_register_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "John Doe",
             "email": "invalid-email",
@@ -269,7 +269,7 @@ def test_register_returns_400_for_short_password(client, monkeypatch):
     monkeypatch.setattr(auth_routes, "get_register_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/register",
+        "/api/auth/register",
         json={
             "name": "John Doe",
             "email": "john@example.com",

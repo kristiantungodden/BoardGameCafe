@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
 from features.users.domain.models.user import User
 
@@ -15,6 +15,14 @@ class UserBase(BaseModel):
     name: NameStr
     email: EmailStr
     phone: Optional[PhoneStr] = None
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_empty_phone(cls, value):
+        # HTML forms submit empty optional fields as "", but our domain expects None.
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        return value
 
 
 class UserCreate(UserBase):

@@ -6,7 +6,8 @@
 <h1 class="page-header">Sign In</h1>
 <p class="page-intro">Log in using your email and password.</p>
 
-<form method="post" action="/auth/login" class="form-stack" autocomplete="on">
+<form method="post" action="/api/auth/login" class="form-stack" autocomplete="on">
+	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 	<label class="form-label" for="email">Email</label>
 	<input class="form-input" type="email" id="email" name="email" required>
 

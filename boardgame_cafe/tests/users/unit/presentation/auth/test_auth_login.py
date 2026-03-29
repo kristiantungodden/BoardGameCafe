@@ -1,4 +1,4 @@
-"""Unit-style presentation tests for /auth/login.
+"""Unit-style presentation tests for /api/auth/login.
 
 These tests should isolate the route by monkeypatching `get_login_use_case`.
 Tests use proper fake implementations of dependency interfaces.
@@ -108,7 +108,7 @@ def test_login_returns_200_with_user_payload_on_valid_credentials(client, monkey
     monkeypatch.setattr(auth_routes, "get_login_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "john@example.com",
             "password": "SecurePass123",
@@ -136,7 +136,7 @@ def test_login_returns_400_for_invalid_json(client, monkeypatch):
     monkeypatch.setattr(auth_routes, "get_login_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         data="invalid json {",
         content_type="application/json",
     )
@@ -159,7 +159,7 @@ def test_login_returns_400_for_schema_validation_error(client, monkeypatch):
 
     # Missing password field
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "john@example.com",
         },
@@ -192,7 +192,7 @@ def test_login_returns_401_on_invalid_credentials(client, monkeypatch):
 
     # Send wrong password
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "john@example.com",
             "password": "WrongPassword123",
@@ -218,7 +218,7 @@ def test_login_returns_401_for_nonexistent_user(client, monkeypatch):
     monkeypatch.setattr(auth_routes, "get_login_use_case", get_fake_use_case)
 
     response = client.post(
-        "/auth/login",
+        "/api/auth/login",
         json={
             "email": "nonexistent@example.com",
             "password": "AnyPassword123",

@@ -18,8 +18,9 @@
 				<nav class="auth-nav" aria-label="Account">
 					{% if current_user.is_authenticated %}
 						<span class="auth-status">Signed in as <strong>{{ current_user.name }}</strong></span>
-						<a class="button button-secondary" href="/auth/me?ui=1">My Account</a>
-						<form method="post" action="/auth/logout?ui=1" class="inline-form">
+						<a class="button button-secondary" href="/me">My Account</a>
+						<form method="post" action="/logout" class="inline-form">
+							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 							<button class="button" type="submit">Logout</button>
 						</form>
 					{% else %}

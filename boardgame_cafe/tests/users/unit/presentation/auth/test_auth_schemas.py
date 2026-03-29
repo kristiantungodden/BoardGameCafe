@@ -267,27 +267,27 @@ class TestUserCreate:
         user = UserCreate.model_validate(payload)
         assert user.phone == "555-1234"
 
-    def test_register_payload_rejects_empty_phone(self):
-        """Empty phone string should raise ValidationError."""
+    def test_register_payload_converts_empty_phone_to_none(self):
+        """Empty phone string should be treated as missing optional field."""
         payload = {
             "name": "Test User",
             "email": "user@example.com",
             "password": "SecurePass123",
             "phone": "",
         }
-        with pytest.raises(ValidationError):
-            UserCreate.model_validate(payload)
+        user = UserCreate.model_validate(payload)
+        assert user.phone is None
 
-    def test_register_payload_rejects_whitespace_only_phone(self):
-        """Whitespace-only phone should be stripped and rejected."""
+    def test_register_payload_converts_whitespace_phone_to_none(self):
+        """Whitespace-only phone should be treated as missing optional field."""
         payload = {
             "name": "Test User",
             "email": "user@example.com",
             "password": "SecurePass123",
             "phone": "   ",
         }
-        with pytest.raises(ValidationError):
-            UserCreate.model_validate(payload)
+        user = UserCreate.model_validate(payload)
+        assert user.phone is None
 
     def test_register_payload_strips_phone_whitespace(self):
         """Phone with leading/trailing whitespace should be stripped."""

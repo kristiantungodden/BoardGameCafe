@@ -10,8 +10,7 @@ from features.users.application.use_cases.auth_use_cases import LoginCommand, Re
 from features.users.presentation.api.deps import get_login_use_case, get_register_use_case
 from features.users.presentation.schemas.auth_schema import LoginRequest
 
-bp = Blueprint("auth", __name__, url_prefix="/auth")
-csrf.exempt(bp)  # Exempt the entire blueprint from CSRF protection for API routes
+bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
 from features.users.presentation.schemas.user_schema import UserCreate, UserResponse
@@ -97,17 +96,10 @@ def login():
 @login_required
 def logout():
     logout_user()
-    if request.args.get("ui") == "1":
-        flash("Logged out.", "success")
-        return redirect(url_for("home"))
-
     return jsonify({'message': 'Logged out'}), 200
 
 
 @bp.route('/me', methods=['GET'])
 @login_required
 def me():
-    if request.args.get("ui") == "1":
-        return render_template("account.html", user=current_user)
-
     return jsonify({'user': current_user.to_dict()}), 200
