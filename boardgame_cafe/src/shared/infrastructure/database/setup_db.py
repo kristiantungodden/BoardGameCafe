@@ -1,7 +1,9 @@
-from shared.infrastructure import db
+from shared.infrastructure.extensions import db
+from shared.infrastructure.database.model_registry import register_all_models
 
-from features.reservations.infrastructure.database.table_reservations_db import TableReservation
-from features.payments.infrastructure.database.payments_db import PaymentDB
+# Register all ORM model classes before any queries or create_all() calls.
+# This ensures string-based relationships (e.g., relationship("TableDB")) resolve correctly.
+register_all_models()
 
 def init_db(app=None):
     """Initialize database tables. Call with Flask app context."""
