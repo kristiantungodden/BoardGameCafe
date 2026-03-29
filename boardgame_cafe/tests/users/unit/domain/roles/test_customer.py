@@ -58,6 +58,7 @@ class TestCustomerPermissions:
         # Cannot manage others
         other_customer = User("Other", "other@test.com", "hash", Role.CUSTOMER)
         assert not UserDomainService.can_user_manage_others(customer, other_customer)
+        assert not UserDomainService.can_user_manage_others(customer, customer)
 
         # Cannot access admin features
         assert not customer.can_access_admin_features()

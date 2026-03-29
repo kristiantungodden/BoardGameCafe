@@ -18,10 +18,14 @@ from features.users.application.use_cases.user_use_cases import (
 class TestCreateUserUseCase:
     """Test CreateUserUseCase."""
 
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.mock_repo = Mock()
+        self.mock_repo.save.side_effect = lambda user: user
+        self.use_case = CreateUserUseCase(self.mock_repo)
+
     def test_create_user_with_valid_command(self):
         """Test creating a user with valid command data."""
-        use_case = CreateUserUseCase()
-
         cmd = CreateUserCommand(
             name="John Doe",
             email="john.doe@example.com",
@@ -30,7 +34,7 @@ class TestCreateUserUseCase:
             phone="+47 123 45 678"
         )
 
-        user = use_case.execute(cmd)
+        user = self.use_case.execute(cmd)
 
         assert user.name == "John Doe"
         assert user.email == "john.doe@example.com"
@@ -38,25 +42,53 @@ class TestCreateUserUseCase:
         assert user.role == Role.STAFF
         assert user.phone == "+47 123 45 678"
         assert user.force_password_change is False
-        assert user.id is None
+        self.mock_repo.save.assert_called_once()
 
     def test_create_user_with_defaults(self):
         """Test creating a user with default values."""
-        use_case = CreateUserUseCase()
-
         cmd = CreateUserCommand(
             name="Jane Smith",
             email="jane.smith@example.com",
             password_hash="hashed_password_456"
         )
 
-        user = use_case.execute(cmd)
+        user = self.use_case.execute(cmd)
 
         assert user.name == "Jane Smith"
         assert user.email == "jane.smith@example.com"
         assert user.password_hash == "hashed_password_456"
         assert user.role == Role.CUSTOMER
         assert user.phone is None
+        self.mock_repo.save.assert_called_once()
+
+    def test_create_user_persists_to_repository(self):
+        """Test that created user is saved to repository."""
+        cmd = CreateUserCommand(
+            name="Test User",
+            email="test@example.com",
+            password_hash="hash123"
+        )
+
+        self.use_case.execute(cmd)
+
+        # Verify save was called with a User object
+        self.mock_repo.save.assert_called_once()
+        saved_user = self.mock_repo.save.call_args[0][0]
+        assert isinstance(saved_user, User)
+        assert saved_user.name == "Test User"
+        assert saved_user.email == "test@example.com"
+
+    def test_create_user_domain_validation_error(self):
+        """Test that invalid user data raises ValidationError."""
+        cmd = CreateUserCommand(
+            name="",  # Invalid: empty name
+            email="test@example.com",
+            password_hash="hash123"
+        )
+
+        with pytest.raises(ValidationError, match="Name cannot be empty"):
+            self.use_case.execute(cmd)
+        self.mock_repo.save.assert_not_called()
 
 
 class TestUpdateUserUseCase:
@@ -116,6 +148,7 @@ class TestUpdateUserUseCase:
 
         with pytest.raises(ValidationError, match="User not found"):
             self.use_case.execute(cmd, requesting_user)
+        self.mock_repo.save.assert_not_called()
 
     def test_update_user_insufficient_permissions(self):
         """Test updating user without sufficient permissions."""
@@ -128,6 +161,7 @@ class TestUpdateUserUseCase:
 
         with pytest.raises(ValidationError, match="Insufficient permissions to update user"):
             self.use_case.execute(cmd, requesting_user)
+        self.mock_repo.save.assert_not_called()
 
     def test_update_user_invalid_role_transition(self):
         """Test updating user with invalid role transition."""
@@ -140,6 +174,26 @@ class TestUpdateUserUseCase:
 
         with pytest.raises(ValidationError, match="Invalid role transition"):
             self.use_case.execute(cmd, requesting_user)
+        self.mock_repo.save.assert_not_called()
+
+    def test_update_user_failed_profile_validation_does_not_mutate_role(self):
+        """If update fails validation, target role should remain unchanged and not persist."""
+        requesting_user = User("Admin", "admin@test.com", "hash", Role.ADMIN, id=1)
+        target_user = User("Target", "target@test.com", "hash", Role.CUSTOMER, id=2)
+
+        self.mock_repo.get_by_id.return_value = target_user
+
+        cmd = UpdateUserCommand(
+            user_id=2,
+            role=Role.STAFF,
+            name="",  # Invalid profile update
+        )
+
+        with pytest.raises(ValidationError, match="Name cannot be empty"):
+            self.use_case.execute(cmd, requesting_user)
+
+        assert target_user.role == Role.CUSTOMER
+        self.mock_repo.save.assert_not_called()
 
 
 class TestChangePasswordUseCase:
@@ -191,6 +245,7 @@ class TestChangePasswordUseCase:
 
         with pytest.raises(ValidationError, match="User not found"):
             self.use_case.execute(cmd, requesting_user)
+        self.mock_repo.save.assert_not_called()
 
     def test_change_password_insufficient_permissions(self):
         """Test changing password without sufficient permissions."""
@@ -203,3 +258,4 @@ class TestChangePasswordUseCase:
 
         with pytest.raises(ValidationError, match="Insufficient permissions to change password"):
             self.use_case.execute(cmd, requesting_user)
+        self.mock_repo.save.assert_not_called()
