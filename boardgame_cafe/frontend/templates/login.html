@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}BoardGameCafe | Login{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Sign In</h1>
+<p class="page-intro">Log in using your email and password.</p>
+
+<form method="post" action="/auth/login" class="form-stack" autocomplete="on">
+	<label class="form-label" for="email">Email</label>
+	<input class="form-input" type="email" id="email" name="email" required>
+
+	<label class="form-label" for="password">Password</label>
+	<input class="form-input" type="password" id="password" name="password" required>
+
+	<div class="action-row">
+		<button class="button" type="submit">Login</button>
+		<a class="button button-secondary" href="/register">Create Account</a>
+	</div>
+</form>
+{% endblock %}

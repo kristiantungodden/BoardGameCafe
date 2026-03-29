@@ -1,8 +1,14 @@
-from flask import Blueprint, request, jsonify
-from flask_login import login_user, logout_user, login_required, current_user
+from flask import Blueprint, request, jsonify, redirect, url_for, flash, render_template
+from flask_login import logout_user, login_required, current_user
 
-from shared.infrastructure import db, csrf
-from features.users.infrastructure import UserDB, hash_password, verify_password
+from werkzeug.exceptions import BadRequest
+from pydantic import ValidationError as PydanticValidationError
+
+from shared.domain.exceptions import ValidationError as DomainValidationError
+from shared.infrastructure import csrf
+from features.users.application.use_cases.auth_use_cases import LoginCommand, RegisterCommand
+from features.users.presentation.api.deps import get_login_use_case, get_register_use_case
+from features.users.presentation.schemas.auth_schema import LoginRequest
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
 csrf.exempt(bp)  # Exempt the entire blueprint from CSRF protection for API routes
@@ -11,55 +17,97 @@ csrf.exempt(bp)  # Exempt the entire blueprint from CSRF protection for API rout
 from features.users.presentation.schemas.user_schema import UserCreate, UserResponse
 
 
+def _is_json_request() -> bool:
+    return request.is_json
+
+
 @bp.route('/register', methods=['POST'])
 def register():
+    is_json_request = _is_json_request()
+
+    if is_json_request:
+        try:
+            raw = request.get_json()
+        except BadRequest:
+            return jsonify({'error': 'Invalid JSON body'}), 400
+    else:
+        raw = request.form.to_dict()
+
     try:
-        payload = UserCreate(**(request.get_json() or {}))
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        payload = UserCreate.model_validate(raw or {})
+    except PydanticValidationError as exc:
+        if is_json_request:
+            return {"error": "Registration failed", "details": exc.errors()}, 400
+        flash("Registration failed. Please check your input.", "error")
+        return redirect(url_for("register_page"))
 
-    if UserDB.query.filter_by(email=payload.email).first():
-        return jsonify({'error': 'email already exists'}), 409
+    use_case = get_register_use_case()
 
-    user = UserDB(
-        name=payload.name,
-        role=payload.role,
-        email=payload.email,
-        phone=payload.phone,
-        password_hash=hash_password(payload.password)
-    )
-    db.session.add(user)
-    db.session.commit()
+    try:
+        use_case.execute(RegisterCommand(**payload.model_dump()))
+    except DomainValidationError as exc:
+        if is_json_request:
+            return {"error": str(exc)}, 409
+        flash(str(exc), "error")
+        return redirect(url_for("register_page"))
 
-    response = UserResponse.from_orm(user)
-    return jsonify({'user': response.dict()}), 201
+    if is_json_request:
+        return {"message": "User registered successfully"}, 201
 
+    flash("User registered successfully. You can now sign in.", "success")
+    return redirect(url_for("login_page"))
 
-@bp.route('/login', methods=['POST'])
+@bp.post("/login")
 def login():
-    data = request.get_json() or {}
-    email = data.get('email')
-    password = data.get('password')
+    is_json_request = _is_json_request()
 
-    if not email or not password:
-        return jsonify({'error': 'email and password are required'}), 400
+    if is_json_request:
+        try:
+            raw = request.get_json()
+        except BadRequest:
+            return {"error": "Invalid JSON body"}, 400
+    else:
+        raw = request.form.to_dict()
 
-    user = UserDB.query.filter_by(email=email).first()
-    if user is None or not verify_password(user.password_hash, password):
-        return jsonify({'error': 'Invalid credentials'}), 401
+    try:
+        payload = LoginRequest.model_validate(raw or {})
+    except PydanticValidationError as exc:
+        if is_json_request:
+            return {"error": "Validation failed", "details": exc.errors()}, 400
+        flash("Invalid login input.", "error")
+        return redirect(url_for("login_page"))
 
-    login_user(user)
-    return jsonify({'message': 'Logged in', 'user': user.to_dict()}), 200
+    use_case = get_login_use_case()
+    try:
+        user = use_case.execute(LoginCommand(**payload.model_dump()))
+    except DomainValidationError as exc:
+        if is_json_request:
+            return {"error": str(exc)}, 401
+        flash(str(exc), "error")
+        return redirect(url_for("login_page"))
+
+    if is_json_request:
+        return {"message": "Logged in", "user": UserResponse.from_domain(user).model_dump()}, 200
+
+    flash("Logged in successfully.", "success")
+    return redirect(url_for("home"))
 
 
 @bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
     logout_user()
+    if request.args.get("ui") == "1":
+        flash("Logged out.", "success")
+        return redirect(url_for("home"))
+
     return jsonify({'message': 'Logged out'}), 200
 
 
 @bp.route('/me', methods=['GET'])
 @login_required
 def me():
+    if request.args.get("ui") == "1":
+        return render_template("account.html", user=current_user)
+
     return jsonify({'user': current_user.to_dict()}), 200
