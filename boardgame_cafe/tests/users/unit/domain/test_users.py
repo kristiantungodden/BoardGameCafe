@@ -101,6 +101,16 @@ class TestUserBusinessMethods:
         with pytest.raises(ValidationError, match="Name cannot be empty"):
             user.update_profile(name="")
 
+    def test_update_profile_invalid_update_does_not_mutate_state(self):
+        """Invalid profile updates should not leave the user in a partially updated state."""
+        user = User("Stable Name", "test@test.com", "hash123", phone="111")
+
+        with pytest.raises(ValidationError, match="Name cannot be empty"):
+            user.update_profile(name="")
+
+        assert user.name == "Stable Name"
+        assert user.phone == "111"
+
 
 class TestUserRoleMethods:
     """Test User role checking methods."""
