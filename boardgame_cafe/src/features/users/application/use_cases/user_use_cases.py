@@ -34,6 +34,9 @@ class ChangePasswordCommand:
 class CreateUserUseCase:
     """Use case for creating new users."""
 
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
     def execute(self, cmd: CreateUserCommand) -> User:
         """Create a new user with validation."""
         user = User(
@@ -43,7 +46,7 @@ class CreateUserUseCase:
             role=cmd.role,
             phone=cmd.phone,
         )
-        return user
+        return self.user_repo.save(user)
 
 
 class UpdateUserUseCase:
@@ -62,13 +65,19 @@ class UpdateUserUseCase:
         if not UserDomainService.can_user_manage_others(requesting_user, target_user):
             raise ValidationError("Insufficient permissions to update user")
 
-        # Validate role change if requested
-        if cmd.role is not None and cmd.role != target_user.role:
-            UserDomainService.validate_role_transition(target_user.role, cmd.role)
-            target_user.role = cmd.role
+        original_role = target_user.role
 
-        # Update profile information
-        target_user.update_profile(name=cmd.name, phone=cmd.phone)
+        try:
+            # Validate role change if requested
+            if cmd.role is not None and cmd.role != target_user.role:
+                UserDomainService.validate_role_transition(target_user.role, cmd.role)
+                target_user.role = cmd.role
+
+            # Update profile information
+            target_user.update_profile(name=cmd.name, phone=cmd.phone)
+        except ValidationError:
+            target_user.role = original_role
+            raise
 
         return self.user_repo.save(target_user)
 
