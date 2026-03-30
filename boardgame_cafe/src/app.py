@@ -5,6 +5,11 @@ import os
 from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, init_db
 
 from features.games.presentation.api import games_routes
+from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
+from features.payments.presentation.api.payment_routes import (
+    configure_payment_routes,
+    payment_bp,
+)
 from features.reservations.presentation.api import reservation_routes
 from features.users.presentation.api import auth_routes, steward_routes
 from features.users.infrastructure import UserDB as User
@@ -90,8 +95,11 @@ def create_app(config_name: str = None):
 
 def register_blueprints(app: Flask):
     """Register all API blueprints."""
+    configure_payment_routes(PaymentRepository())
+
     app.register_blueprint(auth_routes.bp)
     app.register_blueprint(games_routes.bp)
+    app.register_blueprint(payment_bp)
     app.register_blueprint(reservation_routes.bp)
     app.register_blueprint(steward_routes.bp)
 
