@@ -13,8 +13,9 @@ from shared.infrastructure import db
 
 
 class SqlAlchemyGameReservationRepository(GameReservationRepositoryInterface):
-    def __init__(self, session: Optional[Session] = None) -> None:
+    def __init__(self, session: Optional[Session] = None, auto_commit: bool = True) -> None:
         self.session = session or db.session
+        self.auto_commit = auto_commit
 
     def add(self, reservation_game: ReservationGame) -> ReservationGame:
         row = GameReservationDB(
@@ -23,7 +24,10 @@ class SqlAlchemyGameReservationRepository(GameReservationRepositoryInterface):
             game_copy_id=reservation_game.game_copy_id,
         )
         self.session.add(row)
-        self.session.commit()
+        if self.auto_commit:
+            self.session.commit()
+        else:
+            self.session.flush()
         return self._to_domain(row)
 
     def get_by_id(self, reservation_game_id: int) -> Optional[ReservationGame]:
@@ -46,7 +50,10 @@ class SqlAlchemyGameReservationRepository(GameReservationRepositoryInterface):
         if row is None:
             return False
         self.session.delete(row)
-        self.session.commit()
+        if self.auto_commit:
+            self.session.commit()
+        else:
+            self.session.flush()
         return True
 
     @staticmethod

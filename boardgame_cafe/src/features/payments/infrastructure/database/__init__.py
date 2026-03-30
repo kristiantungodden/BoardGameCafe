@@ -1,3 +1,3 @@
-from .payments_db import PaymentDB, PaymentsRepositoryDB
+from .payments_db import PaymentDB
 
-__all__ = ["PaymentDB", "PaymentsRepositoryDB"]
+__all__ = ["PaymentDB"]
