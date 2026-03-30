@@ -56,3 +56,55 @@ class GetReservationByIdUseCase:
 
     def execute(self, reservation_id: int) -> Optional[TableReservation]:
         return self.repo.get_by_id(reservation_id)
+
+
+class CancelReservationUseCase:
+    def __init__(self, repo: ReservationRepositoryInterface):
+        self.repo = repo
+
+    def execute(self, reservation_id: int) -> Optional[TableReservation]:
+        reservation = self.repo.get_by_id(reservation_id)
+        if reservation is None:
+            return None
+
+        reservation.cancel()
+        return self.repo.update(reservation)
+
+
+class SeatReservationUseCase:
+    def __init__(self, repo: ReservationRepositoryInterface):
+        self.repo = repo
+
+    def execute(self, reservation_id: int) -> Optional[TableReservation]:
+        reservation = self.repo.get_by_id(reservation_id)
+        if reservation is None:
+            return None
+
+        reservation.seat()
+        return self.repo.update(reservation)
+
+
+class CompleteReservationUseCase:
+    def __init__(self, repo: ReservationRepositoryInterface):
+        self.repo = repo
+
+    def execute(self, reservation_id: int) -> Optional[TableReservation]:
+        reservation = self.repo.get_by_id(reservation_id)
+        if reservation is None:
+            return None
+
+        reservation.complete()
+        return self.repo.update(reservation)
+
+
+class MarkReservationNoShowUseCase:
+    def __init__(self, repo: ReservationRepositoryInterface):
+        self.repo = repo
+
+    def execute(self, reservation_id: int) -> Optional[TableReservation]:
+        reservation = self.repo.get_by_id(reservation_id)
+        if reservation is None:
+            return None
+
+        reservation.mark_no_show()
+        return self.repo.update(reservation)

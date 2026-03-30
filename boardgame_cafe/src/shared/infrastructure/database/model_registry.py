@@ -25,7 +25,7 @@ def register_all_models() -> None:
     # pylint: disable=unused-import
     from features.users.infrastructure.database import UserDB
     from features.tables.infrastructure.database import TableDB
-    from features.reservations.infrastructure.database import TableReservation, GameReservation
+    from features.reservations.infrastructure.database import TableReservationDB, GameReservationDB
     from features.games.infrastructure.database import (
         GameDB,
         GameCopyDB,

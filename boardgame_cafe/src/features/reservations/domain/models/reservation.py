@@ -7,7 +7,13 @@ from typing import Optional
 from shared.domain.exceptions import InvalidStatusTransition, ValidationError
 
 
-VALID_RESERVATION_STATUSES = {"confirmed", "seated", "cancelled"}
+VALID_RESERVATION_STATUSES = {
+	"confirmed",
+	"seated",
+	"completed",
+	"cancelled",
+	"no_show",
+}
 
 
 @dataclass
@@ -66,6 +72,28 @@ class TableReservation:
 				f"Cannot cancel reservation in status '{self.status}'"
 			)
 		self.status = "cancelled"
+
+	def complete(self) -> None:
+		"""Mark reservation as completed.
+
+		Allowed from: seated.
+		"""
+		if self.status != "seated":
+			raise InvalidStatusTransition(
+				f"Cannot complete reservation in status '{self.status}'"
+			)
+		self.status = "completed"
+
+	def mark_no_show(self) -> None:
+		"""Mark reservation as no-show.
+
+		Allowed from: confirmed.
+		"""
+		if self.status != "confirmed":
+			raise InvalidStatusTransition(
+				f"Cannot mark no-show for reservation in status '{self.status}'"
+			)
+		self.status = "no_show"
 
 	def overlaps(self, other: "TableReservation") -> bool:
 		"""Return True if two reservations overlap in time for same table."""

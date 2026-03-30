@@ -1,8 +1,12 @@
 from datetime import datetime
 
 from features.reservations.application.use_cases.reservation_use_cases import (
+    CancelReservationUseCase,
+    CompleteReservationUseCase,
     CreateReservationCommand,
     CreateReservationUseCase,
+    MarkReservationNoShowUseCase,
+    SeatReservationUseCase,
 )
 
 
@@ -57,3 +61,62 @@ def test_create_reservation_from_customer_order():
     assert reservation.party_size == 4
     assert reservation.notes == "Bursdag"
     assert reservation.status == "confirmed"
+
+
+def test_cancel_reservation_use_case_updates_status():
+    repo = FakeReservationRepo()
+    created = CreateReservationUseCase(repo).execute(
+        CreateReservationCommand(
+            customer_id=1,
+            table_id=2,
+            start_ts=datetime(2026, 3, 30, 18, 0),
+            end_ts=datetime(2026, 3, 30, 20, 0),
+            party_size=4,
+        )
+    )
+    use_case = CancelReservationUseCase(repo)
+
+    updated = use_case.execute(created.id)
+
+    assert updated is not None
+    assert updated.status == "cancelled"
+
+
+def test_seat_and_complete_reservation_use_case_updates_status():
+    repo = FakeReservationRepo()
+    created = CreateReservationUseCase(repo).execute(
+        CreateReservationCommand(
+            customer_id=1,
+            table_id=2,
+            start_ts=datetime(2026, 3, 30, 18, 0),
+            end_ts=datetime(2026, 3, 30, 20, 0),
+            party_size=4,
+        )
+    )
+
+    seated = SeatReservationUseCase(repo).execute(created.id)
+    assert seated is not None
+    assert seated.status == "seated"
+
+    completed = CompleteReservationUseCase(repo).execute(created.id)
+
+    assert completed is not None
+    assert completed.status == "completed"
+
+
+def test_mark_no_show_reservation_use_case_updates_status():
+    repo = FakeReservationRepo()
+    created = CreateReservationUseCase(repo).execute(
+        CreateReservationCommand(
+            customer_id=1,
+            table_id=2,
+            start_ts=datetime(2026, 3, 30, 18, 0),
+            end_ts=datetime(2026, 3, 30, 20, 0),
+            party_size=4,
+        )
+    )
+
+    updated = MarkReservationNoShowUseCase(repo).execute(created.id)
+
+    assert updated is not None
+    assert updated.status == "no_show"

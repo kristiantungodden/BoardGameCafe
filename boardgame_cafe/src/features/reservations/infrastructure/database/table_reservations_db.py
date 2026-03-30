@@ -1,7 +1,7 @@
 from shared.infrastructure import db
 
 
-class TableReservation(db.Model):
+class TableReservationDB(db.Model):
     __tablename__ = "table_reservations"
 
     id = db.Column(db.Integer, primary_key=True)

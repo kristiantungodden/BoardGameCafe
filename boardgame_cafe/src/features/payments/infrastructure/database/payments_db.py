@@ -19,7 +19,7 @@ class PaymentDB(db.Model):
     provider_ref = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
-    table_reservation = db.relationship("TableReservation", backref="payments")
+    table_reservation = db.relationship("TableReservationDB", backref="payments")
 
   
 
