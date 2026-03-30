@@ -1,2 +1,4 @@
 from .reservation_repository_interface import ReservationRepositoryInterface
-__all__ = ["ReservationRepositoryInterface"]
+from .game_reservation_repository_interface import GameReservationRepositoryInterface
+
+__all__ = ["ReservationRepositoryInterface", "GameReservationRepositoryInterface"]

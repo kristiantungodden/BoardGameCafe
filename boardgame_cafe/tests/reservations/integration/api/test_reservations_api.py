@@ -44,6 +44,27 @@ class FailingTransitionUseCase:
         raise InvalidStatusTransition("Cannot complete reservation in status 'confirmed'")
 
 
+class FakeAddGameToReservationUseCase:
+    def execute(self, cmd):
+        if cmd.reservation_id != 1:
+            raise InvalidStatusTransition("Reservation not found")
+        return type(
+            "ReservationGame",
+            (),
+            {
+                "id": 10,
+                "table_reservation_id": cmd.reservation_id,
+                "requested_game_id": cmd.requested_game_id,
+                "game_copy_id": cmd.game_copy_id,
+            },
+        )()
+
+
+class FakeRemoveGameFromReservationUseCase:
+    def execute(self, reservation_id: int, reservation_game_id: int):
+        return reservation_id == 1 and reservation_game_id == 10
+
+
 def make_app():
     app = Flask(__name__)
     app.config["TESTING"] = True
@@ -142,3 +163,56 @@ def test_patch_reservation_no_show_updates_status(monkeypatch):
 
     assert response.status_code == 200
     assert response.get_json()["status"] == "no_show"
+
+
+def test_post_reservation_games_adds_game_to_booking(monkeypatch):
+    monkeypatch.setattr(
+        reservations_module,
+        "get_add_game_to_reservation_use_case",
+        lambda: FakeAddGameToReservationUseCase(),
+    )
+
+    app = make_app()
+    client = app.test_client()
+
+    response = client.post(
+        "/api/reservations/1/games",
+        json={"requested_game_id": 3, "game_copy_id": 7},
+    )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["table_reservation_id"] == 1
+    assert data["requested_game_id"] == 3
+    assert data["game_copy_id"] == 7
+
+
+def test_delete_reservation_game_removes_game_from_booking(monkeypatch):
+    monkeypatch.setattr(
+        reservations_module,
+        "get_remove_game_from_reservation_use_case",
+        lambda: FakeRemoveGameFromReservationUseCase(),
+    )
+
+    app = make_app()
+    client = app.test_client()
+
+    response = client.delete("/api/reservations/1/games/10")
+
+    assert response.status_code == 204
+
+
+def test_delete_reservation_game_not_found(monkeypatch):
+    monkeypatch.setattr(
+        reservations_module,
+        "get_remove_game_from_reservation_use_case",
+        lambda: FakeRemoveGameFromReservationUseCase(),
+    )
+
+    app = make_app()
+    client = app.test_client()
+
+    response = client.delete("/api/reservations/1/games/999")
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "Reservation game not found"
