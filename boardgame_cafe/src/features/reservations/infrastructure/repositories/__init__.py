@@ -1,1 +1,4 @@
 from .reservation_repository import InMemoryReservationRepository
+from .game_reservation_repository import SqlAlchemyGameReservationRepository
+
+__all__ = ["InMemoryReservationRepository", "SqlAlchemyGameReservationRepository"]
