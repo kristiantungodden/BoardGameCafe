@@ -1,3 +1,3 @@
-from .table_reservations_db import TableReservation
-from .game_reservations_db import GameReservation
-__all__ = ["TableReservation", "GameReservation"]
+from .table_reservations_db import TableReservationDB
+from .game_reservations_db import GameReservationDB
+__all__ = ["TableReservationDB", "GameReservationDB"]

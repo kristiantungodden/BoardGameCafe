@@ -3,18 +3,26 @@ from pydantic import ValidationError as PydanticValidationError
 from werkzeug.exceptions import BadRequest
 
 from features.reservations.application.use_cases.reservation_use_cases import (
+    CancelReservationUseCase,
+    CompleteReservationUseCase,
     CreateReservationCommand,
     CreateReservationUseCase,
     GetReservationByIdUseCase,
     ListReservationsUseCase,
+    MarkReservationNoShowUseCase,
+    SeatReservationUseCase,
 )
 from shared.domain.exceptions import DomainError
 from shared.infrastructure import csrf
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationRequest
 from shared.presentation.api.deps import (
+    get_cancel_reservation_use_case,
+    get_complete_reservation_use_case,
     get_create_reservation_use_case,
+    get_no_show_reservation_use_case,
     get_list_reservations_use_case,
     get_reservation_by_id_use_case,
+    get_seat_reservation_use_case,
 )
 
 bp = Blueprint("reservations", __name__, url_prefix="/api/reservations")
@@ -70,3 +78,40 @@ def create_reservation():
         return {"error": str(exc)}, 400
 
     return _serialize_reservation(reservation), 201
+
+
+def _run_status_transition(use_case, reservation_id: int):
+    try:
+        reservation = use_case.execute(reservation_id)
+    except DomainError as exc:
+        return {"error": str(exc)}, 400
+
+    if reservation is None:
+        return {"error": "Reservation not found"}, 404
+
+    return _serialize_reservation(reservation), 200
+
+
+@bp.patch("/<int:reservation_id>/cancel")
+def cancel_reservation(reservation_id: int):
+    use_case: CancelReservationUseCase = get_cancel_reservation_use_case()
+    return _run_status_transition(use_case, reservation_id)
+
+
+@bp.patch("/<int:reservation_id>/seat")
+def seat_reservation(reservation_id: int):
+    use_case: SeatReservationUseCase = get_seat_reservation_use_case()
+    return _run_status_transition(use_case, reservation_id)
+
+
+@bp.patch("/<int:reservation_id>/complete")
+def complete_reservation(reservation_id: int):
+    use_case: CompleteReservationUseCase = get_complete_reservation_use_case()
+    return _run_status_transition(use_case, reservation_id)
+
+
+@bp.patch("/<int:reservation_id>/no-show")
+def no_show_reservation(reservation_id: int):
+    use_case: MarkReservationNoShowUseCase = get_no_show_reservation_use_case()
+    return _run_status_transition(use_case, reservation_id)
+

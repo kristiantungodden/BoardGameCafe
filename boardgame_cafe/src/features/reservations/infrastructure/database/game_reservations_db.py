@@ -1,7 +1,7 @@
 from shared.infrastructure import db
 
 
-class GameReservation(db.Model):
+class GameReservationDB(db.Model):
     __tablename__ = "game_reservations"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -16,6 +16,6 @@ class GameReservation(db.Model):
         db.Integer, db.ForeignKey("games.id"), nullable=False
     )
 
-    table_reservation = db.relationship("TableReservation", backref="game_reservations")
+    table_reservation = db.relationship("TableReservationDB", backref="game_reservations")
     game_copy = db.relationship("GameCopyDB")
     requested_game = db.relationship("GameDB")
