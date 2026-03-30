@@ -8,6 +8,8 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     MarkReservationNoShowUseCase,
     SeatReservationUseCase,
 )
+from features.reservations.domain.models.reservation import TableReservation
+from shared.domain.exceptions import ValidationError
 
 
 class FakeReservationRepo:
@@ -120,3 +122,62 @@ def test_mark_no_show_reservation_use_case_updates_status():
 
     assert updated is not None
     assert updated.status == "no_show"
+
+
+def test_create_reservation_rejects_overlap_with_confirmed_reservation():
+    repo = FakeReservationRepo()
+    repo.items.append(
+        TableReservation(
+            id=99,
+            customer_id=2,
+            table_id=2,
+            start_ts=datetime(2026, 3, 30, 18, 30),
+            end_ts=datetime(2026, 3, 30, 19, 30),
+            party_size=2,
+            status="confirmed",
+        )
+    )
+    use_case = CreateReservationUseCase(repo)
+
+    try:
+        use_case.execute(
+            CreateReservationCommand(
+                customer_id=1,
+                table_id=2,
+                start_ts=datetime(2026, 3, 30, 18, 0),
+                end_ts=datetime(2026, 3, 30, 20, 0),
+                party_size=4,
+            )
+        )
+        assert False, "Expected ValidationError"
+    except ValidationError:
+        assert True
+
+
+def test_create_reservation_allows_overlap_with_cancelled_reservation():
+    repo = FakeReservationRepo()
+    repo.items.append(
+        TableReservation(
+            id=98,
+            customer_id=2,
+            table_id=2,
+            start_ts=datetime(2026, 3, 30, 18, 30),
+            end_ts=datetime(2026, 3, 30, 19, 30),
+            party_size=2,
+            status="cancelled",
+        )
+    )
+    use_case = CreateReservationUseCase(repo)
+
+    reservation = use_case.execute(
+        CreateReservationCommand(
+            customer_id=1,
+            table_id=2,
+            start_ts=datetime(2026, 3, 30, 18, 0),
+            end_ts=datetime(2026, 3, 30, 20, 0),
+            party_size=4,
+        )
+    )
+
+    assert reservation.id is not None
+    assert reservation.status == "confirmed"

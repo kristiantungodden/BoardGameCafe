@@ -19,9 +19,11 @@ from features.reservations.application.use_cases.reservation_use_cases import (
 )
 from shared.domain.exceptions import DomainError
 from shared.infrastructure import csrf
+from features.payments.presentation.schemas.payment_schema import PaymentSchema
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationRequest
 from features.reservations.presentation.schemas.reservation_game_schema import AddReservationGameRequest
 from shared.presentation.api.deps import (
+    get_create_reservation_with_payment_handler,
     get_add_game_to_reservation_use_case,
     get_cancel_reservation_use_case,
     get_complete_reservation_use_case,
@@ -85,16 +87,18 @@ def create_reservation():
     except PydanticValidationError as exc:
         return {"error": "Validation failed", "details": exc.errors()}, 400
 
-    use_case: CreateReservationUseCase = get_create_reservation_use_case()
+    create_with_payment = get_create_reservation_with_payment_handler()
 
     try:
-        reservation = use_case.execute(
+        reservation, payment = create_with_payment(
             CreateReservationCommand(**payload.model_dump())
         )
-    except DomainError as exc:
+    except (DomainError, ValueError) as exc:
         return {"error": str(exc)}, 400
 
-    return _serialize_reservation(reservation), 201
+    response = _serialize_reservation(reservation)
+    response["payment"] = PaymentSchema.dump(payment)
+    return response, 201
 
 
 def _run_status_transition(use_case, reservation_id: int):

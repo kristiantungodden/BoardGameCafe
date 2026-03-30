@@ -117,3 +117,22 @@ def test_remove_game_from_reservation_success():
 
     assert removed is True
     assert game_repo.get_by_id(saved.id) is None
+
+
+def test_add_game_to_cancelled_reservation_is_rejected():
+    reservation_repo = FakeReservationRepo()
+    reservation_repo.reservations[1].status = "cancelled"
+    game_repo = FakeReservationGameRepo()
+    use_case = AddGameToReservationUseCase(reservation_repo, game_repo)
+
+    try:
+        use_case.execute(
+            AddGameToReservationCommand(
+                reservation_id=1,
+                requested_game_id=3,
+                game_copy_id=7,
+            )
+        )
+        assert False, "Expected ValidationError"
+    except ValidationError:
+        assert True

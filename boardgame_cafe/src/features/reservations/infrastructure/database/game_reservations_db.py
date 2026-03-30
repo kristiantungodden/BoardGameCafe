@@ -3,6 +3,13 @@ from shared.infrastructure import db
 
 class GameReservationDB(db.Model):
     __tablename__ = "game_reservations"
+    __table_args__ = (
+        db.UniqueConstraint(
+            "table_reservation_id",
+            "game_copy_id",
+            name="uq_game_reservation_copy_per_booking",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
 

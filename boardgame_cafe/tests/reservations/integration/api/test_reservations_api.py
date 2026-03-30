@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Flask
 import features.reservations.presentation.api.reservation_routes as reservations_module
 from features.reservations.domain.models.reservation import TableReservation
+from features.payments.domain.models.payment import Payment
 from shared.domain.exceptions import InvalidStatusTransition
 
 
@@ -17,6 +18,24 @@ class FakeCreateReservationUseCase:
             party_size=cmd.party_size,
             notes=cmd.notes,
         )
+
+
+def fake_create_with_payment(cmd):
+    reservation = TableReservation(
+        id=1,
+        customer_id=cmd.customer_id,
+        table_id=cmd.table_id,
+        start_ts=cmd.start_ts,
+        end_ts=cmd.end_ts,
+        party_size=cmd.party_size,
+        notes=cmd.notes,
+    )
+    payment = Payment(
+        id=101,
+        table_reservation_id=reservation.id,
+        amount_cents=reservation.party_size * 15000,
+    )
+    return reservation, payment
 
 
 class FakeTransitionUseCase:
@@ -75,8 +94,8 @@ def make_app():
 def test_post_reservations_creates_reservation(monkeypatch):
     monkeypatch.setattr(
         reservations_module,
-        "get_create_reservation_use_case",
-        lambda: FakeCreateReservationUseCase(),
+        "get_create_reservation_with_payment_handler",
+        lambda: fake_create_with_payment,
     )
 
     app = make_app()
@@ -99,6 +118,8 @@ def test_post_reservations_creates_reservation(monkeypatch):
     assert data["id"] == 1
     assert data["party_size"] == 4
     assert data["status"] == "confirmed"
+    assert data["payment"]["table_reservation_id"] == 1
+    assert data["payment"]["amount_cents"] == 60000
 
 
 def test_patch_reservation_cancel_updates_status(monkeypatch):

@@ -13,8 +13,9 @@ from shared.infrastructure import db
 class SqlAlchemyReservationRepository(ReservationRepositoryInterface):
 	"""Database-backed repository for table reservations."""
 
-	def __init__(self, session: Optional[Session] = None) -> None:
+	def __init__(self, session: Optional[Session] = None, auto_commit: bool = True) -> None:
 		self.session = session or db.session
+		self.auto_commit = auto_commit
 
 	def add(self, reservation: TableReservation) -> TableReservation:
 		row = TableReservationDB(
@@ -27,7 +28,10 @@ class SqlAlchemyReservationRepository(ReservationRepositoryInterface):
 			notes=reservation.notes,
 		)
 		self.session.add(row)
-		self.session.commit()
+		if self.auto_commit:
+			self.session.commit()
+		else:
+			self.session.flush()
 		return self._to_domain(row)
 
 	def get_by_id(self, reservation_id: int) -> Optional[TableReservation]:
@@ -73,7 +77,10 @@ class SqlAlchemyReservationRepository(ReservationRepositoryInterface):
 		row.status = reservation.status
 		row.notes = reservation.notes
 
-		self.session.commit()
+		if self.auto_commit:
+			self.session.commit()
+		else:
+			self.session.flush()
 		return self._to_domain(row)
 
 	@staticmethod

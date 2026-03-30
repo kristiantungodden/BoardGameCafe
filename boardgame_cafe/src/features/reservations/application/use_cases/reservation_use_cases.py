@@ -6,6 +6,8 @@ from features.reservations.application.interfaces.reservation_repository_interfa
 from shared.domain.exceptions import ValidationError
 from features.reservations.domain.models.reservation import TableReservation
 
+_OVERLAP_BLOCKING_STATUSES = {"confirmed", "seated"}
+
 
 @dataclass
 class CreateReservationCommand:
@@ -36,7 +38,10 @@ class CreateReservationUseCase:
             start_ts=cmd.start_ts,
             end_ts=cmd.end_ts,
         )
-        if any(candidate.overlaps(r) for r in existing):
+        if any(
+            candidate.overlaps(r) and r.status in _OVERLAP_BLOCKING_STATUSES
+            for r in existing
+        ):
             raise ValidationError("Table is not available for the requested timeslot.")
 
         return self.repo.add(candidate)
