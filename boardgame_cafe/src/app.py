@@ -1,5 +1,6 @@
-from flask import Flask, render_template, flash, redirect, url_for
+from flask import Flask, render_template, flash, redirect, url_for, request
 from flask_login import current_user, login_required, logout_user
+from flask_wtf.csrf import CSRFError
 import os
 
 from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, init_db
@@ -63,6 +64,7 @@ def create_app(config_name: str = None):
         return render_template("games.html")
 
     @app.route("/reservations", methods=["GET"])
+    @login_required
     def reservations_page():
         return render_template("reservations.html")
 
@@ -115,3 +117,9 @@ def register_error_handlers(app: Flask):
     def internal_error(error):
         db.session.rollback()
         return {"error": "Internal server error"}, 500
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(error):
+        if request.path.startswith("/api/"):
+            return {"error": error.description or "CSRF validation failed"}, 400
+        return {"error": error.description or "CSRF validation failed"}, 400

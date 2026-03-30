@@ -77,3 +77,19 @@ class RemoveGameFromReservationUseCase:
             return False
 
         return self.reservation_games.delete(reservation_game_id)
+
+
+class ListReservationGamesUseCase:
+    def __init__(
+        self,
+        reservations: ReservationRepositoryInterface,
+        reservation_games: GameReservationRepositoryInterface,
+    ):
+        self.reservations = reservations
+        self.reservation_games = reservation_games
+
+    def execute(self, reservation_id: int) -> list[ReservationGame]:
+        reservation = self.reservations.get_by_id(reservation_id)
+        if reservation is None:
+            raise ValidationError("Reservation not found")
+        return list(self.reservation_games.list_for_reservation(reservation_id))

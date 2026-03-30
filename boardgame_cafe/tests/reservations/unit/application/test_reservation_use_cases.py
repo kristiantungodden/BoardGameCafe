@@ -181,3 +181,41 @@ def test_create_reservation_allows_overlap_with_cancelled_reservation():
 
     assert reservation.id is not None
     assert reservation.status == "confirmed"
+
+
+def test_create_reservation_rejects_overnight_booking():
+    repo = FakeReservationRepo()
+    use_case = CreateReservationUseCase(repo)
+
+    try:
+        use_case.execute(
+            CreateReservationCommand(
+                customer_id=1,
+                table_id=2,
+                start_ts=datetime(2026, 3, 30, 22, 0),
+                end_ts=datetime(2026, 3, 31, 1, 0),
+                party_size=4,
+            )
+        )
+        assert False, "Expected ValidationError"
+    except ValidationError as exc:
+        assert "no overnight" in str(exc).lower()
+
+
+def test_create_reservation_rejects_outside_opening_hours():
+    repo = FakeReservationRepo()
+    use_case = CreateReservationUseCase(repo)
+
+    try:
+        use_case.execute(
+            CreateReservationCommand(
+                customer_id=1,
+                table_id=2,
+                start_ts=datetime(2026, 3, 30, 8, 30),
+                end_ts=datetime(2026, 3, 30, 10, 0),
+                party_size=2,
+            )
+        )
+        assert False, "Expected ValidationError"
+    except ValidationError as exc:
+        assert "opening hours" in str(exc).lower()
