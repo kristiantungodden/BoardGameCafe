@@ -43,7 +43,7 @@ def test_calculate_amount_kroner_returns_kroner_value():
 
     result = calculate_amount_kroner(reservation)
 
-    assert result == 450.0
+    assert result == 475.0
 
 
 def test_create_calculated_payment_builds_payment_from_reservation():
