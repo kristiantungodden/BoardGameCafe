@@ -1,14 +1,17 @@
 from features.payments.application.interfaces.payment_repository_interface import (
     PaymentRepositoryInterface,
 )
-from features.payments.domain.models.payment import Payment
+from features.payments.domain.models.payment import (
+    Payment,
+    PRICE_PER_CAPACITY_CENTS,
+    PRICE_BASE_TABLE,
+)
 from features.reservations.domain.models.reservation import TableReservation
 
-PRICE_PER_PERSON_CENTS = 15000  # 150 kr
 
 
 def calculate_amount_cents(reservation: TableReservation) -> int:
-    return reservation.party_size * PRICE_PER_PERSON_CENTS
+    return (reservation.party_size * PRICE_PER_CAPACITY_CENTS) + PRICE_BASE_TABLE
 
 
 def calculate_amount_kroner(reservation: TableReservation) -> float:
@@ -26,6 +29,6 @@ def create_calculated_payment(reservation: TableReservation) -> Payment:
         amount_cents=amount_cents,
     )
 
-def create_and_save_payment(reservation, repository):
+def create_and_save_payment(reservation: TableReservation, repository: PaymentRepositoryInterface) -> Payment:
     payment = create_calculated_payment(reservation)
     return repository.add(payment)

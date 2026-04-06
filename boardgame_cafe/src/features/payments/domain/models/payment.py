@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+PRICE_PER_CAPACITY_CENTS = 15000  # 150 kr
+PRICE_BASE_TABLE = 2500 #25 kr
+
 
 @dataclass
 class Payment:
@@ -11,6 +14,7 @@ class Payment:
     provider: str = "none"
     type: str = "reservation"
     provider_ref: str = "not_created"
+
 
     def __post_init__(self) -> None:
         if self.table_reservation_id <= 0:
