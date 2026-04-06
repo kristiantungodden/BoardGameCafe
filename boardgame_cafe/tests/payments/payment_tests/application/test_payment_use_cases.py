@@ -35,7 +35,7 @@ def test_calculate_amount_cents_returns_price_per_person_times_party_size():
 
     result = calculate_amount_cents(reservation)
 
-    assert result == 4 * PRICE_PER_PERSON_CENTS
+    assert result == 4 * PRICE_PER_CAPACITY_CENTS + PRICE_BASE_TABLE
 
 
 def test_calculate_amount_kroner_returns_kroner_value():
@@ -53,7 +53,7 @@ def test_create_calculated_payment_builds_payment_from_reservation():
 
     assert payment.id is None
     assert payment.table_reservation_id == 7
-    assert payment.amount_cents == 2 * PRICE_PER_PERSON_CENTS
+    assert payment.amount_cents == 2 * PRICE_PER_CAPACITY_CENTS + PRICE_BASE_TABLE
     assert payment.currency == "NOK"
     assert payment.status == "calculated"
 
@@ -74,6 +74,6 @@ def test_create_and_save_payment_creates_payment_and_calls_repository():
     assert len(repository.add_calls) == 1
     added_payment = repository.add_calls[0]
     assert added_payment.table_reservation_id == 12
-    assert added_payment.amount_cents == 5 * PRICE_PER_PERSON_CENTS
+    assert added_payment.amount_cents == 5 * PRICE_PER_CAPACITY_CENTS + PRICE_BASE_TABLE
     assert saved_payment.id == 99
-    assert saved_payment.amount_cents == 5 * PRICE_PER_PERSON_CENTS
+    assert saved_payment.amount_cents == 5 * PRICE_PER_CAPACITY_CENTS + PRICE_BASE_TABLE
