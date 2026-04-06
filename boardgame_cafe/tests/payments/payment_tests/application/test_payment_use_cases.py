@@ -1,7 +1,8 @@
 import pytest
 
 from features.payments.application.use_cases.payment_use_cases import (
-    PRICE_PER_PERSON_CENTS,
+    PRICE_PER_CAPACITY_CENTS,
+    PRICE_BASE_TABLE,
     calculate_amount_cents,
     calculate_amount_kroner,
     create_and_save_payment,
