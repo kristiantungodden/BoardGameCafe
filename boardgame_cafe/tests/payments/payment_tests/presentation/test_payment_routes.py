@@ -51,10 +51,10 @@ def test_calculate_payment_route_returns_calculated_values():
     body = response.get_json()
     assert body["table_reservation_id"] == 3
     assert body["party_size"] == 2
-    assert body["amount_cents"] == 30000
-    assert body["amount_kroner"] == 300.0
-    assert body["calculated_amount_cents"] == 30000
-    assert body["calculated_amount_kroner"] == 300.0
+    assert body["amount_cents"] == 32500
+    assert body["amount_kroner"] == 325.0
+    assert body["calculated_amount_cents"] == 32500
+    assert body["calculated_amount_kroner"] == 325.0
 
 
 def test_calculate_payment_route_returns_400_for_invalid_party_size():
@@ -94,10 +94,10 @@ def test_create_payment_route_saves_payment_and_returns_created():
     body = response.get_json()
     assert len(repository.add_calls) == 1
     assert repository.add_calls[0].table_reservation_id == 4
-    assert repository.add_calls[0].amount_cents == 45000
+    assert repository.add_calls[0].amount_cents == 47500
     assert body["id"] == 101
-    assert body["amount_cents"] == 45000
-    assert body["amount_kroner"] == 450.0
+    assert body["amount_cents"] == 47500
+    assert body["amount_kroner"] == 475.0
 
 
 def test_create_payment_route_returns_400_for_missing_reservation_id():

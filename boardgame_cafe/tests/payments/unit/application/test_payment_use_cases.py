@@ -30,7 +30,7 @@ def test_calculate_amount_kroner_uses_party_size():
 
     amount = calculate_amount_kroner(reservation)
 
-    assert amount == 450.00
+    assert amount == 475.00
 
 
 def test_create_calculated_payment_returns_payment():
@@ -39,7 +39,7 @@ def test_create_calculated_payment_returns_payment():
     payment = create_calculated_payment(reservation)
 
     assert payment.table_reservation_id == 42
-    assert payment.amount_kroner == 600.00
+    assert payment.amount_kroner == 625.00
     assert payment.status == "calculated"
 
 
