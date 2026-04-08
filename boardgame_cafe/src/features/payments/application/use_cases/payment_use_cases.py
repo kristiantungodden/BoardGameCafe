@@ -21,9 +21,10 @@ def calculate_amount_kroner(reservation: TableReservation) -> float:
 def create_calculated_payment(reservation: TableReservation) -> Payment:
     if reservation.id is None:
         raise ValueError("Reservation must have an id before payment can be calculated")
+    if reservation.party_size <= 0:
+        raise ValueError("party_size must be at least 1")
 
     amount_cents = calculate_amount_cents(reservation)
-
     return Payment(
         table_reservation_id=reservation.id,
         amount_cents=amount_cents,
@@ -32,3 +33,9 @@ def create_calculated_payment(reservation: TableReservation) -> Payment:
 def create_and_save_payment(reservation: TableReservation, repository: PaymentRepositoryInterface) -> Payment:
     payment = create_calculated_payment(reservation)
     return repository.add(payment)
+
+def get_payment_by_id(payment_id: int, repository: PaymentRepositoryInterface) -> Payment:
+    payment = repository.get_by_id(payment_id)
+    if payment is None:
+        raise ValueError(f"Payment with id {payment_id} not found")
+    return payment

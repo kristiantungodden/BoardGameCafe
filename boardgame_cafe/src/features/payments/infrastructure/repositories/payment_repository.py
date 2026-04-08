@@ -37,3 +37,11 @@ class PaymentRepository(PaymentRepositoryInterface):
         if db_payment is None:
             return None
         return db_payment.to_domain()
+    
+    def get_by_reservation_id(self, reservation_id: int) -> DomainPayment | None:
+        db_payment = self.session.query(PaymentDB).filter_by(
+            table_reservation_id=reservation_id
+        ).first()
+        if db_payment is None:
+            return None
+        return db_payment.to_domain()
