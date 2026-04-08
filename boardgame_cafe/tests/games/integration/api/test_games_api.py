@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from src.app import create_app
 from shared.infrastructure import db
@@ -43,6 +45,125 @@ def test_create_and_get_game(client):
     assert data["max_players"] == 4
     assert data["playtime_min"] == 90
     assert float(data["complexity"]) == 2.5
+
+
+def test_create_game_rejects_invalid_payload(client):
+    response = client.post(
+        "/api/games/",
+        json={
+            "title": "",
+            "min_players": 5,
+            "max_players": 3,
+            "playtime_min": 0,
+            "complexity": -1,
+        },
+    )
+
+    assert response.status_code == 400
+    body = response.get_json()
+    assert body["error"] == "Validation failed"
+
+
+def test_get_non_existing_game_returns_404(client):
+    response = client.get("/api/games/999")
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "Game not found"
+
+
+def test_update_game_updates_fields(client):
+    create_response = client.post(
+        "/api/games/",
+        json={
+            "title": "Catan",
+            "min_players": 3,
+            "max_players": 4,
+            "playtime_min": 90,
+            "complexity": 2.5,
+            "description": "Classic strategy game",
+        },
+    )
+    game_id = create_response.get_json()["id"]
+
+    response = client.put(
+        f"/api/games/{game_id}",
+        json={
+            "title": "Catan: Revised",
+            "min_players": 2,
+            "max_players": 4,
+            "playtime_min": 100,
+            "complexity": Decimal("2.75"),
+            "description": "Updated description",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["title"] == "Catan: Revised"
+    assert data["min_players"] == 2
+    assert data["max_players"] == 4
+    assert data["playtime_min"] == 100
+    assert float(data["complexity"]) == 2.75
+    assert data["description"] == "Updated description"
+
+
+def test_update_game_rejects_invalid_range(client):
+    create_response = client.post(
+        "/api/games/",
+        json={
+            "title": "Catan",
+            "min_players": 3,
+            "max_players": 4,
+            "playtime_min": 90,
+            "complexity": 2.5,
+        },
+    )
+    game_id = create_response.get_json()["id"]
+
+    response = client.put(
+        f"/api/games/{game_id}",
+        json={"min_players": 5, "max_players": 3},
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "Validation failed"
+
+
+def test_update_non_existing_game_returns_404(client):
+    response = client.put(
+        "/api/games/999",
+        json={"title": "Missing Game"},
+    )
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "Game not found"
+
+
+def test_delete_game_removes_game(client):
+    create_response = client.post(
+        "/api/games/",
+        json={
+            "title": "Catan",
+            "min_players": 3,
+            "max_players": 4,
+            "playtime_min": 90,
+            "complexity": 2.5,
+        },
+    )
+    game_id = create_response.get_json()["id"]
+
+    delete_response = client.delete(f"/api/games/{game_id}")
+    assert delete_response.status_code == 200
+
+    get_response = client.get(f"/api/games/{game_id}")
+    assert get_response.status_code == 404
+
+
+def test_delete_non_existing_game_returns_404(client):
+    response = client.delete("/api/games/999")
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "Game not found"
 
 
 def test_get_all_games(client):

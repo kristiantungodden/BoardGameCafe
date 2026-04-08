@@ -1,9 +1,11 @@
 # tests/test_game_model.py
 import pytest
+from decimal import Decimal
+
 from features.games.domain.models.game import Game
 
 def test_is_playable_by():
-    game = Game(id=None, title="Test Game", min_players=2, max_players=5, playtime_min=30, complexity=1.5)
+    game = Game(id=None, title="Test Game", min_players=2, max_players=5, playtime_min=30, complexity=Decimal("1.5"))
     assert game.is_playable_by(2) is True
     assert game.is_playable_by(4) is True
     assert game.is_playable_by(1) is False
@@ -16,7 +18,7 @@ def test_update_details_valid():
         min_players=2,
         max_players=4,
         playtime_min=30,
-        complexity=1.0,
+        complexity=Decimal("1.0"),
         description="Old desc",
         image_url="old_url"
     )
@@ -30,7 +32,7 @@ def test_update_details_valid():
         min_players=3,
         max_players=5,
         playtime_min=45,
-        complexity=2.0,
+        complexity=Decimal("2.0"),
         description="New description",
         image_url="new_url"
     )
@@ -41,19 +43,19 @@ def test_update_details_valid():
     assert game.min_players == 3
     assert game.max_players == 5
     assert game.playtime_min == 45
-    assert game.complexity == 2.0
+    assert game.complexity == Decimal("2.0")
     assert game.description == "New description"
     assert game.image_url == "new_url"
 
 def test_update_details_invalid():
-    game = Game(id=42, title="Old", min_players=2, max_players=4, playtime_min=30, complexity=1.0)
+    game = Game(id=42, title="Old", min_players=2, max_players=4, playtime_min=30, complexity=Decimal("1.0"))
     with pytest.raises(ValueError):
         game.update_details(
             title="New",
             min_players=5,  # min > max
             max_players=3,
             playtime_min=45,
-            complexity=2.0,
+            complexity=Decimal("2.0"),
             description="desc",
             image_url="url"
         )
