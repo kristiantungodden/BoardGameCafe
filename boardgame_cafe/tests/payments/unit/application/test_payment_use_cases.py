@@ -1,6 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 
+from features.payments.domain.models.payment import PaymentStatus
 from features.payments.application.use_cases.payment_use_cases import (
     calculate_amount_kroner,
     create_calculated_payment,
@@ -40,7 +41,7 @@ def test_create_calculated_payment_returns_payment():
 
     assert payment.table_reservation_id == 42
     assert payment.amount_kroner == 625.00
-    assert payment.status == "calculated"
+    assert payment.status == PaymentStatus.CALCULATED
 
 
 def test_create_calculated_payment_fails_without_reservation_id():

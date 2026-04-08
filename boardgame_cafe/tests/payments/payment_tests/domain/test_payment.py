@@ -1,6 +1,6 @@
 import pytest
 
-from features.payments.domain.models.payment import Payment
+from features.payments.domain.models.payment import Payment, PaymentStatus
 
 
 def test_payment_amount_kroner_converts_from_cents():
@@ -14,7 +14,7 @@ def test_payment_defaults_are_set():
 
     assert payment.id is None
     assert payment.currency == "NOK"
-    assert payment.status == "calculated"
+    assert payment.status == PaymentStatus.CALCULATED
     assert payment.provider == "none"
     assert payment.type == "reservation"
     assert payment.provider_ref == "not_created"

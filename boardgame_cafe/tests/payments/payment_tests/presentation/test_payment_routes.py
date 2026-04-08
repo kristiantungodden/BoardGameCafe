@@ -66,7 +66,7 @@ def test_calculate_payment_route_returns_400_for_invalid_party_size():
     )
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "party_size cannot be negative"}
+    assert response.get_json() == {"error": "party_size must be at least 1"}
 
 
 def test_create_payment_route_returns_500_when_repository_not_configured():

@@ -8,7 +8,7 @@ from features.payments.application.use_cases.payment_use_cases import (
     create_and_save_payment,
     create_calculated_payment,
 )
-from features.payments.domain.models.payment import Payment
+from features.payments.domain.models.payment import Payment, PaymentStatus
 from types import SimpleNamespace
 
 
@@ -55,7 +55,7 @@ def test_create_calculated_payment_builds_payment_from_reservation():
     assert payment.table_reservation_id == 7
     assert payment.amount_cents == 2 * PRICE_PER_CAPACITY_CENTS + PRICE_BASE_TABLE
     assert payment.currency == "NOK"
-    assert payment.status == "calculated"
+    assert payment.status == PaymentStatus.CALCULATED
 
 
 def test_create_calculated_payment_raises_when_reservation_has_no_id():

@@ -30,4 +30,5 @@ class PaymentDB(db.Model):
             currency=self.currency,
             status=self.status,
             provider_ref=self.provider_ref,
+            created_at=self.created_at,
         )
