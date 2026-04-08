@@ -10,8 +10,11 @@
 
 <div class="panel-grid">
     <article class="panel">
-        <h3>Catalog Placeholder</h3>
-        <p>Render your game list from the API or server-side data.</p>
+        <h3>Game Catalog</h3>
+        <p>Live data from the API endpoint.</p>
+        <div id="games-list" class="game-catalog-grid" aria-live="polite">
+            <p class="game-state">Loading games...</p>
+        </div>
     </article>
     <article class="panel">
         <h3>Featured Tabletop Picks</h3>
@@ -24,7 +27,65 @@
 </div>
 
 <div class="action-row action-row-top-gap">
-    <a class="button" href="/games/">Open Games API</a>
+    <a class="button" href="/api/games/">Open Games API</a>
     <a class="button button-secondary" href="/">Back to Home</a>
 </div>
+
+<script>
+    async function loadGames() {
+        const gamesList = document.getElementById("games-list");
+        if (!gamesList) {
+            return;
+        }
+
+        try {
+            const response = await fetch("/api/games/");
+            if (!response.ok) {
+                throw new Error("Failed to load games");
+            }
+
+            const games = await response.json();
+            gamesList.innerHTML = "";
+
+            if (!Array.isArray(games) || games.length === 0) {
+                gamesList.innerHTML = '<p class="game-state">No games available yet.</p>';
+                return;
+            }
+
+            for (const game of games) {
+                const item = document.createElement("article");
+                item.className = "game-card";
+
+                const title = game.title || "Untitled game";
+                const players = `${game.min_players}-${game.max_players} players`;
+                const playtime = `${game.playtime_min} min`;
+
+                const imageUrl = game.image_url || "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=700&q=80";
+                const safeDescription = game.description || "No description available.";
+
+                item.innerHTML = `
+                    <img class="game-card-image" src="${imageUrl}" alt="${title}" loading="lazy">
+                    <div class="game-card-body">
+                        <h4 class="game-card-title">${title}</h4>
+                        <p class="game-card-meta">${players} | ${playtime}</p>
+                        <p class="game-card-description">${safeDescription}</p>
+                    </div>
+                `;
+
+                const img = item.querySelector("img");
+                if (img) {
+                    img.addEventListener("error", () => {
+                        img.src = "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=700&q=80";
+                    });
+                }
+
+                gamesList.appendChild(item);
+            }
+        } catch (error) {
+            gamesList.innerHTML = '<p class="game-state">Could not load games right now.</p>';
+        }
+    }
+
+    loadGames();
+</script>
 {% endblock %}

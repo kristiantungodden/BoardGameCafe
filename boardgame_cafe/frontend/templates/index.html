@@ -11,17 +11,24 @@
 
 
 <div class="action-row">
-	<a class="button" href="/ui/games">Games Page</a>
-	<a class="button button-secondary" href="/ui/reservations">Reservations Page</a>
+	<a class="button" href="/games">Games Page</a>
+	<a class="button button-secondary" href="/reservations">Reservations Page</a>
 </div>
 
 <div class="action-row" style="margin-top: 1rem;">
 	<a class="button" href="/register">Register Test User</a>
 	<a class="button button-secondary" href="/login">Login Test User</a>
+	{% if current_user.is_authenticated %}
+	<a class="button button-secondary" href="/me">My Account</a>
+	<form method="post" action="/logout" class="inline-form">
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+		<button class="button button-secondary" type="submit">Logout</button>
+	</form>
+	{% endif %}
 </div>
 
 <p class="quick-links">
-	Need raw endpoints? Visit <a href="/games/">Games API</a> or <a href="/reservations">Reservations API</a>.
+	Need raw endpoints? Visit <a href="/api/games/">Games API</a> or <a href="/api/reservations">Reservations API</a>.
 </p>
 
 <h2 class="section-title">Next Steps</h2>
@@ -33,93 +40,10 @@
 
 <hr>
 
-<h2 class="section-title">Test User Auth</h2>
-
-<div class="card" style="margin-top: 1rem; padding: 1rem;">
-	<h3>Register user</h3>
-	<input type="text" id="register-name" placeholder="Name">
-	<input type="email" id="register-email" placeholder="Email">
-	<input type="text" id="register-phone" placeholder="Phone">
-	<input type="password" id="register-password" placeholder="Password">
-	<button class="button" onclick="registerUser()">Register</button>
-</div>
-
-<div class="card" style="margin-top: 1rem; padding: 1rem;">
-	<h3>Login user</h3>
-	<input type="email" id="login-email" placeholder="Email">
-	<input type="password" id="login-password" placeholder="Password">
-	<button class="button" onclick="loginUser()">Login</button>
-</div>
-
-<div class="card" style="margin-top: 1rem; padding: 1rem;">
-	<h3>Session test</h3>
-	<button class="button button-secondary" onclick="getCurrentUser()">Check /auth/me</button>
-	<button class="button button-secondary" onclick="logoutUser()">Logout</button>
-</div>
-
-<pre id="auth-result" style="margin-top: 1rem; white-space: pre-wrap;"></pre>
-
-<script>
-	async function registerUser() {
-		const payload = {
-			name: document.getElementById("register-name").value,
-			email: document.getElementById("register-email").value,
-			phone: document.getElementById("register-phone").value,
-			password: document.getElementById("register-password").value,
-			role: "customer"
-		};
-
-		const response = await fetch("/auth/register", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json"
-			},
-			body: JSON.stringify(payload)
-		});
-
-		const data = await response.json();
-		document.getElementById("auth-result").textContent =
-			"REGISTER:\n" + JSON.stringify(data, null, 2);
-	}
-
-	async function loginUser() {
-		const payload = {
-			email: document.getElementById("login-email").value,
-			password: document.getElementById("login-password").value
-		};
-
-		const response = await fetch("/auth/login", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json"
-			},
-			body: JSON.stringify(payload)
-		});
-
-		const data = await response.json();
-		document.getElementById("auth-result").textContent =
-			"LOGIN:\n" + JSON.stringify(data, null, 2);
-	}
-
-	async function getCurrentUser() {
-		const response = await fetch("/auth/me", {
-			method: "GET"
-		});
-
-		const data = await response.json();
-		document.getElementById("auth-result").textContent =
-			"ME:\n" + JSON.stringify(data, null, 2);
-	}
-
-	async function logoutUser() {
-		const response = await fetch("/auth/logout", {
-			method: "POST"
-		});
-
-		const data = await response.json();
-		document.getElementById("auth-result").textContent =
-			"LOGOUT:\n" + JSON.stringify(data, null, 2);
-	}
-</script>
+<h2 class="section-title">Auth Flows</h2>
+<p class="hero-copy">
+	Use the dedicated Register and Login pages for browser-based auth. The API endpoints still return JSON
+	for programmatic clients and tests.
+</p>
 
 {% endblock %}

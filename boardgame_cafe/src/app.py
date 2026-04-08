@@ -1,9 +1,19 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, flash, redirect, url_for, request
+from flask_login import current_user, login_required, logout_user
+from flask_wtf.csrf import CSRFError
 import os
 
-from infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery
-from infrastructure.database import User, init_db
+from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, init_db
 
+from features.games.presentation.api import games_routes
+from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
+from features.payments.presentation.api.payment_routes import (
+    configure_payment_routes,
+    payment_bp,
+)
+from features.reservations.presentation.api import reservation_routes
+from features.users.presentation.api import auth_routes, steward_routes
+from features.users.infrastructure import UserDB as User
 
 def create_app(config_name: str = None):
     """
@@ -49,13 +59,34 @@ def create_app(config_name: str = None):
     def home():
         return render_template("index.html")
 
-    @app.route("/ui/games", methods=["GET"])
+    @app.route("/games", methods=["GET"])
     def games_page():
         return render_template("games.html")
 
-    @app.route("/ui/reservations", methods=["GET"])
+    @app.route("/reservations", methods=["GET"])
+    @login_required
     def reservations_page():
         return render_template("reservations.html")
+
+    @app.route("/login", methods=["GET"])
+    def login_page():
+        return render_template("login.html")
+
+    @app.route("/register", methods=["GET"])
+    def register_page():
+        return render_template("register.html")
+
+    @app.route('/me', methods=['GET'])
+    @login_required
+    def me():
+        return render_template("account.html", user=current_user)
+
+    @app.route('/logout', methods=['POST'])
+    @login_required
+    def logout():
+        logout_user()
+        flash("Logged out.", "success")
+        return redirect(url_for("home"))
 
     # Create database tables
     with app.app_context():
@@ -66,14 +97,13 @@ def create_app(config_name: str = None):
 
 def register_blueprints(app: Flask):
     """Register all API blueprints."""
-    from presentation.api import auth, games, reservations, tables, admin, steward
+    configure_payment_routes(PaymentRepository())
 
-    app.register_blueprint(auth.bp)
-    app.register_blueprint(games.bp)
-    app.register_blueprint(reservations.bp)
-    app.register_blueprint(tables.bp)
-    app.register_blueprint(admin.bp)
-    app.register_blueprint(steward.bp)
+    app.register_blueprint(auth_routes.bp)
+    app.register_blueprint(games_routes.bp)
+    app.register_blueprint(payment_bp)
+    app.register_blueprint(reservation_routes.bp)
+    app.register_blueprint(steward_routes.bp)
 
 
 def register_error_handlers(app: Flask):
@@ -87,3 +117,9 @@ def register_error_handlers(app: Flask):
     def internal_error(error):
         db.session.rollback()
         return {"error": "Internal server error"}, 500
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(error):
+        if request.path.startswith("/api/"):
+            return {"error": error.description or "CSRF validation failed"}, 400
+        return {"error": error.description or "CSRF validation failed"}, 400

@@ -1,30 +1,712 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}BoardGameCafe | Reservations{% endblock %}
 
 {% block content %}
 <h1 class="page-header">Reservations</h1>
 <p class="page-intro">
-    Starter page for reservation flows. Add create, list, and status-management views here.
+    Choose date and timeslot, pick games, and create your booking in one step.
+    Table and game copies are assigned automatically in one atomic transaction.
 </p>
 
-<div class="panel-grid">
-    <article class="panel">
-        <h3>New Reservation Form</h3>
-        <p>Collect customer, table, date/time, party size, and notes.</p>
-    </article>
-    <article class="panel">
-        <h3>Reservation Queue</h3>
-        <p>Display upcoming reservations and current statuses.</p>
-    </article>
-    <article class="panel">
-        <h3>Actions</h3>
-        <p>Support check-in, seating, and cancellation transitions.</p>
-    </article>
-</div>
+<div id="reservation-feedback" class="flash-stack" aria-live="polite"></div>
 
-<div class="action-row action-row-top-gap">
-    <a class="button" href="/reservations">Open Reservations API</a>
-    <a class="button button-secondary" href="/">Back to Home</a>
-</div>
+<section class="booking-layout">
+    <article class="panel reservation-box booking-form-card">
+        <h3>Create Booking</h3>
+
+        <form id="reservation-form" class="form-stack booking-form" autocomplete="on">
+            <div class="form-grid-two">
+                <div>
+                    <label class="form-label" for="party-size">Party Size</label>
+                    <input class="form-input" id="party-size" name="party_size" type="number" min="1" required>
+                </div>
+
+                <div>
+                    <label class="form-label" for="booking-date">Date</label>
+                    <input class="form-input" id="booking-date" name="booking_date" type="date" required>
+                </div>
+            </div>
+
+            <div class="form-grid-two">
+                <div>
+                    <label class="form-label" for="start-slot">Start Slot</label>
+                    <select class="form-input" id="start-slot" required>
+                        <option value="">Select start</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="form-label" for="end-slot">End Slot</label>
+                    <select class="form-input" id="end-slot" required>
+                        <option value="">Select end</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label" for="reservation-notes">Notes (Optional)</label>
+                <input class="form-input" id="reservation-notes" name="notes" type="text" maxlength="200">
+            </div>
+
+            <div class="booking-subsection">
+                <h4 class="subsection-title">Add Games (Optional)</h4>
+                <div class="form-grid-two">
+                    <div>
+                        <label class="form-label" for="requested-game-id">Game</label>
+                        <select class="form-input" id="requested-game-id">
+                            <option value="">Select game</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Availability</label>
+                        <div id="selected-game-availability" class="inline-meta">Select a timeslot first.</div>
+                    </div>
+                </div>
+                <div class="action-row compact-actions">
+                    <button class="button button-secondary" id="add-game-button" type="button">Add Game</button>
+                </div>
+            </div>
+
+            <div class="action-row">
+                <button class="button" type="submit">Create Booking</button>
+                <button class="button button-secondary" id="reset-booking-form" type="button">Clear Form</button>
+                <button class="button button-secondary" id="refresh-reservations" type="button">Refresh Reservations</button>
+            </div>
+        </form>
+    </article>
+
+    <aside class="panel reservation-box booking-summary-card">
+        <h3>Booking Summary</h3>
+
+        <div id="booking-summary" class="mini-list">
+            <div class="mini-list-row"><span>Date</span><strong id="summary-date">Not selected</strong></div>
+            <div class="mini-list-row"><span>Timeslot</span><strong id="summary-timeslot">Not selected</strong></div>
+            <div class="mini-list-row"><span>Suggested table</span><strong id="summary-table">Not available</strong></div>
+            <div class="mini-list-row"><span>Party size</span><strong id="summary-party-size">0</strong></div>
+            <div class="mini-list-row"><span>Estimated payment</span><strong id="summary-payment">0.00 NOK</strong></div>
+        </div>
+
+        <h4 class="subsection-title">Queued Games</h4>
+        <div id="reservation-games-list" class="mini-list">No games queued yet.</div>
+
+        <h4 class="subsection-title">Latest Payment</h4>
+        <div id="latest-payment" class="mini-list">No payment created in this session.</div>
+
+        <h4 class="subsection-title">Selected Reservation</h4>
+        <div id="active-reservation-label" class="inline-meta">None selected yet.</div>
+        <div id="selected-reservation-games" class="mini-list">Select a reservation to view attached games.</div>
+    </aside>
+</section>
+
+<section class="panel reservation-box reservation-list-box">
+    <div class="reservation-list-head">
+        <h3>Reservations</h3>
+        <p class="page-intro compact">Showing reservations for your account.</p>
+    </div>
+    <div class="table-wrap">
+        <table class="table-clean" id="reservations-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Table</th>
+                    <th>Time</th>
+                    <th>Party</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="6" class="game-state">No reservations loaded yet.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+    const csrfToken = "{{ csrf_token() }}";
+    const currentUserId = Number("{{ current_user.id if current_user.is_authenticated else 0 }}");
+    const PRICE_PER_PERSON_CENTS = 15000;
+    const OPEN_HOUR = 9;
+    const CLOSE_HOUR = 23;
+    const SLOT_STEP_MINUTES = 30;
+
+    const state = {
+        selectedReservation: null,
+        reservations: [],
+        pendingGames: [],
+        reservationGames: {},
+        lookup: {
+            games: [],
+        },
+        availability: {
+            suggested_table: null,
+            games: [],
+        },
+    };
+
+    function setFeedback(message, level = "success") {
+        const box = document.getElementById("reservation-feedback");
+        if (!box) {
+            return;
+        }
+        box.innerHTML = `<div class="flash flash-${level}">${message}</div>`;
+    }
+
+    function moneyFromCents(cents) {
+        return `${(cents / 100).toFixed(2)} NOK`;
+    }
+
+    function slotToLabel(minutes) {
+        const h = String(Math.floor(minutes / 60)).padStart(2, "0");
+        const m = String(minutes % 60).padStart(2, "0");
+        return `${h}:${m}`;
+    }
+
+    function populateTimeSlots() {
+        const startSlot = document.getElementById("start-slot");
+        const endSlot = document.getElementById("end-slot");
+        if (!startSlot || !endSlot) {
+            return;
+        }
+
+        startSlot.innerHTML = '<option value="">Select start</option>';
+        endSlot.innerHTML = '<option value="">Select end</option>';
+
+        for (let minute = OPEN_HOUR * 60; minute <= CLOSE_HOUR * 60; minute += SLOT_STEP_MINUTES) {
+            const label = slotToLabel(minute);
+            if (minute < CLOSE_HOUR * 60) {
+                startSlot.innerHTML += `<option value="${label}">${label}</option>`;
+            }
+            if (minute > OPEN_HOUR * 60) {
+                endSlot.innerHTML += `<option value="${label}">${label}</option>`;
+            }
+        }
+    }
+
+    function todayAsIsoDate() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    }
+
+    function composeDateTime(dateValue, timeValue) {
+        if (!dateValue || !timeValue) {
+            return "";
+        }
+        return `${dateValue}T${timeValue}:00`;
+    }
+
+    function parseSlotToMinutes(slot) {
+        if (!slot) {
+            return null;
+        }
+        const [h, m] = slot.split(":").map(Number);
+        if (!Number.isInteger(h) || !Number.isInteger(m)) {
+            return null;
+        }
+        return h * 60 + m;
+    }
+
+    function validateSlotSelection(startSlot, endSlot) {
+        const startMinutes = parseSlotToMinutes(startSlot);
+        const endMinutes = parseSlotToMinutes(endSlot);
+        if (startMinutes === null || endMinutes === null) {
+            return "Choose both start and end slots.";
+        }
+        if (endMinutes <= startMinutes) {
+            return "End slot must be later than start slot.";
+        }
+        if (startMinutes < OPEN_HOUR * 60 || endMinutes > CLOSE_HOUR * 60) {
+            return "Selected slot is outside business hours.";
+        }
+        return null;
+    }
+
+    async function readResponseBody(response) {
+        const rawText = await response.text();
+        if (!rawText) {
+            return {};
+        }
+
+        try {
+            return JSON.parse(rawText);
+        } catch (error) {
+            return {
+                error: `Server returned non-JSON response (HTTP ${response.status}).`,
+                raw: rawText,
+            };
+        }
+    }
+
+    function getGameById(gameId) {
+        return state.lookup.games.find((game) => game.id === gameId);
+    }
+
+    function getAvailabilityByGameId(gameId) {
+        return state.availability.games.find((item) => item.id === gameId);
+    }
+
+    function renderGameSelectOptions() {
+        const gameSelect = document.getElementById("requested-game-id");
+        if (!gameSelect) {
+            return;
+        }
+
+        gameSelect.innerHTML = '<option value="">Select game</option>';
+        state.lookup.games.forEach((game) => {
+            const availability = getAvailabilityByGameId(game.id);
+            const status = availability
+                ? (availability.available ? "[Available]" : "[Unavailable]")
+                : "[Select date/slot]";
+            gameSelect.innerHTML += `<option value="${game.id}">${game.title} ${status}</option>`;
+        });
+
+        renderSelectedGameAvailability();
+    }
+
+    function renderSelectedGameAvailability() {
+        const box = document.getElementById("selected-game-availability");
+        const selectedGameId = Number(document.getElementById("requested-game-id")?.value || 0);
+        if (!box) {
+            return;
+        }
+
+        if (!selectedGameId) {
+            box.classList.remove("availability-yes", "availability-no");
+            box.textContent = "Select a game to see status.";
+            return;
+        }
+
+        const availability = getAvailabilityByGameId(selectedGameId);
+        if (!availability) {
+            box.classList.remove("availability-yes", "availability-no");
+            box.textContent = "Select date and timeslot first.";
+            return;
+        }
+
+        if (availability.available) {
+            box.classList.remove("availability-no");
+            box.classList.add("availability-yes");
+            box.textContent = "Available";
+            return;
+        }
+
+        box.classList.remove("availability-yes");
+        box.classList.add("availability-no");
+        box.textContent = "Unavailable";
+    }
+
+    function renderBookingSummary() {
+        const bookingDate = document.getElementById("booking-date")?.value;
+        const startSlot = document.getElementById("start-slot")?.value;
+        const endSlot = document.getElementById("end-slot")?.value;
+        const partySize = Number(document.getElementById("party-size")?.value || 0);
+
+        document.getElementById("summary-date").textContent = bookingDate || "Not selected";
+        document.getElementById("summary-timeslot").textContent = (startSlot && endSlot)
+            ? `${startSlot} to ${endSlot}`
+            : "Not selected";
+
+        const table = state.availability.suggested_table;
+        document.getElementById("summary-table").textContent = table
+            ? `#${table.id} (${table.table_nr}) cap ${table.capacity}`
+            : "Not available";
+
+        document.getElementById("summary-party-size").textContent = String(Math.max(0, partySize));
+        document.getElementById("summary-payment").textContent = moneyFromCents(Math.max(0, partySize) * PRICE_PER_PERSON_CENTS);
+    }
+
+    async function refreshAvailability() {
+        const bookingDate = document.getElementById("booking-date")?.value;
+        const startSlot = document.getElementById("start-slot")?.value;
+        const endSlot = document.getElementById("end-slot")?.value;
+        const partySize = Number(document.getElementById("party-size")?.value || 0);
+
+        state.availability = { suggested_table: null, games: [] };
+
+        if (!bookingDate || !startSlot || !endSlot || partySize <= 0) {
+            renderBookingSummary();
+            renderGameSelectOptions();
+            return;
+        }
+
+        const slotError = validateSlotSelection(startSlot, endSlot);
+        if (slotError) {
+            renderBookingSummary();
+            renderGameSelectOptions();
+            return;
+        }
+
+        const startTs = composeDateTime(bookingDate, startSlot);
+        const endTs = composeDateTime(bookingDate, endSlot);
+
+        try {
+            const response = await fetch(
+                `/api/reservations/availability?start_ts=${encodeURIComponent(startTs)}&end_ts=${encodeURIComponent(endTs)}&party_size=${partySize}`
+            );
+            const body = await readResponseBody(response);
+            if (!response.ok) {
+                throw new Error(body.error || "Could not load availability");
+            }
+
+            state.availability = body;
+        } catch (error) {
+            setFeedback(error.message, "error");
+        }
+
+        renderBookingSummary();
+        renderGameSelectOptions();
+    }
+
+    async function loadLookupData() {
+        try {
+            const response = await fetch("/api/reservations/lookup");
+            const body = await readResponseBody(response);
+            if (!response.ok) {
+                throw new Error(body.error || "Failed to load lookup data");
+            }
+
+            state.lookup = {
+                games: body.games || [],
+            };
+            renderGameSelectOptions();
+        } catch (error) {
+            setFeedback("Could not load game list.", "error");
+        }
+    }
+
+    function renderReservationGames() {
+        const box = document.getElementById("reservation-games-list");
+        if (!box) {
+            return;
+        }
+
+        if (state.pendingGames.length === 0) {
+            box.textContent = "No games queued yet.";
+            return;
+        }
+
+        box.innerHTML = state.pendingGames
+            .map((game, idx) => {
+                const gameMeta = getGameById(game.requested_game_id);
+                const title = gameMeta ? gameMeta.title : `Game #${game.requested_game_id}`;
+                const availability = getAvailabilityByGameId(game.requested_game_id);
+                const status = availability && availability.available ? "available" : "unavailable";
+                return `
+                    <div class="mini-list-row">
+                        <span>${title}</span>
+                        <span class="status-pill ${status === "available" ? "status-confirmed" : "status-cancelled"}">${status}</span>
+                        <button class="button button-secondary" type="button" data-remove-queued-game-index="${idx}">Remove</button>
+                    </div>
+                `;
+            })
+            .join("");
+
+        box.querySelectorAll("button[data-remove-queued-game-index]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const idx = Number(btn.getAttribute("data-remove-queued-game-index"));
+                state.pendingGames = state.pendingGames.filter((_, i) => i !== idx);
+                renderReservationGames();
+            });
+        });
+    }
+
+    function renderSelectedReservationGames() {
+        const box = document.getElementById("selected-reservation-games");
+        if (!box) {
+            return;
+        }
+
+        if (!state.selectedReservation) {
+            box.textContent = "Select a reservation to view attached games.";
+            return;
+        }
+
+        const games = state.reservationGames[state.selectedReservation.id] || [];
+        if (games.length === 0) {
+            box.textContent = "No games attached to this reservation.";
+            return;
+        }
+
+        box.innerHTML = games
+            .map((game) => `
+                <div class="mini-list-row">
+                    <span>Game ${game.requested_game_id} | Copy ${game.game_copy_id}</span>
+                    <button class="button button-secondary" type="button" data-remove-game-id="${game.id}">Remove</button>
+                </div>
+            `)
+            .join("");
+
+        box.querySelectorAll("button[data-remove-game-id]").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                const reservationGameId = Number(btn.getAttribute("data-remove-game-id"));
+                await removeGameFromSelectedReservation(reservationGameId);
+            });
+        });
+    }
+
+    function setSelectedReservation(reservation) {
+        state.selectedReservation = reservation;
+        const label = document.getElementById("active-reservation-label");
+        if (!label) {
+            return;
+        }
+
+        if (!reservation) {
+            label.textContent = "None selected yet.";
+            renderSelectedReservationGames();
+            return;
+        }
+
+        label.textContent = `#${reservation.id} | Table ${reservation.table_id} | ${reservation.status}`;
+        loadReservationGames(reservation.id);
+    }
+
+    function renderReservationsTable() {
+        const tbody = document.querySelector("#reservations-table tbody");
+        if (!tbody) {
+            return;
+        }
+
+        const reservations = currentUserId
+            ? state.reservations.filter((item) => item.customer_id === currentUserId)
+            : state.reservations;
+
+        if (reservations.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="game-state">No reservations found for your account.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = reservations
+            .map((item) => `
+                <tr>
+                    <td>${item.id}</td>
+                    <td>${item.table_id}</td>
+                    <td>${new Date(item.start_ts).toLocaleString()} to ${new Date(item.end_ts).toLocaleString()}</td>
+                    <td>${item.party_size}</td>
+                    <td><span class="status-pill status-${item.status}">${item.status}</span></td>
+                    <td><button class="button button-secondary" type="button" data-select-reservation-id="${item.id}">View</button></td>
+                </tr>
+            `)
+            .join("");
+
+        tbody.querySelectorAll("button[data-select-reservation-id]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const reservationId = Number(btn.getAttribute("data-select-reservation-id"));
+                const reservation = state.reservations.find((item) => item.id === reservationId);
+                setSelectedReservation(reservation || null);
+            });
+        });
+    }
+
+    async function loadReservations() {
+        try {
+            const response = await fetch("/api/reservations");
+            const body = await readResponseBody(response);
+            if (!response.ok) {
+                throw new Error(body.error || "Failed to load reservations");
+            }
+            state.reservations = body;
+            renderReservationsTable();
+        } catch (error) {
+            setFeedback("Could not load reservations.", "error");
+        }
+    }
+
+    async function loadReservationGames(reservationId) {
+        try {
+            const response = await fetch(`/api/reservations/${reservationId}/games`);
+            const body = await readResponseBody(response);
+            if (!response.ok) {
+                throw new Error(body.error || "Failed to load reservation games");
+            }
+            state.reservationGames[reservationId] = body;
+            renderSelectedReservationGames();
+        } catch (error) {
+            state.reservationGames[reservationId] = [];
+            renderSelectedReservationGames();
+        }
+    }
+
+    function queueGameForBooking() {
+        const selectedGameId = Number(document.getElementById("requested-game-id")?.value || 0);
+        if (!selectedGameId) {
+            setFeedback("Select a game first.", "error");
+            return;
+        }
+
+        const availability = getAvailabilityByGameId(selectedGameId);
+        if (!availability || !availability.available) {
+            setFeedback("Selected game is unavailable for this timeslot.", "error");
+            return;
+        }
+
+        if (state.pendingGames.some((item) => item.requested_game_id === selectedGameId)) {
+            setFeedback("That game is already queued.", "error");
+            return;
+        }
+
+        state.pendingGames.push({ requested_game_id: selectedGameId });
+        renderReservationGames();
+        setFeedback("Game added to booking.", "success");
+    }
+
+    async function createReservation(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+
+        const bookingDate = document.getElementById("booking-date")?.value;
+        const startSlot = document.getElementById("start-slot")?.value;
+        const endSlot = document.getElementById("end-slot")?.value;
+
+        const slotError = validateSlotSelection(startSlot, endSlot);
+        if (slotError) {
+            setFeedback(slotError, "error");
+            return;
+        }
+
+        if (!state.availability.suggested_table) {
+            setFeedback("No suitable table is available for the selected timeslot.", "error");
+            return;
+        }
+
+        const payload = {
+            party_size: Number(form.party_size.value),
+            start_ts: composeDateTime(bookingDate, startSlot),
+            end_ts: composeDateTime(bookingDate, endSlot),
+            notes: form.notes.value || null,
+            games: [...state.pendingGames],
+        };
+
+        try {
+            const response = await fetch("/api/reservations", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken,
+                },
+                body: JSON.stringify(payload),
+            });
+            const body = await readResponseBody(response);
+            if (!response.ok) {
+                throw new Error(body.error || "Booking creation failed");
+            }
+
+            state.pendingGames = [];
+            state.reservationGames[body.id] = body.games || [];
+            setSelectedReservation(body);
+            renderReservationGames();
+            await refreshAvailability();
+
+            if (body.payment) {
+                renderPayment(body.payment, "Payment created with booking.");
+            }
+
+            setFeedback(
+                `Booking #${body.id} created with ${body.games?.length || 0} game selections and payment.`,
+                "success"
+            );
+            await loadReservations();
+        } catch (error) {
+            setFeedback(error.message, "error");
+        }
+    }
+
+    async function removeGameFromSelectedReservation(reservationGameId) {
+        if (!state.selectedReservation) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `/api/reservations/${state.selectedReservation.id}/games/${reservationGameId}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        "X-CSRFToken": csrfToken,
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                const body = await readResponseBody(response);
+                throw new Error(body.error || "Failed to remove game");
+            }
+
+            state.reservationGames[state.selectedReservation.id] =
+                (state.reservationGames[state.selectedReservation.id] || []).filter(
+                    (item) => item.id !== reservationGameId
+                );
+
+            renderSelectedReservationGames();
+            setFeedback(`Removed reservation game #${reservationGameId}.`, "success");
+        } catch (error) {
+            setFeedback(error.message, "error");
+        }
+    }
+
+    function renderPayment(payment, contextMessage = "Payment created.") {
+        const box = document.getElementById("latest-payment");
+        if (!box) {
+            return;
+        }
+
+        box.innerHTML = `
+            <div class="mini-list-row"><strong>${contextMessage}</strong></div>
+            <div class="mini-list-row">Payment #${payment.id || "n/a"}</div>
+            <div class="mini-list-row">Reservation #${payment.table_reservation_id}</div>
+            <div class="mini-list-row">Amount: ${payment.amount_kroner} ${payment.currency}</div>
+            <div class="mini-list-row">Status: ${payment.status}</div>
+        `;
+    }
+
+    function resetBookingForm() {
+        const form = document.getElementById("reservation-form");
+        if (form) {
+            form.reset();
+        }
+
+        const dateInput = document.getElementById("booking-date");
+        if (dateInput) {
+            dateInput.value = todayAsIsoDate();
+        }
+
+        state.pendingGames = [];
+        renderReservationGames();
+        refreshAvailability();
+    }
+
+    populateTimeSlots();
+    const dateInput = document.getElementById("booking-date");
+    if (dateInput && !dateInput.value) {
+        dateInput.value = todayAsIsoDate();
+    }
+
+    document.getElementById("reservation-form")?.addEventListener("submit", createReservation);
+    document.getElementById("add-game-button")?.addEventListener("click", queueGameForBooking);
+    document.getElementById("refresh-reservations")?.addEventListener("click", loadReservations);
+    document.getElementById("reset-booking-form")?.addEventListener("click", resetBookingForm);
+    document.getElementById("party-size")?.addEventListener("input", refreshAvailability);
+    document.getElementById("booking-date")?.addEventListener("change", refreshAvailability);
+    document.getElementById("start-slot")?.addEventListener("change", refreshAvailability);
+    document.getElementById("end-slot")?.addEventListener("change", refreshAvailability);
+    document.getElementById("requested-game-id")?.addEventListener("change", renderSelectedGameAvailability);
+
+    renderReservationGames();
+    renderSelectedReservationGames();
+    renderBookingSummary();
+    loadLookupData();
+    loadReservations();
+    refreshAvailability();
+</script>
 {% endblock %}

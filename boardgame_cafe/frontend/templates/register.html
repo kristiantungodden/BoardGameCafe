@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}BoardGameCafe | Register{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Create Account</h1>
+<p class="page-intro">Register to book tables and manage reservations.</p>
+
+<form method="post" action="/api/auth/register" class="form-stack" autocomplete="on">
+	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<label class="form-label" for="name">Name</label>
+	<input class="form-input" type="text" id="name" name="name" required>
+
+	<label class="form-label" for="email">Email</label>
+	<input class="form-input" type="email" id="email" name="email" required>
+
+	<label class="form-label" for="phone">Phone (optional)</label>
+	<input class="form-input" type="text" id="phone" name="phone" >
+
+	<label class="form-label" for="password">Password</label>
+	<input class="form-input" type="password" id="password" name="password" minlength="8" required>
+
+	<div class="action-row">
+		<button class="button" type="submit">Register</button>
+		<a class="button button-secondary" href="/login">Already have an account?</a>
+	</div>
+</form>
+{% endblock %}
