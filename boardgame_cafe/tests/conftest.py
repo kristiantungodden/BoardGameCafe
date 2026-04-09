@@ -60,8 +60,8 @@ def test_data(app):
 
 	with app.app_context():
 		# Create test tables
-		table1 = TableDB(table_nr="1", capacity=4, zone="Zone A", status="available")
-		table2 = TableDB(table_nr="2", capacity=6, zone="Zone B", status="available")
+		table1 = TableDB(table_nr="1", capacity=4, floor=1, zone="Zone A", status="available")
+		table2 = TableDB(table_nr="2", capacity=6, floor=2, zone="Zone B", status="available")
 		db.session.add(table1)
 		db.session.add(table2)
 		db.session.commit()

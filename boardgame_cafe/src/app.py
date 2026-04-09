@@ -15,9 +15,12 @@ from features.payments.presentation.api.payment_routes import (
     configure_payment_routes,
     payment_bp,
 )
+from features.payments.presentation.api.payment_routes import configure_payment_provider
+from features.payments.infrastructure.vipps import VippsAdapter, vipps_callbacks
 from features.reservations.presentation.api import reservation_routes
 from features.users.presentation.api import auth_routes, steward_admin_routes
 from features.users.infrastructure import UserDB as User
+ 
 
 def create_app(config_name: str = None):
     """
@@ -110,7 +113,12 @@ def create_app(config_name: str = None):
 
 def register_blueprints(app: Flask):
     """Register all API blueprints."""
-    configure_payment_routes(PaymentRepository())
+    repo = PaymentRepository()
+    configure_payment_routes(repo)
+    # instantiate Vipps adapter (reads env vars if present)
+    vipps = VippsAdapter()
+    configure_payment_provider(vipps)
+    app.register_blueprint(vipps_callbacks)
 
     app.register_blueprint(auth_routes.bp)
     app.register_blueprint(games_routes.bp)

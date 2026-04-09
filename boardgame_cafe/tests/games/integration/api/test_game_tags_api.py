@@ -1,25 +1,3 @@
-import pytest
-
-from src.app import create_app
-from shared.infrastructure import db
-
-
-@pytest.fixture
-def app():
-    app = create_app("testing")
-
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.session.remove()
-        db.drop_all()
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
-
-
 def test_create_and_list_tags(client):
     create_response = client.post("/api/games/tags", json={"name": "Strategy"})
     assert create_response.status_code == 201
