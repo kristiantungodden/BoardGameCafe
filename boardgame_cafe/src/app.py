@@ -3,7 +3,9 @@ from flask_login import current_user, login_required, logout_user
 from flask_wtf.csrf import CSRFError
 import os
 
-from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, init_db
+from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
+from shared.infrastructure.email.flask_mail_service import FlaskMailService
+from shared.application.event_handlers.email_event_handler import register_email_event_handlers
 
 from features.games.presentation.api import games_routes
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
@@ -48,6 +50,18 @@ def create_app(config_name: str = None):
 
     celery_app = init_celery(app)
     app.celery_app = celery_app
+
+    # Initialize event bus and email service
+    event_bus = EventBus()
+    email_service = FlaskMailService(mail)
+    register_email_event_handlers(event_bus, email_service)
+    app.event_bus = event_bus
+
+    # Initialize event bus and email service
+    event_bus = EventBus()
+    email_service = FlaskMailService(mail)
+    register_email_event_handlers(event_bus, email_service)
+    app.event_bus = event_bus
 
     # Register blueprints
     register_blueprints(app)

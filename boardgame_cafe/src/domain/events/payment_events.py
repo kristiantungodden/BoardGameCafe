@@ -1,1 +1,0 @@
-#opp mot 3-party provider logikk, confimation emails ect.
