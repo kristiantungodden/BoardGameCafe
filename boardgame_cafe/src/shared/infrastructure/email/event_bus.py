@@ -1,3 +1,5 @@
+# Event bus som håndterer publisering av domenehendelser og distribuerer dem til registrerte event handlers.
+
 class EventBus:
     """Simple synchronous event bus for domain events."""
     

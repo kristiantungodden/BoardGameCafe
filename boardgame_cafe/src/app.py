@@ -3,9 +3,11 @@ from flask_login import current_user, login_required, logout_user
 from flask_wtf.csrf import CSRFError
 import os
 
-from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
+from shared.infrastructure import db, migrate, csrf, mail, login_manager, init_celery, EventBus, init_db
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.application.event_handlers.email_event_handler import register_email_event_handlers
+from features.reservations.infrastructure.repositories.reservation_repository import SqlAlchemyReservationRepository
+from features.users.infrastructure.repositories import SqlAlchemyUserRepository
 
 from features.games.presentation.api import games_routes
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
@@ -16,8 +18,7 @@ from features.payments.presentation.api.payment_routes import (
 from features.payments.presentation.api.payment_routes import configure_payment_provider
 from features.payments.infrastructure.vipps import VippsAdapter, vipps_callbacks
 from features.reservations.presentation.api import reservation_routes
-from features.tables.presentation.api import table_routes
-from features.users.presentation.api import auth_routes, steward_routes
+from features.users.presentation.api import auth_routes, steward_admin_routes
 from features.users.infrastructure import UserDB as User
  
 
@@ -58,17 +59,14 @@ def create_app(config_name: str = None):
     # Initialize event bus and email service
     event_bus = EventBus()
     email_service = FlaskMailService(mail)
-    register_email_event_handlers(event_bus, email_service)
-    app.event_bus = event_bus
-
-    # Initialize event bus and email service
-    event_bus = EventBus()
-    email_service = FlaskMailService(mail)
-    register_email_event_handlers(event_bus, email_service)
+    reservation_repo = SqlAlchemyReservationRepository()
+    user_repo = SqlAlchemyUserRepository()
+    register_email_event_handlers(event_bus, email_service, reservation_repo, user_repo)
     app.event_bus = event_bus
 
     # Register blueprints
     register_blueprints(app)
+
 
     # Register error handlers
     register_error_handlers(app)
@@ -126,8 +124,7 @@ def register_blueprints(app: Flask):
     app.register_blueprint(games_routes.bp)
     app.register_blueprint(payment_bp)
     app.register_blueprint(reservation_routes.bp)
-    app.register_blueprint(table_routes.bp)
-    app.register_blueprint(steward_routes.bp)
+    app.register_blueprint(steward_admin_routes.bp)
 
 
 def register_error_handlers(app: Flask):

@@ -1,4 +1,5 @@
 from datetime import datetime
+from unittest.mock import Mock
 
 from features.reservations.application.use_cases.reservation_use_cases import (
     CancelReservationUseCase,
@@ -9,6 +10,7 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     SeatReservationUseCase,
 )
 from features.reservations.domain.models.reservation import TableReservation
+from shared.domain.events import ReservationCreated
 from shared.domain.exceptions import ValidationError
 
 
@@ -63,6 +65,27 @@ def test_create_reservation_from_customer_order():
     assert reservation.party_size == 4
     assert reservation.notes == "Bursdag"
     assert reservation.status == "confirmed"
+
+
+def test_create_reservation_publishes_event():
+    repo = FakeReservationRepo()
+    mock_event_bus = Mock()
+    use_case = CreateReservationUseCase(repo, event_bus=mock_event_bus)
+
+    cmd = CreateReservationCommand(
+        customer_id=1,
+        table_id=2,
+        start_ts=datetime(2026, 3, 30, 18, 0),
+        end_ts=datetime(2026, 3, 30, 20, 0),
+        party_size=4,
+    )
+
+    reservation = use_case.execute(cmd)
+
+    mock_event_bus.publish.assert_called_once()
+    published_event = mock_event_bus.publish.call_args[0][0]
+    assert isinstance(published_event, ReservationCreated)
+    assert published_event.reservation_id == reservation.id
 
 
 def test_cancel_reservation_use_case_updates_status():

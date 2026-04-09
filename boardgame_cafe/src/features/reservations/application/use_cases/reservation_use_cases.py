@@ -3,6 +3,8 @@ from datetime import datetime, time
 from typing import Optional, Sequence
 
 from features.reservations.application.interfaces.reservation_repository_interface import ReservationRepositoryInterface
+from features.users.application.interfaces import UserRepositoryInterface
+from shared.domain.events import ReservationCreated
 from shared.domain.exceptions import ValidationError
 from shared.domain.constants import OVERLAP_BLOCKING_STATUSES
 from features.reservations.domain.models.reservation import TableReservation
@@ -22,8 +24,15 @@ class CreateReservationCommand:
 
 
 class CreateReservationUseCase:
-    def __init__(self, repo: ReservationRepositoryInterface):
+    def __init__(
+        self,
+        repo: ReservationRepositoryInterface,
+        user_repo: UserRepositoryInterface | None = None,
+        event_bus=None,
+    ):
         self.repo = repo
+        self.user_repo = user_repo
+        self.event_bus = event_bus
 
     def execute(self, cmd: CreateReservationCommand) -> TableReservation:
         if cmd.table_id is None:
@@ -59,7 +68,15 @@ class CreateReservationUseCase:
         ):
             raise ValidationError("Table is not available for the requested timeslot.")
 
-        return self.repo.add(candidate)
+        reservation = self.repo.add(candidate)
+        if self.event_bus is not None:
+            self.event_bus.publish(
+                ReservationCreated(
+                    reservation_id=reservation.id,
+                )
+            )
+
+        return reservation
 
 
 class ListReservationsUseCase:
