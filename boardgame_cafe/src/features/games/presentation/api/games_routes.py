@@ -24,6 +24,7 @@ from features.games.presentation.schemas.game_schema import (
     GameTagCreateRequest,
     GameTagLinkCreateRequest,
     GameUpdateRequest,
+    PaginatedGamesResponse,
 )
 from shared.domain.exceptions import DomainError
 
@@ -40,7 +41,9 @@ remove_game_tag_use_case = RemoveGameTagUseCase(tag_repository)
 list_game_tags_for_game_use_case = ListGameTagsForGameUseCase(tag_repository)
 
 
-def _serialize_game(game: Game) -> dict:
+def _serialize_game(game: Game, tags: list = None) -> dict:
+    if tags is None:
+        tags = []
     return {
         "id": game.id,
         "title": game.title,
@@ -53,6 +56,7 @@ def _serialize_game(game: Game) -> dict:
         "created_at": game.created_at.isoformat()
         if hasattr(game.created_at, "isoformat")
         else game.created_at,
+        "tags": tags,
     }
 
 
@@ -73,8 +77,69 @@ def _serialize_tag_link(link: GameTagLink) -> dict:
 
 @bp.route("/", methods=["GET"])
 def get_games():
-    games = use_cases.get_all_games()
-    return jsonify([_serialize_game(g) for g in games]), 200
+    # Get query parameters for filtering and pagination
+    page_param = request.args.get("page", None)
+    page_size_param = request.args.get("page_size", None)
+    search = request.args.get("search", None, type=str)
+    min_players = request.args.get("min_players", None, type=int)
+    max_players = request.args.get("max_players", None, type=int)
+    complexity = request.args.get("complexity", None, type=float)
+    tag_name = request.args.get("tag", None, type=str)
+    
+    # Parse page and page_size with defaults
+    page = int(page_param) if page_param else 1
+    page_size = int(page_size_param) if page_size_param else 10
+    
+    # Check if any filter or explicit pagination params are provided
+    has_filters = any([page_param, page_size_param, search, min_players is not None, max_players is not None, complexity is not None, tag_name])
+    
+    if has_filters:
+        # Use filtered and paginated results
+        try:
+            games, total_count, page, page_size = repository.get_games_filtered(
+                page=page,
+                page_size=page_size,
+                search=search,
+                min_players=min_players,
+                max_players=max_players,
+                complexity=complexity,
+                tag_name=tag_name,
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+        
+        # Fetch tags for each game
+        serialized_games = []
+        for game in games:
+            try:
+                tags = list_game_tags_for_game_use_case.execute(game.id)
+                serialized_tags = [_serialize_tag(t) for t in tags]
+            except:
+                serialized_tags = []
+            serialized_games.append(_serialize_game(game, serialized_tags))
+        
+        total_pages = (total_count + page_size - 1) // page_size
+        response = {
+            "games": serialized_games,
+            "page": page,
+            "page_size": page_size,
+            "total_count": total_count,
+            "total_pages": total_pages,
+        }
+        return jsonify(response), 200
+    else:
+        # Default behavior: return plain list for backward compatibility
+        games = use_cases.get_all_games()
+        # Include tags for each game
+        serialized_games = []
+        for game in games:
+            try:
+                tags = list_game_tags_for_game_use_case.execute(game.id)
+                serialized_tags = [_serialize_tag(t) for t in tags]
+            except:
+                serialized_tags = []
+            serialized_games.append(_serialize_game(game, serialized_tags))
+        return jsonify(serialized_games), 200
 
 
 @bp.route("/<int:game_id>", methods=["GET"])
@@ -82,7 +147,15 @@ def get_game(game_id: int):
     game = use_cases.get_game(game_id)
     if not game:
         return jsonify({"error": "Game not found"}), 404
-    return jsonify(_serialize_game(game)), 200
+    
+    # Fetch tags for this game
+    try:
+        tags = list_game_tags_for_game_use_case.execute(game_id)
+        serialized_tags = [_serialize_tag(t) for t in tags]
+    except:
+        serialized_tags = []
+    
+    return jsonify(_serialize_game(game, serialized_tags)), 200
 
 
 @bp.route("/", methods=["POST"])
@@ -109,7 +182,7 @@ def create_game():
     )
 
     saved_game = use_cases.add_game(temp_game)
-    return jsonify(_serialize_game(saved_game)), 201
+    return jsonify(_serialize_game(saved_game, [])), 201
 
 
 @bp.route("/<int:game_id>", methods=["PUT"])
@@ -156,7 +229,15 @@ def update_game(game_id: int):
     )
 
     updated_game = use_cases.update_game(game)
-    return jsonify(_serialize_game(updated_game)), 200
+    
+    # Fetch tags for the updated game
+    try:
+        tags = list_game_tags_for_game_use_case.execute(game_id)
+        serialized_tags = [_serialize_tag(t) for t in tags]
+    except:
+        serialized_tags = []
+    
+    return jsonify(_serialize_game(updated_game, serialized_tags)), 200
 
 
 @bp.route("/<int:game_id>", methods=["DELETE"])

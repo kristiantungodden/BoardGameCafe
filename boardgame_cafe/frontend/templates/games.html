@@ -5,15 +5,18 @@
 {% block content %}
 <h1 class="page-header">Games</h1>
 <p class="page-intro">
-    Starter page for the game catalog. Add filtering, tags, and game detail navigation here.
+    Explore our board game collection. Use filters to find games that match your preferences.
 </p>
 
 <div class="panel-grid">
     <article class="panel">
         <h3>Game Catalog</h3>
-        <p>Live data from the API endpoint.</p>
+        <p id="games-info">Live data from the API endpoint.</p>
         <div id="games-list" class="game-catalog-grid" aria-live="polite">
             <p class="game-state">Loading games...</p>
+        </div>
+        <div id="pagination-controls" class="pagination-controls" style="margin-top: 20px; text-align: center;">
+            <!-- Pagination buttons will be inserted here -->
         </div>
     </article>
     <article class="panel">
@@ -22,7 +25,58 @@
     </article>
     <article class="panel">
         <h3>Search and Filters</h3>
-        <p>Add title, player count, complexity, and duration filters.</p>
+        <form id="game-filter-form" class="game-filter-form">
+            <div class="form-group">
+                <label for="search">Title Search:</label>
+                <input type="text" id="search" name="search" placeholder="Search by game title...">
+            </div>
+            
+            <div class="form-group">
+                <label for="min_players">Minimum Players:</label>
+                <input type="number" id="min_players" name="min_players" min="1" placeholder="Min: 1">
+            </div>
+            
+            <div class="form-group">
+                <label for="max_players">Maximum Players:</label>
+                <input type="number" id="max_players" name="max_players" min="1" placeholder="Max: 12">
+            </div>
+            
+            <div class="form-group">
+                <label for="complexity">Complexity:</label>
+                <select id="complexity" name="complexity">
+                    <option value="">Any complexity</option>
+                    <option value="1">1 (Very Simple)</option>
+                    <option value="1.5">1.5</option>
+                    <option value="2">2 (Simple)</option>
+                    <option value="2.5">2.5</option>
+                    <option value="3">3 (Medium)</option>
+                    <option value="3.5">3.5</option>
+                    <option value="4">4 (Complex)</option>
+                    <option value="4.5">4.5</option>
+                    <option value="5">5 (Very Complex)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="tag">Tag:</label>
+                <input type="text" id="tag" name="tag" placeholder="Search by tag (optional)">
+            </div>
+            
+            <div class="form-group">
+                <label for="page_size">Games per page:</label>
+                <select id="page_size" name="page_size">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="button">Apply Filters</button>
+                <button type="reset" class="button button-secondary">Clear Filters</button>
+            </div>
+        </form>
     </article>
 </div>
 
@@ -31,24 +85,146 @@
     <a class="button button-secondary" href="/">Back to Home</a>
 </div>
 
+<style>
+    .game-filter-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .form-group label {
+        font-weight: 500;
+        margin-bottom: 5px;
+        font-size: 0.9rem;
+    }
+    
+    .form-group input,
+    .form-group select {
+        padding: 8px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.95rem;
+        font-family: inherit;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: #4CAF50;
+        box-shadow: 0 0 3px rgba(76, 175, 80, 0.3);
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    
+    .form-actions button {
+        flex: 1;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.3s;
+    }
+    
+    .pagination-controls {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        align-items: center;
+        padding: 15px 0;
+        font-size: 0.95rem;
+    }
+    
+    .pagination-controls button {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    
+    .pagination-controls button:hover:not(:disabled) {
+        background-color: #f0f0f0;
+    }
+    
+    .pagination-controls button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .pagination-info {
+        padding: 0 10px;
+        font-weight: 500;
+    }
+</style>
+
 <script>
-    async function loadGames() {
+    let currentPage = 1;
+    let currentPageSize = 10;
+    let currentFilters = {};
+    
+    async function loadGames(page = 1, pageSize = 10) {
         const gamesList = document.getElementById("games-list");
-        if (!gamesList) {
-            return;
-        }
+        const gamesInfo = document.getElementById("games-info");
+        if (!gamesList) return;
 
         try {
-            const response = await fetch("/api/games/");
+            // Build query string
+            const params = new URLSearchParams();
+            
+            // Add filter parameters if they exist
+            if (currentFilters.search) params.append("search", currentFilters.search);
+            if (currentFilters.min_players) params.append("min_players", currentFilters.min_players);
+            if (currentFilters.max_players) params.append("max_players", currentFilters.max_players);
+            if (currentFilters.complexity) params.append("complexity", currentFilters.complexity);
+            if (currentFilters.tag) params.append("tag", currentFilters.tag);
+            
+            // Add pagination if any filter is applied
+            const hasFilters = Object.values(currentFilters).some(v => v);
+            if (hasFilters || page !== 1 || pageSize !== 10) {
+                params.append("page", page);
+                params.append("page_size", pageSize);
+            }
+            
+            const url = `/api/games/?${params.toString()}`;
+            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error("Failed to load games");
             }
 
-            const games = await response.json();
+            const data = await response.json();
             gamesList.innerHTML = "";
+            
+            // Check if response is paginated or plain array
+            let games = Array.isArray(data) ? data : data.games;
+            let totalCount = Array.isArray(data) ? data.length : data.total_count;
+            let totalPages = Array.isArray(data) ? 1 : data.total_pages;
+            let pageNum = Array.isArray(data) ? 1 : data.page;
+            
+            // Update info text
+            if (hasFilters) {
+                gamesInfo.textContent = `Showing ${games.length} of ${totalCount} games`;
+            } else {
+                gamesInfo.textContent = `Showing all ${totalCount} games`;
+            }
+            
+            // Update pagination
+            updatePaginationControls(pageNum, pageSize, totalPages);
+            currentPage = pageNum;
+            currentPageSize = pageSize;
 
-            if (!Array.isArray(games) || games.length === 0) {
-                gamesList.innerHTML = '<p class="game-state">No games available yet.</p>';
+            if (!games || games.length === 0) {
+                gamesList.innerHTML = '<p class="game-state">No games match your filters.</p>';
                 return;
             }
 
@@ -59,15 +235,25 @@
                 const title = game.title || "Untitled game";
                 const players = `${game.min_players}-${game.max_players} players`;
                 const playtime = `${game.playtime_min} min`;
+                const complexity = `Complexity: ${game.complexity}`;
 
                 const imageUrl = game.image_url || "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=700&q=80";
                 const safeDescription = game.description || "No description available.";
+                
+                // Build tags list if available
+                let tagsHtml = '';
+                if (game.tags && game.tags.length > 0) {
+                    tagsHtml = '<div class="game-tags">' + 
+                        game.tags.map(tag => `<span class="game-tag">${tag.name}</span>`).join('') + 
+                        '</div>';
+                }
 
                 item.innerHTML = `
                     <img class="game-card-image" src="${imageUrl}" alt="${title}" loading="lazy">
                     <div class="game-card-body">
                         <h4 class="game-card-title">${title}</h4>
-                        <p class="game-card-meta">${players} | ${playtime}</p>
+                        <p class="game-card-meta">${players} | ${playtime} | ${complexity}</p>
+                        ${tagsHtml}
                         <p class="game-card-description">${safeDescription}</p>
                     </div>
                 `;
@@ -82,10 +268,102 @@
                 gamesList.appendChild(item);
             }
         } catch (error) {
+            console.error("Error loading games:", error);
             gamesList.innerHTML = '<p class="game-state">Could not load games right now.</p>';
         }
     }
+    
+    function updatePaginationControls(page, pageSize, totalPages) {
+        const controls = document.getElementById("pagination-controls");
+        if (!controls) return;
+        
+        controls.innerHTML = "";
+        
+        // Hide pagination if only 1 page
+        if (totalPages <= 1) return;
+        
+        // Previous button
+        const prevBtn = document.createElement("button");
+        prevBtn.textContent = "← Previous";
+        prevBtn.disabled = page <= 1;
+        prevBtn.onclick = () => {
+            if (page > 1) loadGames(page - 1, pageSize);
+        };
+        controls.appendChild(prevBtn);
+        
+        // Page info
+        const pageInfo = document.createElement("span");
+        pageInfo.className = "pagination-info";
+        pageInfo.textContent = `Page ${page} of ${totalPages}`;
+        controls.appendChild(pageInfo);
+        
+        // Next button
+        const nextBtn = document.createElement("button");
+        nextBtn.textContent = "Next →";
+        nextBtn.disabled = page >= totalPages;
+        nextBtn.onclick = () => {
+            if (page < totalPages) loadGames(page + 1, pageSize);
+        };
+        controls.appendChild(nextBtn);
+    }
+    
+    // Set up filter form
+    const filterForm = document.getElementById("game-filter-form");
+    if (filterForm) {
+        filterForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            
+            // Collect filter values
+            currentFilters = {
+                search: document.getElementById("search").value.trim(),
+                min_players: document.getElementById("min_players").value,
+                max_players: document.getElementById("max_players").value,
+                complexity: document.getElementById("complexity").value,
+                tag: document.getElementById("tag").value.trim(),
+            };
+            
+            currentPageSize = parseInt(document.getElementById("page_size").value);
+            
+            // Remove empty filters
+            Object.keys(currentFilters).forEach(key => {
+                if (!currentFilters[key]) delete currentFilters[key];
+            });
+            
+            // Load first page with new filters
+            loadGames(1, currentPageSize);
+        });
+        
+        // Reset button behavior
+        filterForm.addEventListener("reset", (e) => {
+            // Reset form fields
+            setTimeout(() => {
+                currentFilters = {};
+                currentPageSize = 10;
+                loadGames(1, 10);
+            }, 0);
+        });
+    }
 
-    loadGames();
+    // Load games on page load
+    loadGames(1, 10);
 </script>
+
+<style>
+    .game-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 10px 0;
+    }
+    
+    .game-tag {
+        display: inline-block;
+        background-color: #e3f2fd;
+        color: #1976d2;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+</style>
 {% endblock %}
