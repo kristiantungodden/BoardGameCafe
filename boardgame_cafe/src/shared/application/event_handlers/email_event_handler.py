@@ -9,3 +9,14 @@ def send_reservation_confirmation_email(event: ReservationCreated, email_service
     # For DDD er det bedre at eventet inneholder all data som trengs for å håndtere det.
     # Derfor bør reservation use case legge ved user_email når ReservationCreated publiseres.
     email_service.send_reservation_confirmation_email(event.user_email, event.reservation_details)
+
+
+def register_email_event_handlers(event_bus, email_service: EmailServiceInterface):
+    event_bus.subscribe(
+        UserRegistered,
+        lambda event: send_welcome_email(event, email_service),
+    )
+    event_bus.subscribe(
+        ReservationCreated,
+        lambda event: send_reservation_confirmation_email(event, email_service),
+    )

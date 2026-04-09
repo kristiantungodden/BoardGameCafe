@@ -38,10 +38,10 @@ def seed_tables(repo: TableRepository):
     db.session.commit()
 
     seeded = [
-        Table(number=1, capacity=2, zone="A", features={"near_window": True, "has_outlet": False}, status="available"),
-        Table(number=2, capacity=4, zone="A", features={"near_window": False, "has_outlet": True}, status="occupied"),
-        Table(number=3, capacity=6, zone="B", features={"near_window": True, "has_outlet": True}, status="available"),
-        Table(number=4, capacity=8, zone="B", features={"near_window": False, "has_outlet": False}, status="maintenance"),
-        Table(number=5, capacity=4, zone="C", features={"near_window": False, "has_outlet": False}, status="reserved"),
+        Table(number=1, capacity=2, floor=1, zone="A", features={"near_window": True, "has_outlet": False}, status="available"),
+        Table(number=2, capacity=4, floor=1, zone="A", features={"near_window": False, "has_outlet": True}, status="occupied"),
+        Table(number=3, capacity=6, floor=2, zone="B", features={"near_window": True, "has_outlet": True}, status="available"),
+        Table(number=4, capacity=8, floor=2, zone="B", features={"near_window": False, "has_outlet": False}, status="maintenance"),
+        Table(number=5, capacity=4, floor=2, zone="C", features={"near_window": False, "has_outlet": False}, status="reserved"),
     ]
     return [repo.add(item) for item in seeded]

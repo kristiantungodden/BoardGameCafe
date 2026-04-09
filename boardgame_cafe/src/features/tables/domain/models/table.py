@@ -16,6 +16,7 @@ class Table:
 
     number: int
     capacity: int
+    floor: int = 1
     zone: Optional[str] = None
     features: Optional[dict[str, bool]] = None
     status: str = "available"
@@ -28,6 +29,8 @@ class Table:
             raise ValidationError("number must be a positive integer")
         if self.capacity <= 0 or self.capacity != int(self.capacity):
             raise ValidationError("capacity must be a positive integer")
+        if self.floor <= 0 or self.floor != int(self.floor):
+            raise ValidationError("floor must be a positive integer")
         if self.status not in VALID_TABLE_STATUSES:
             raise ValidationError(
                 f"status must be one of: {', '.join(sorted(VALID_TABLE_STATUSES))}"

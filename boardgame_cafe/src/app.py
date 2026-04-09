@@ -14,6 +14,7 @@ from features.payments.presentation.api.payment_routes import (
     payment_bp,
 )
 from features.reservations.presentation.api import reservation_routes
+from features.tables.presentation.api import table_routes
 from features.users.presentation.api import auth_routes, steward_routes
 from features.users.infrastructure import UserDB as User
 
@@ -117,6 +118,7 @@ def register_blueprints(app: Flask):
     app.register_blueprint(games_routes.bp)
     app.register_blueprint(payment_bp)
     app.register_blueprint(reservation_routes.bp)
+    app.register_blueprint(table_routes.bp)
     app.register_blueprint(steward_routes.bp)
 
 

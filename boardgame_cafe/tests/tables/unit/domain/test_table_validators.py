@@ -9,6 +9,7 @@ def test_table_creation_uses_expected_defaults():
 
     assert table.number == 1
     assert table.capacity == 4
+    assert table.floor == 1
     assert table.status == "available"
 
 
@@ -20,6 +21,11 @@ def test_table_number_must_be_positive():
 def test_table_capacity_must_be_positive():
     with pytest.raises(ValidationError, match="capacity must be a positive integer"):
         Table(number=1, capacity=0)
+
+
+def test_table_floor_must_be_positive():
+    with pytest.raises(ValidationError, match="floor must be a positive integer"):
+        Table(number=1, capacity=4, floor=0)
 
 
 def test_table_status_must_be_known_value():

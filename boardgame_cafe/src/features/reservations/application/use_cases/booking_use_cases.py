@@ -74,16 +74,24 @@ class CreateBookingUseCase:
                 session=session,
                 auto_commit=False,
             )
+            available_table_repo = self.available_table_repo.__class__(session=session)
+            available_copy_repo = self.available_copy_repo.__class__(session=session)
             payment_repo = PaymentRepository(session=session, auto_commit=False)
 
             # Auto-select table if not provided
             selected_table_id = table_id
             if selected_table_id is None:
-                selected_table_id = self.available_table_repo.find_best_available_table(
+                selected_table_id = available_table_repo.find_best_available_table(
                     party_size, start_ts, end_ts
                 )
                 if selected_table_id is None:
                     raise ValidationError("No suitable table is available for the selected timeslot")
+            elif not available_table_repo.validate_table_selection(
+                selected_table_id, party_size, start_ts, end_ts
+            ):
+                raise ValidationError(
+                    "Selected table is unavailable for the selected timeslot or party size"
+                )
 
             # Create reservation
             reservation_cmd = CreateReservationCommand(
@@ -107,7 +115,7 @@ class CreateBookingUseCase:
 
                 # Auto-select copy if not provided
                 if requested_copy_id is None:
-                    requested_copy_id = self.available_copy_repo.find_available_copy_id(
+                    requested_copy_id = available_copy_repo.find_available_copy_id(
                         requested_game_id, start_ts, end_ts
                     )
                     if requested_copy_id is None:
@@ -116,7 +124,7 @@ class CreateBookingUseCase:
                         )
                 else:
                     # Validate the requested copy
-                    if not self.available_copy_repo.validate_copy_available(
+                    if not available_copy_repo.validate_copy_available(
                         requested_copy_id, requested_game_id, start_ts, end_ts
                     ):
                         raise ValidationError(

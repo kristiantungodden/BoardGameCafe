@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -18,6 +19,7 @@ class TableRepository(TableRepositoryInterface):
         db_table = CafeTableDB(
             table_nr=str(table.number),
             capacity=table.capacity,
+            floor=table.floor,
             zone=table.zone,
             features=table.features or {},
             status=table.status,
@@ -51,6 +53,7 @@ class TableRepository(TableRepositoryInterface):
 
         db_table.table_nr = str(table.number)
         db_table.capacity = table.capacity
+        db_table.floor = table.floor
         db_table.zone = table.zone
         db_table.features = table.features or {}
         db_table.status = table.status
@@ -70,6 +73,9 @@ class TableRepository(TableRepositoryInterface):
 
         if filters.zone is not None:
             query = query.filter(CafeTableDB.zone == filters.zone)
+
+        if filters.floor is not None:
+            query = query.filter(CafeTableDB.floor == filters.floor)
 
         if filters.status is not None:
             query = query.filter(CafeTableDB.status == filters.status)
@@ -112,9 +118,14 @@ class TableRepository(TableRepositoryInterface):
 
     @staticmethod
     def _to_domain(db_table: CafeTableDB) -> Table:
+        table_number_match = re.search(r"(\d+)", str(db_table.table_nr))
+        if table_number_match is None:
+            raise ValueError(f"Invalid table number stored in database: {db_table.table_nr}")
+
         table = Table(
-            number=int(db_table.table_nr),
+            number=int(table_number_match.group(1)),
             capacity=db_table.capacity,
+            floor=getattr(db_table, "floor", 1),
             zone=db_table.zone,
             features=db_table.features or {},
             status=db_table.status,
