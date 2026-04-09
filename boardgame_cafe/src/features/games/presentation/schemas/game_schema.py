@@ -74,3 +74,30 @@ class GameResponse(BaseModel):
 	description: str | None = None
 	image_url: str | None = None
 	created_at: datetime | None = None
+
+
+class GameTagCreateRequest(BaseModel):
+	name: str = Field(min_length=1)
+
+	@field_validator("name")
+	@classmethod
+	def validate_name(cls, value: str) -> str:
+		name = value.strip()
+		if not name:
+			raise ValueError("Tag name cannot be empty")
+		return name
+
+
+class GameTagResponse(BaseModel):
+	id: int
+	name: str
+
+
+class GameTagLinkCreateRequest(BaseModel):
+	tag_id: int = Field(gt=0)
+
+
+class GameTagLinkResponse(BaseModel):
+	id: int
+	game_id: int
+	game_tag_id: int

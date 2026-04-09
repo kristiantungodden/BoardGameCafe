@@ -5,18 +5,39 @@ from pydantic import ValidationError as PydanticValidationError
 from werkzeug.exceptions import BadRequest
 
 from features.games.application.use_cases.game_use_cases import GameUseCases
+from features.games.application.use_cases.game_tag_use_cases import (
+    AttachGameTagCommand,
+    AttachGameTagUseCase,
+    CreateGameTagCommand,
+    CreateGameTagUseCase,
+    ListGameTagsForGameUseCase,
+    ListGameTagsUseCase,
+    RemoveGameTagUseCase,
+)
 from features.games.domain.models.game import Game
+from features.games.domain.models.game_tag import GameTag
+from features.games.domain.models.game_tag_link import GameTagLink
 from features.games.infrastructure.repositories.game_repository import GameRepository
+from features.games.infrastructure.repositories.game_tag_repository import GameTagRepository
 from features.games.presentation.schemas.game_schema import (
     GameCreateRequest,
+    GameTagCreateRequest,
+    GameTagLinkCreateRequest,
     GameUpdateRequest,
 )
+from shared.domain.exceptions import DomainError
 
 bp = Blueprint("games", __name__, url_prefix="/api/games")
 
 # Initialize repository and use case
 repository = GameRepository()
 use_cases = GameUseCases(repository)
+tag_repository = GameTagRepository()
+create_game_tag_use_case = CreateGameTagUseCase(tag_repository)
+list_game_tags_use_case = ListGameTagsUseCase(tag_repository)
+attach_game_tag_use_case = AttachGameTagUseCase(tag_repository)
+remove_game_tag_use_case = RemoveGameTagUseCase(tag_repository)
+list_game_tags_for_game_use_case = ListGameTagsForGameUseCase(tag_repository)
 
 
 def _serialize_game(game: Game) -> dict:
@@ -32,6 +53,21 @@ def _serialize_game(game: Game) -> dict:
         "created_at": game.created_at.isoformat()
         if hasattr(game.created_at, "isoformat")
         else game.created_at,
+    }
+
+
+def _serialize_tag(tag: GameTag) -> dict:
+    return {
+        "id": tag.id,
+        "name": tag.name,
+    }
+
+
+def _serialize_tag_link(link: GameTagLink) -> dict:
+    return {
+        "id": link.id,
+        "game_id": link.game_id,
+        "game_tag_id": link.game_tag_id,
     }
 
 
@@ -131,3 +167,70 @@ def delete_game(game_id: int):
 
     use_cases.delete_game(game_id)
     return jsonify({"message": "Game deleted"}), 200
+
+
+@bp.route("/tags", methods=["POST"])
+def create_tag():
+    try:
+        raw = request.get_json()
+    except BadRequest:
+        return jsonify({"error": "Invalid JSON body"}), 400
+
+    try:
+        payload = GameTagCreateRequest.model_validate(raw or {})
+    except PydanticValidationError as exc:
+        return jsonify({"error": "Validation failed", "details": exc.errors(include_context=False)}), 400
+
+    try:
+        tag = create_game_tag_use_case.execute(CreateGameTagCommand(name=payload.name))
+    except DomainError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(_serialize_tag(tag)), 201
+
+
+@bp.route("/tags", methods=["GET"])
+def list_tags():
+    tags = list_game_tags_use_case.execute()
+    return jsonify([_serialize_tag(tag) for tag in tags]), 200
+
+
+@bp.route("/<int:game_id>/tags", methods=["POST"])
+def attach_tag_to_game(game_id: int):
+    try:
+        raw = request.get_json()
+    except BadRequest:
+        return jsonify({"error": "Invalid JSON body"}), 400
+
+    try:
+        payload = GameTagLinkCreateRequest.model_validate(raw or {})
+    except PydanticValidationError as exc:
+        return jsonify({"error": "Validation failed", "details": exc.errors(include_context=False)}), 400
+
+    try:
+        link = attach_game_tag_use_case.execute(
+            AttachGameTagCommand(game_id=game_id, tag_id=payload.tag_id)
+        )
+    except DomainError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(_serialize_tag_link(link)), 201
+
+
+@bp.route("/<int:game_id>/tags", methods=["GET"])
+def list_tags_for_game(game_id: int):
+    try:
+        tags = list_game_tags_for_game_use_case.execute(game_id)
+    except DomainError as exc:
+        return jsonify({"error": str(exc)}), 404
+
+    return jsonify([_serialize_tag(tag) for tag in tags]), 200
+
+
+@bp.route("/<int:game_id>/tags/<int:tag_id>", methods=["DELETE"])
+def remove_tag_from_game(game_id: int, tag_id: int):
+    removed = remove_game_tag_use_case.execute(game_id, tag_id)
+    if not removed:
+        return jsonify({"error": "Game tag link not found"}), 404
+
+    return {}, 204
