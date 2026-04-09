@@ -5,6 +5,8 @@ from pydantic import ValidationError
 
 from features.games.presentation.schemas.game_schema import (
     GameCreateRequest,
+    GameTagCreateRequest,
+    GameTagLinkCreateRequest,
     GameUpdateRequest,
 )
 
@@ -52,3 +54,13 @@ def test_game_update_request_allows_partial_payload():
 
     assert payload.title is None
     assert payload.playtime_min == 120
+
+
+def test_game_tag_create_request_rejects_blank_name():
+    with pytest.raises(ValidationError):
+        GameTagCreateRequest.model_validate({"name": "   "})
+
+
+def test_game_tag_link_request_requires_positive_tag_id():
+    with pytest.raises(ValidationError):
+        GameTagLinkCreateRequest.model_validate({"tag_id": 0})
