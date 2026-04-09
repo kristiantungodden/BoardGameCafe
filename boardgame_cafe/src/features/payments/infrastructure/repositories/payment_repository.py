@@ -45,3 +45,36 @@ class PaymentRepository(PaymentRepositoryInterface):
         if db_payment is None:
             return None
         return db_payment.to_domain()
+
+    def get_by_provider_ref(self, provider_ref: str) -> DomainPayment | None:
+        db_payment = self.session.query(PaymentDB).filter_by(provider_ref=provider_ref).first()
+        if db_payment is None:
+            return None
+        return db_payment.to_domain()
+
+    def update(self, payment: DomainPayment) -> DomainPayment:
+        if payment.id is None:
+            raise ValueError("Cannot update payment without id")
+
+        if self.session is db.session:
+            db_payment = PaymentDB.query.get(payment.id)
+        else:
+            db_payment = self.session.get(PaymentDB, payment.id)
+
+        if db_payment is None:
+            raise ValueError(f"Payment with id {payment.id} not found")
+
+        db_payment.table_reservation_id = payment.table_reservation_id
+        db_payment.type = payment.type
+        db_payment.provider = payment.provider
+        db_payment.amount_cents = payment.amount_cents
+        db_payment.currency = payment.currency
+        db_payment.status = payment.status
+        db_payment.provider_ref = payment.provider_ref
+
+        if self.auto_commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+
+        return db_payment.to_domain()

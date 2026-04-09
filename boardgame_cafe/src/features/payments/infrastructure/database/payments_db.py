@@ -1,5 +1,6 @@
 from shared.infrastructure import db
 from features.payments.domain.models.payment import Payment as DomainPayment
+from features.payments.domain.models.payment import PaymentStatus
 
 
 class PaymentDB(db.Model):
@@ -21,6 +22,12 @@ class PaymentDB(db.Model):
     table_reservation = db.relationship("TableReservationDB", backref="payments")
 
     def to_domain(self) -> DomainPayment:
+        # Convert stored status string to PaymentStatus enum for domain model
+        try:
+            status_enum = PaymentStatus(self.status)
+        except Exception:
+            status_enum = PaymentStatus(self.status) if isinstance(self.status, PaymentStatus) else PaymentStatus.CALCULATED
+
         return DomainPayment(
             id=self.id,
             table_reservation_id=self.table_reservation_id,
@@ -28,7 +35,7 @@ class PaymentDB(db.Model):
             provider=self.provider,
             amount_cents=self.amount_cents,
             currency=self.currency,
-            status=self.status,
+            status=status_enum,
             provider_ref=self.provider_ref,
             created_at=self.created_at,
         )
