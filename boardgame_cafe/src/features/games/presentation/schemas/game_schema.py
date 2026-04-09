@@ -74,6 +74,7 @@ class GameResponse(BaseModel):
 	description: str | None = None
 	image_url: str | None = None
 	created_at: datetime | None = None
+	tags: list[GameTagResponse] = []
 
 
 class GameTagCreateRequest(BaseModel):
@@ -101,3 +102,11 @@ class GameTagLinkResponse(BaseModel):
 	id: int
 	game_id: int
 	game_tag_id: int
+
+
+class PaginatedGamesResponse(BaseModel):
+	games: list[GameResponse]
+	page: int
+	page_size: int
+	total_count: int
+	total_pages: int
