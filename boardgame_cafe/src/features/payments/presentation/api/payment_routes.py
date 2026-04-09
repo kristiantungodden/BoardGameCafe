@@ -45,7 +45,6 @@ def calculate_payment_route():
         return jsonify({"error": str(exc)}), HTTPStatus.BAD_REQUEST
 
 
-# CHANGE create_payment_route the same way — remove manual party_size checks:
 @payment_bp.post("/")
 def create_payment_route():
     if _payment_repository is None:
@@ -65,9 +64,8 @@ def create_payment_route():
         return jsonify(PaymentSchema.dump(saved_payment)), HTTPStatus.CREATED
     except ValueError as exc:
         return jsonify({"error": str(exc)}), HTTPStatus.BAD_REQUEST
-    
 
-# ADD a GET endpoint at the bottom:
+
 @payment_bp.get("/<int:payment_id>")
 def get_payment_route(payment_id: int):
     if _payment_repository is None:

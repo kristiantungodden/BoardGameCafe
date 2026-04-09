@@ -2,7 +2,7 @@
     payment_bp,
 )
 from features.reservations.presentation.api import reservation_routes
-from features.users.presentation.api import auth_routes, steward_routes
+from features.users.presentation.api import auth_routes, steward_admin_routes
 from features.users.infrastructure import UserDB as User
 
 def create_app(config_name: str = None):

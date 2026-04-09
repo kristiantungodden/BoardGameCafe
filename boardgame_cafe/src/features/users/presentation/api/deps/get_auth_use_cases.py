@@ -1,58 +1,26 @@
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Optional
 
 from flask_login import current_user, login_user, logout_user
 
 from features.users.application.interfaces import (
     AuthSessionPortInterface,
     PasswordHasherInterface,
-    UserRepositoryInterface,
 )
 from features.users.application.use_cases.auth_use_cases import LoginUseCase, RegisterUseCase
+from features.users.application.use_cases.user_use_cases import (
+    CreateUserUseCase,
+    UpdateUserUseCase,
+    ChangePasswordUseCase,
+    GetUserUseCase,
+    ListUsersUseCase,
+    DeleteUserUseCase,
+)
 from features.users.domain.models.user import Role, User
 from features.users.infrastructure import UserDB, hash_password, verify_password
+from features.users.infrastructure.repositories import SqlAlchemyUserRepository
 from shared.infrastructure import db
-
-
-class SqlAlchemyUserRepository(UserRepositoryInterface):
-    def get_by_id(self, user_id: int) -> Optional[User]:
-        row = db.session.get(UserDB, user_id)
-        return _to_domain(row)
-
-    def get_by_email(self, email: str) -> Optional[User]:
-        row = UserDB.query.filter_by(email=email).first()
-        return _to_domain(row)
-
-    def save(self, user: User) -> User:
-        row = db.session.get(UserDB, user.id) if user.id else None
-        if row is None:
-            row = UserDB()
-            db.session.add(row)
-
-        row.name = user.name
-        row.email = user.email
-        row.phone = user.phone
-        row.role = user.role.value
-        row.password_hash = user.password_hash
-        row.force_password_change = user.force_password_change
-
-        db.session.commit()
-        return _to_domain(row)
-
-    def delete(self, user_id: int) -> bool:
-        row = db.session.get(UserDB, user_id)
-        if row is None:
-            return False
-        db.session.delete(row)
-        db.session.commit()
-        return True
-
-    def list_all(self) -> Sequence[User]:
-        return [_to_domain(row) for row in UserDB.query.all()]
-
-    def list_by_role(self, role: str) -> Sequence[User]:
-        return [_to_domain(row) for row in UserDB.query.filter_by(role=role).all()]
 
 
 class WerkZeugPasswordHasher(PasswordHasherInterface):
@@ -79,20 +47,6 @@ class FlaskLoginSessionPort(AuthSessionPortInterface):
         return None
 
 
-def _to_domain(row: Optional[UserDB]) -> Optional[User]:
-    if row is None:
-        return None
-    return User(
-        id=row.id,
-        name=row.name,
-        email=row.email,
-        phone=row.phone,
-        role=Role(row.role),
-        password_hash=row.password_hash,
-        force_password_change=row.force_password_change,
-    )
-
-
 def get_login_use_case() -> LoginUseCase:
     users = SqlAlchemyUserRepository()
     hasher = WerkZeugPasswordHasher()
@@ -103,3 +57,34 @@ def get_register_use_case() -> RegisterUseCase:
     users = SqlAlchemyUserRepository()
     hasher = WerkZeugPasswordHasher()
     return RegisterUseCase(users, hasher)
+
+
+# User management use cases (steward/admin routes)
+def get_create_user_use_case() -> CreateUserUseCase:
+    users = SqlAlchemyUserRepository()
+    return CreateUserUseCase(users)
+
+
+def get_update_user_use_case() -> UpdateUserUseCase:
+    users = SqlAlchemyUserRepository()
+    return UpdateUserUseCase(users)
+
+
+def get_change_password_use_case() -> ChangePasswordUseCase:
+    users = SqlAlchemyUserRepository()
+    return ChangePasswordUseCase(users)
+
+
+def get_get_user_use_case() -> GetUserUseCase:
+    users = SqlAlchemyUserRepository()
+    return GetUserUseCase(users)
+
+
+def get_list_users_use_case() -> ListUsersUseCase:
+    users = SqlAlchemyUserRepository()
+    return ListUsersUseCase(users)
+
+
+def get_delete_user_use_case() -> DeleteUserUseCase:
+    users = SqlAlchemyUserRepository()
+    return DeleteUserUseCase(users)

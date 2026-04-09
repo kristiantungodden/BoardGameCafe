@@ -101,3 +101,56 @@ class ChangePasswordUseCase:
 
         target_user.change_password(cmd.new_password_hash)
         return self.user_repo.save(target_user)
+
+
+class GetUserUseCase:
+    """Use case for retrieving a specific user."""
+
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
+    def execute(self, user_id: int, requesting_user: User) -> User:
+        """Get user by ID with authorization checks."""
+        target_user = self.user_repo.get_by_id(user_id)
+        if not target_user:
+            raise ValidationError("User not found")
+
+        # Only admins/staff can view other users
+        if requesting_user.id != target_user.id and not UserDomainService.can_user_manage_others(requesting_user, target_user):
+            raise ValidationError("Insufficient permissions to view this user")
+
+        return target_user
+
+
+class ListUsersUseCase:
+    """Use case for listing all users."""
+
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
+    def execute(self, requesting_user: User) -> list[User]:
+        """List all users with authorization checks."""
+        # Only admins/staff can list all users
+        if not UserDomainService.can_user_manage_others(requesting_user, requesting_user):
+            raise ValidationError("Insufficient permissions to list users")
+
+        return list(self.user_repo.list_all())
+
+
+class DeleteUserUseCase:
+    """Use case for deleting a user."""
+
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
+    def execute(self, user_id: int, requesting_user: User) -> bool:
+        """Delete user with authorization checks."""
+        target_user = self.user_repo.get_by_id(user_id)
+        if not target_user:
+            raise ValidationError("User not found")
+
+        # Only admins can delete users
+        if requesting_user.role != Role.ADMIN:
+            raise ValidationError("Insufficient permissions to delete users")
+
+        return self.user_repo.delete(user_id)
