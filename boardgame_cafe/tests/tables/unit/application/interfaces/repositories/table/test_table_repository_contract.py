@@ -43,6 +43,7 @@ def test_table_repository_method_signatures_are_stable():
 def test_table_filters_defaults_are_none():
 	filters = TableFilters()
 
+	assert filters.floor is None
 	assert filters.zone is None
 	assert filters.status is None
 	assert filters.min_capacity is None

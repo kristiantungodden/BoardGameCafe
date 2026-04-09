@@ -46,6 +46,7 @@ def test_table_repository_method_signatures_are_stable():
 def test_table_filters_defaults_are_none():
 	filters = TableFilters()
 
+	assert filters.floor is None
 	assert filters.zone is None
 	assert filters.status is None
 	assert filters.min_capacity is None
@@ -103,6 +104,9 @@ class InMemoryTableRepository(TableRepository):
 		filters = filters or TableFilters()
 		tables = self.list()
 
+		if filters.floor is not None:
+			tables = [table for table in tables if table.floor == filters.floor]
+
 		if filters.zone is not None:
 			tables = [table for table in tables if table.zone == filters.zone]
 
@@ -145,11 +149,11 @@ def repository() -> InMemoryTableRepository:
 @pytest.fixture
 def seeded_repository(repository: InMemoryTableRepository) -> InMemoryTableRepository:
 	for table in [
-		Table(number=1, capacity=2, zone="A", features={"near_window": True}, status="available"),
-		Table(number=2, capacity=4, zone="A", features={"near_window": False}, status="occupied"),
-		Table(number=3, capacity=6, zone="B", features={"near_window": True}, status="available"),
-		Table(number=4, capacity=8, zone="B", features={"near_window": False}, status="maintenance"),
-		Table(number=5, capacity=4, zone="C", features={"near_window": False}, status="reserved"),
+		Table(number=1, capacity=2, floor=1, zone="A", features={"near_window": True}, status="available"),
+		Table(number=2, capacity=4, floor=1, zone="A", features={"near_window": False}, status="occupied"),
+		Table(number=3, capacity=6, floor=2, zone="B", features={"near_window": True}, status="available"),
+		Table(number=4, capacity=8, floor=2, zone="B", features={"near_window": False}, status="maintenance"),
+		Table(number=5, capacity=4, floor=2, zone="C", features={"near_window": False}, status="reserved"),
 	]:
 		repository.add(table)
 	return repository

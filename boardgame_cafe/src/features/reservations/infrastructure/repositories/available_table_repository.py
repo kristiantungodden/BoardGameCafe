@@ -42,3 +42,17 @@ class SqlAlchemyAvailableTableRepository(AvailableTableRepositoryInterface):
 
         candidate = query.order_by(TableDB.capacity.asc(), TableDB.id.asc()).first()
         return candidate.id if candidate else None
+
+    def validate_table_selection(
+        self, table_id: int, party_size: int, start_ts: datetime, end_ts: datetime
+    ) -> bool:
+        table = self.session.get(TableDB, table_id)
+        if table is None:
+            return False
+        if table.status != "available":
+            return False
+        if table.capacity < party_size:
+            return False
+
+        blocked = self.get_blocked_table_ids(start_ts, end_ts)
+        return table_id not in blocked

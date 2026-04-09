@@ -5,8 +5,8 @@
 {% block content %}
 <h1 class="page-header">Reservations</h1>
 <p class="page-intro">
-    Choose date and timeslot, pick games, and create your booking in one step.
-    Table and game copies are assigned automatically in one atomic transaction.
+    Choose date and timeslot, pick a table from the floor plan, add games, and create your booking in one step.
+    Final table/game reservation and payment are still completed in one atomic transaction.
 </p>
 
 <div id="reservation-feedback" class="flash-stack" aria-live="polite"></div>
@@ -50,6 +50,25 @@
             </div>
 
             <div class="booking-subsection">
+                <h4 class="subsection-title">Select Table From Floor Plan</h4>
+                <div class="form-grid-two">
+                    <div>
+                        <label class="form-label" for="floor-selector">Floor</label>
+                        <select class="form-input" id="floor-selector" disabled>
+                            <option value="">Select floor</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Table selection</label>
+                        <div id="selected-table-meta" class="inline-meta">Choose date, slot, and party size first.</div>
+                    </div>
+                </div>
+                <div id="floorplan-map" class="floorplan-map" aria-live="polite">
+                    <p class="game-state">Floor availability will appear here.</p>
+                </div>
+            </div>
+
+            <div class="booking-subsection">
                 <h4 class="subsection-title">Add Games (Optional)</h4>
                 <div class="form-grid-two">
                     <div>
@@ -83,7 +102,7 @@
         <div id="booking-summary" class="mini-list">
             <div class="mini-list-row"><span>Date</span><strong id="summary-date">Not selected</strong></div>
             <div class="mini-list-row"><span>Timeslot</span><strong id="summary-timeslot">Not selected</strong></div>
-            <div class="mini-list-row"><span>Suggested table</span><strong id="summary-table">Not available</strong></div>
+            <div class="mini-list-row"><span>Selected table</span><strong id="summary-table">None selected</strong></div>
             <div class="mini-list-row"><span>Party size</span><strong id="summary-party-size">0</strong></div>
             <div class="mini-list-row"><span>Estimated payment</span><strong id="summary-payment">0.00 NOK</strong></div>
         </div>
@@ -139,12 +158,17 @@
         reservations: [],
         pendingGames: [],
         reservationGames: {},
+        selectedFloor: null,
+        selectedTableId: null,
         lookup: {
             games: [],
         },
         availability: {
-            suggested_table: null,
             games: [],
+        },
+        tableAvailability: {
+            floors: [],
+            filters: {},
         },
     };
 
@@ -252,6 +276,19 @@
         return state.availability.games.find((item) => item.id === gameId);
     }
 
+    function flattenAvailableTables() {
+        return (state.tableAvailability.floors || []).flatMap((floor) =>
+            (floor.zones || []).flatMap((zone) => zone.tables || [])
+        );
+    }
+
+    function getSelectedTable() {
+        if (!state.selectedTableId) {
+            return null;
+        }
+        return flattenAvailableTables().find((table) => table.id === state.selectedTableId) || null;
+    }
+
     function renderGameSelectOptions() {
         const gameSelect = document.getElementById("requested-game-id");
         if (!gameSelect) {
@@ -313,13 +350,143 @@
             ? `${startSlot} to ${endSlot}`
             : "Not selected";
 
-        const table = state.availability.suggested_table;
+        const table = getSelectedTable();
         document.getElementById("summary-table").textContent = table
-            ? `#${table.id} (${table.table_nr}) cap ${table.capacity}`
-            : "Not available";
+            ? `#${table.id} (T${table.table_nr}) cap ${table.capacity}`
+            : "None selected";
 
         document.getElementById("summary-party-size").textContent = String(Math.max(0, partySize));
         document.getElementById("summary-payment").textContent = moneyFromCents(Math.max(0, partySize) * PRICE_PER_PERSON_CENTS);
+    }
+
+    function renderSelectedTableMeta() {
+        const box = document.getElementById("selected-table-meta");
+        if (!box) {
+            return;
+        }
+
+        const selected = getSelectedTable();
+        if (!selected) {
+            box.textContent = "No table selected.";
+            return;
+        }
+
+        box.textContent = `Selected table #${selected.id} (T${selected.table_nr}), capacity ${selected.capacity}`;
+    }
+
+    function ensureSelectedFloor() {
+        const floors = (state.tableAvailability.floors || []).map((f) => f.floor);
+        if (floors.length === 0) {
+            state.selectedFloor = null;
+            return;
+        }
+
+        if (!floors.includes(state.selectedFloor)) {
+            state.selectedFloor = floors[0];
+        }
+    }
+
+    function syncSelectedTableToAvailability() {
+        const selected = getSelectedTable();
+        if (!selected || !selected.available) {
+            state.selectedTableId = null;
+        }
+    }
+
+    function renderFloorSelector() {
+        const selector = document.getElementById("floor-selector");
+        if (!selector) {
+            return;
+        }
+
+        const floors = state.tableAvailability.floors || [];
+        selector.innerHTML = "";
+
+        if (floors.length === 0) {
+            selector.disabled = true;
+            selector.innerHTML = '<option value="">No floor data</option>';
+            return;
+        }
+
+        selector.disabled = false;
+        floors.forEach((floor) => {
+            const selected = floor.floor === state.selectedFloor ? "selected" : "";
+            selector.innerHTML += `<option value="${floor.floor}" ${selected}>Floor ${floor.floor}</option>`;
+        });
+    }
+
+    function renderFloorPlan() {
+        const map = document.getElementById("floorplan-map");
+        if (!map) {
+            return;
+        }
+
+        const floors = state.tableAvailability.floors || [];
+        if (floors.length === 0) {
+            map.innerHTML = '<p class="game-state">No table availability data for the selected window.</p>';
+            return;
+        }
+
+        const selectedFloorData = floors.find((item) => item.floor === state.selectedFloor);
+        if (!selectedFloorData) {
+            map.innerHTML = '<p class="game-state">Select a floor to view table layout.</p>';
+            return;
+        }
+
+        map.innerHTML = selectedFloorData.zones
+            .map((zone) => {
+                const tablesMarkup = (zone.tables || [])
+                    .map((table) => {
+                        const unavailable = !table.available;
+                        const selected = state.selectedTableId === table.id;
+                        const classes = ["table-tile"];
+                        if (unavailable) {
+                            classes.push("table-tile-unavailable");
+                        } else {
+                            classes.push("table-tile-available");
+                        }
+                        if (selected) {
+                            classes.push("table-tile-selected");
+                        }
+
+                        const reasons = table.unavailable_reasons && table.unavailable_reasons.length
+                            ? `Unavailable: ${table.unavailable_reasons.join(", ")}`
+                            : "Available";
+
+                        return `
+                            <button
+                                type="button"
+                                class="${classes.join(" ")}"
+                                data-select-table-id="${table.id}"
+                                ${unavailable ? "disabled" : ""}
+                                title="${reasons}"
+                            >
+                                <span class="table-tile-name">T${table.table_nr}</span>
+                                <span class="table-tile-cap">Cap ${table.capacity}</span>
+                                <span class="table-tile-status">${table.available ? "Available" : "Unavailable"}</span>
+                            </button>
+                        `;
+                    })
+                    .join("");
+
+                return `
+                    <section class="floor-zone">
+                        <h5 class="floor-zone-title">Zone ${zone.zone}</h5>
+                        <div class="floor-zone-grid">${tablesMarkup || '<p class="game-state">No tables in this zone.</p>'}</div>
+                    </section>
+                `;
+            })
+            .join("");
+
+        map.querySelectorAll("button[data-select-table-id]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const tableId = Number(btn.getAttribute("data-select-table-id"));
+                state.selectedTableId = tableId;
+                renderFloorPlan();
+                renderSelectedTableMeta();
+                renderBookingSummary();
+            });
+        });
     }
 
     async function refreshAvailability() {
@@ -328,11 +495,16 @@
         const endSlot = document.getElementById("end-slot")?.value;
         const partySize = Number(document.getElementById("party-size")?.value || 0);
 
-        state.availability = { suggested_table: null, games: [] };
+        state.availability = { games: [] };
+        state.tableAvailability = { floors: [], filters: {} };
 
         if (!bookingDate || !startSlot || !endSlot || partySize <= 0) {
+            state.selectedTableId = null;
             renderBookingSummary();
             renderGameSelectOptions();
+            renderFloorSelector();
+            renderFloorPlan();
+            renderSelectedTableMeta();
             return;
         }
 
@@ -347,21 +519,38 @@
         const endTs = composeDateTime(bookingDate, endSlot);
 
         try {
-            const response = await fetch(
-                `/api/reservations/availability?start_ts=${encodeURIComponent(startTs)}&end_ts=${encodeURIComponent(endTs)}&party_size=${partySize}`
-            );
-            const body = await readResponseBody(response);
-            if (!response.ok) {
-                throw new Error(body.error || "Could not load availability");
+            const [bookingResponse, tableResponse] = await Promise.all([
+                fetch(
+                    `/api/reservations/availability?start_ts=${encodeURIComponent(startTs)}&end_ts=${encodeURIComponent(endTs)}&party_size=${partySize}`
+                ),
+                fetch(
+                    `/api/tables/availability?start_ts=${encodeURIComponent(startTs)}&end_ts=${encodeURIComponent(endTs)}&party_size=${partySize}`
+                ),
+            ]);
+
+            const bookingBody = await readResponseBody(bookingResponse);
+            const tableBody = await readResponseBody(tableResponse);
+
+            if (!bookingResponse.ok) {
+                throw new Error(bookingBody.error || "Could not load game availability");
+            }
+            if (!tableResponse.ok) {
+                throw new Error(tableBody.error || "Could not load table availability");
             }
 
-            state.availability = body;
+            state.availability = bookingBody;
+            state.tableAvailability = tableBody;
+            ensureSelectedFloor();
+            syncSelectedTableToAvailability();
         } catch (error) {
             setFeedback(error.message, "error");
         }
 
         renderBookingSummary();
         renderGameSelectOptions();
+        renderFloorSelector();
+        renderFloorPlan();
+        renderSelectedTableMeta();
     }
 
     async function loadLookupData() {
@@ -575,12 +764,14 @@
             return;
         }
 
-        if (!state.availability.suggested_table) {
-            setFeedback("No suitable table is available for the selected timeslot.", "error");
+        const selectedTable = getSelectedTable();
+        if (!selectedTable || !selectedTable.available) {
+            setFeedback("Select an available table from the floor plan before booking.", "error");
             return;
         }
 
         const payload = {
+            table_id: selectedTable.id,
             party_size: Number(form.party_size.value),
             start_ts: composeDateTime(bookingDate, startSlot),
             end_ts: composeDateTime(bookingDate, endSlot),
@@ -682,6 +873,7 @@
         }
 
         state.pendingGames = [];
+        state.selectedTableId = null;
         renderReservationGames();
         refreshAvailability();
     }
@@ -700,11 +892,18 @@
     document.getElementById("booking-date")?.addEventListener("change", refreshAvailability);
     document.getElementById("start-slot")?.addEventListener("change", refreshAvailability);
     document.getElementById("end-slot")?.addEventListener("change", refreshAvailability);
+    document.getElementById("floor-selector")?.addEventListener("change", (event) => {
+        state.selectedFloor = Number(event.target.value || 0) || null;
+        renderFloorPlan();
+    });
     document.getElementById("requested-game-id")?.addEventListener("change", renderSelectedGameAvailability);
 
     renderReservationGames();
     renderSelectedReservationGames();
     renderBookingSummary();
+    renderSelectedTableMeta();
+    renderFloorSelector();
+    renderFloorPlan();
     loadLookupData();
     loadReservations();
     refreshAvailability();

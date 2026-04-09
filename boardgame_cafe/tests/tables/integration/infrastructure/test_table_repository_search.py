@@ -7,9 +7,9 @@ from .conftest import seed_tables
 
 def test_table_repository_search_filters_zone(app, repo):
     """Test filtering by zone."""
-    table1 = Table(number=7, capacity=4, zone="G", features={"near_window": True}, status="available")
-    table2 = Table(number=8, capacity=4, zone="H", features={"near_window": False}, status="available")
-    table3 = Table(number=9, capacity=4, zone="G", features={"near_window": False}, status="available")
+    table1 = Table(number=7, capacity=4, floor=1, zone="G", features={"near_window": True}, status="available")
+    table2 = Table(number=8, capacity=4, floor=1, zone="H", features={"near_window": False}, status="available")
+    table3 = Table(number=9, capacity=4, floor=2, zone="G", features={"near_window": False}, status="available")
     repo.add(table1)
     repo.add(table2)
     repo.add(table3)
@@ -19,6 +19,18 @@ def test_table_repository_search_filters_zone(app, repo):
     
     assert len(filtered_tables) == 2
     assert all(t.zone == "G" for t in filtered_tables)
+
+
+def test_table_repository_search_filters_floor(app, repo):
+    """Test filtering by floor."""
+    seed_tables(repo)
+
+    repo.add(Table(number=11, capacity=4, floor=2, zone="G", features={"near_window": True}, status="available"))
+
+    filtered_tables = repo.search(TableFilters(floor=2))
+
+    assert all(t.floor == 2 for t in filtered_tables)
+    assert {t.number for t in filtered_tables} == {3, 4, 5, 11}
 
 
 def test_table_repository_search_filters_status(app, repo):
