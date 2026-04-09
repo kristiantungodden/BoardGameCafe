@@ -11,8 +11,15 @@ These tests enforce authorization at API boundaries:
 
 import pytest
 from datetime import datetime, timedelta
+from features.bookings.domain.models.booking import Booking
 
 from tests.reservations.test_fixtures import FakeCurrentUser
+
+
+def _make_reservation(*, table_id: int, **kwargs) -> Booking:
+	reservation = Booking(**kwargs)
+	setattr(reservation, "table_id", table_id)
+	return reservation
 
 
 class TestAuthenticationBoundaries:
@@ -71,7 +78,6 @@ class TestAuthorizationBoundaries:
 		from features.reservations.infrastructure.repositories.reservation_repository import (
 			SqlAlchemyReservationRepository
 		)
-		from features.reservations.domain.models.reservation import TableReservation
 		from shared.infrastructure import db
 		
 		user1_id = test_data["user"]["id"]
@@ -81,14 +87,14 @@ class TestAuthorizationBoundaries:
 			# Create reservations for multiple users
 			repo = SqlAlchemyReservationRepository()
 			
-			res_user1 = TableReservation(
+			res_user1 = _make_reservation(
 				customer_id=user1_id,
 				table_id=table_id,
 				start_ts=datetime(2026, 3, 30, 18, 0),
 				end_ts=datetime(2026, 3, 30, 20, 0),
 				party_size=4,
 			)
-			res_user2 = TableReservation(
+			res_user2 = _make_reservation(
 				customer_id=999,  # Different user
 				table_id=table_id,
 				start_ts=datetime(2026, 3, 31, 18, 0),
@@ -125,7 +131,6 @@ class TestAuthorizationBoundaries:
 		from features.reservations.infrastructure.repositories.reservation_repository import (
 			SqlAlchemyReservationRepository
 		)
-		from features.reservations.domain.models.reservation import TableReservation
 		
 		user1_id = test_data["user"]["id"]
 		other_user_id = 999
@@ -134,7 +139,7 @@ class TestAuthorizationBoundaries:
 		with app.app_context():
 			# Create a reservation owned by another user
 			repo = SqlAlchemyReservationRepository()
-			other_res = TableReservation(
+			other_res = _make_reservation(
 				customer_id=other_user_id,
 				table_id=table_id,
 				start_ts=datetime(2026, 4, 1, 18, 0),
@@ -170,7 +175,6 @@ class TestAuthorizationBoundaries:
 		from features.reservations.infrastructure.repositories.reservation_repository import (
 			SqlAlchemyReservationRepository
 		)
-		from features.reservations.domain.models.reservation import TableReservation
 		
 		staff_user_id = 99999  # Not the owner of any reservation
 		table_id = test_data["tables"][0]["id"]
@@ -179,7 +183,7 @@ class TestAuthorizationBoundaries:
 			# Create reservations for multiple users
 			repo = SqlAlchemyReservationRepository()
 			for customer_id in [1, 2, 3]:
-				res = TableReservation(
+				res = _make_reservation(
 					customer_id=customer_id,
 					table_id=table_id,
 					start_ts=datetime(2026, 3, 30, 18, 0) + timedelta(days=customer_id - 1),
@@ -212,7 +216,6 @@ class TestAuthorizationBoundaries:
 		from features.reservations.infrastructure.repositories.reservation_repository import (
 			SqlAlchemyReservationRepository
 		)
-		from features.reservations.domain.models.reservation import TableReservation
 		
 		staff_user_id = 99999
 		customer_id = 123
@@ -221,7 +224,7 @@ class TestAuthorizationBoundaries:
 		with app.app_context():
 			# Create a reservation
 			repo = SqlAlchemyReservationRepository()
-			res = TableReservation(
+			res = _make_reservation(
 				customer_id=customer_id,
 				table_id=table_id,
 				start_ts=datetime(2026, 4, 5, 18, 0),

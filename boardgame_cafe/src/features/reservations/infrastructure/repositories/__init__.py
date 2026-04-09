@@ -1,9 +1,11 @@
 from .reservation_repository import InMemoryReservationRepository
 from .game_reservation_repository import SqlAlchemyGameReservationRepository
 from .reservation_lookup_repository import SqlAlchemyReservationLookupRepository
+from .table_reservation_repository import SqlAlchemyTableReservationRepository
 
 __all__ = [
 	"InMemoryReservationRepository",
 	"SqlAlchemyGameReservationRepository",
 	"SqlAlchemyReservationLookupRepository",
+	"SqlAlchemyTableReservationRepository",
 ]

@@ -9,8 +9,15 @@ These tests enforce critical business rules at API boundaries:
 
 import pytest
 from datetime import datetime
+from features.bookings.domain.models.booking import Booking
 
 from tests.reservations.test_fixtures import FakeCurrentUser
+
+
+def _make_reservation(*, table_id: int, **kwargs) -> Booking:
+	reservation = Booking(**kwargs)
+	setattr(reservation, "table_id", table_id)
+	return reservation
 
 
 class TestOpeningHoursEnforcement:
@@ -22,7 +29,7 @@ class TestOpeningHoursEnforcement:
 		This is a hard business rule that cannot be bypassed.
 		"""
 		from unittest.mock import patch
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -57,7 +64,7 @@ class TestOpeningHoursEnforcement:
 		REQUIREMENT: Bookings ending after 23:00 MUST be rejected.
 		This is a hard business rule that cannot be bypassed.
 		"""
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -88,7 +95,7 @@ class TestOpeningHoursEnforcement:
 	
 	def test_booking_at_opening_hour_accepted(self, app, test_data):
 		"""REQUIREMENT: Bookings starting at exactly 09:00 should be accepted."""
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -114,7 +121,7 @@ class TestOpeningHoursEnforcement:
 	
 	def test_booking_until_closing_hour_accepted(self, app, test_data):
 		"""REQUIREMENT: Bookings ending at exactly 23:00 should be accepted."""
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -156,8 +163,8 @@ class TestAutoAssignmentLogic:
 		
 		This ensures API is honest about what will actually happen.
 		"""
-		from shared.presentation.api.deps import get_booking_availability_handler
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_booking_availability_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -201,7 +208,7 @@ class TestAutoAssignmentLogic:
 		- Table B (capacity 6)
 		- Table C (capacity 8)
 		"""
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -238,7 +245,7 @@ class TestAutoAssignmentLogic:
 		
 		This ensures deterministic, reproducible behavior.
 		"""
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -276,14 +283,13 @@ class TestAutoAssignmentLogic:
 		REQUIREMENT: Auto-selection must skip tables/copies already booked 
 		during the requested time window.
 		"""
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
 		from features.reservations.infrastructure.repositories.reservation_repository import (
 			SqlAlchemyReservationRepository
 		)
-		from features.reservations.domain.models.reservation import TableReservation
 		
 		table1_id = test_data["tables"][0]["id"]
 		table2_id = test_data["tables"][1]["id"]
@@ -292,7 +298,7 @@ class TestAutoAssignmentLogic:
 		with app.app_context():
 			# Block Table 1 during the requested time
 			repo = SqlAlchemyReservationRepository()
-			blocking_res = TableReservation(
+			blocking_res = _make_reservation(
 				customer_id=999,
 				table_id=table1_id,
 				start_ts=datetime(2026, 3, 30, 18, 0),

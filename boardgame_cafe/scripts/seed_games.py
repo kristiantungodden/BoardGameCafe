@@ -139,7 +139,7 @@ SEED_GAMES = [
 ]
 
 
-def seed_games() -> None:
+def seed_games() -> tuple[int, int, int]:
     app = create_app()
     inserted = 0
     updated = 0
@@ -175,8 +175,9 @@ def seed_games() -> None:
 
         total = db.session.query(GameDB).count()
 
-    print(f"Inserted {inserted} mock games, updated {updated}. Total games now: {total}")
+    return inserted, updated, total
 
 
 if __name__ == "__main__":
-    seed_games()
+    inserted, updated, total = seed_games()
+    print(f"Inserted {inserted} mock games, updated {updated}. Total games now: {total}")

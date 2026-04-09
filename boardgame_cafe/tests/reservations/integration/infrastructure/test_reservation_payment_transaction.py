@@ -10,7 +10,7 @@ from features.reservations.infrastructure.database.table_reservations_db import 
 from features.tables.infrastructure.database.table_db import TableDB
 from features.users.infrastructure.database.user_db import UserDB
 from shared.domain.exceptions import ValidationError
-from shared.presentation.api import deps
+from features.reservations.presentation.api import deps
 
 
 def test_transaction_rolls_back_reservation_when_payment_creation_fails(app, monkeypatch):

@@ -7,7 +7,7 @@ from features.payments.infrastructure.repositories.payment_repository import Pay
 def test_capture_and_cancel_routes(client, app):
     repo = PaymentRepository()
     with app.app_context():
-        payment = Payment(table_reservation_id=5, amount_cents=2000)
+        payment = Payment(booking_id=5, amount_cents=2000)
         saved = repo.add(payment)
         # set a simulated provider_ref to trigger simulated flows
         saved.provider = "vipps"
@@ -25,7 +25,7 @@ def test_capture_and_cancel_routes(client, app):
 
     # Prepare another payment to cancel
     with app.app_context():
-        p2 = Payment(table_reservation_id=6, amount_cents=1000)
+        p2 = Payment(booking_id=6, amount_cents=1000)
         s2 = repo.add(p2)
         s2.provider = "vipps"
         s2.provider_ref = f"vipps:sim-{s2.id}"

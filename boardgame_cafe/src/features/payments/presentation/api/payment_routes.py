@@ -41,7 +41,7 @@ def calculate_payment_route():
         validated = PaymentSchema.validate_create_request(data)
 
         reservation = SimpleNamespace(
-            id=validated["table_reservation_id"],
+            id=validated["booking_id"],
             party_size=validated["party_size"],
         )
         payment = create_calculated_payment(reservation)
@@ -67,7 +67,7 @@ def create_payment_route():
         validated = PaymentSchema.validate_create_request(data)
 
         reservation = SimpleNamespace(
-            id=validated["table_reservation_id"],
+            id=validated["booking_id"],
             party_size=validated["party_size"],
         )
         payment = create_calculated_payment(reservation)

@@ -6,7 +6,7 @@ from features.payments.application.use_cases.payment_use_cases import (
     calculate_amount_kroner,
     create_calculated_payment,
 )
-from features.reservations.domain.models.reservation import TableReservation
+from features.bookings.domain.models.booking import Booking
 
 
 def make_reservation(
@@ -16,14 +16,15 @@ def make_reservation(
     start = datetime.now() 
     end = start + timedelta(hours=2)
 
-    return TableReservation(
+    reservation = Booking(
         id=reservation_id,
         customer_id=1,
-        table_id=1,
         start_ts=start,
         end_ts=end,
         party_size=party_size,
     )
+    setattr(reservation, "table_id", 1)
+    return reservation
 
 
 def test_calculate_amount_kroner_uses_party_size():
@@ -39,7 +40,7 @@ def test_create_calculated_payment_returns_payment():
 
     payment = create_calculated_payment(reservation)
 
-    assert payment.table_reservation_id == 42
+    assert payment.booking_id == 42
     assert payment.amount_kroner == 625.00
     assert payment.status == PaymentStatus.CALCULATED
 

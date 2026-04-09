@@ -10,6 +10,13 @@ These tests enforce transactional consistency:
 import pytest
 from datetime import datetime
 from decimal import Decimal
+from features.bookings.domain.models.booking import Booking
+
+
+def _make_reservation(*, table_id: int, **kwargs) -> Booking:
+	reservation = Booking(**kwargs)
+	setattr(reservation, "table_id", table_id)
+	return reservation
 
 
 class TestTransactionAtomicity:
@@ -25,14 +32,13 @@ class TestTransactionAtomicity:
 		- No games assigned
 		- No payment record
 		"""
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
 		from features.reservations.infrastructure.repositories.reservation_repository import (
 			SqlAlchemyReservationRepository
 		)
-		from features.reservations.domain.models.reservation import TableReservation
 		from shared.domain.exceptions import ValidationError
 		from shared.infrastructure import db
 		
@@ -44,7 +50,7 @@ class TestTransactionAtomicity:
 			# Block ALL tables during requested time
 			repo = SqlAlchemyReservationRepository()
 			for table_id in [table1_id, table2_id]:
-				blocking_res = TableReservation(
+				blocking_res = _make_reservation(
 					customer_id=999,
 					table_id=table_id,
 					start_ts=datetime(2026, 3, 30, 18, 0),
@@ -83,7 +89,7 @@ class TestTransactionAtomicity:
 		REQUIREMENT: If party is too large for any available table,
 		booking must fail completely without creating any records.
 		"""
-		from shared.presentation.api.deps import get_create_booking_handler
+		from features.reservations.presentation.api.deps import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -134,7 +140,6 @@ class TestConcurrentBookingConflicts:
 		from features.reservations.infrastructure.repositories.reservation_repository import (
 			SqlAlchemyReservationRepository
 		)
-		from features.reservations.domain.models.reservation import TableReservation
 		
 		table_id = test_data["tables"][0]["id"]
 		
@@ -142,7 +147,7 @@ class TestConcurrentBookingConflicts:
 			repo = SqlAlchemyReservationRepository()
 			
 			# First booking succeeds
-			booking1 = TableReservation(
+			booking1 = _make_reservation(
 				customer_id=1,
 				table_id=table_id,
 				start_ts=datetime(2026, 3, 30, 18, 0),
@@ -157,7 +162,7 @@ class TestConcurrentBookingConflicts:
 			# B) Be queued/waitlisted
 			# But definitely NOT both confirmed
 			
-			booking2 = TableReservation(
+			booking2 = _make_reservation(
 				customer_id=2,
 				table_id=table_id,
 				start_ts=datetime(2026, 3, 30, 18, 30),  # Overlaps

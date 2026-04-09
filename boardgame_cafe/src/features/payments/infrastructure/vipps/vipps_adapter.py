@@ -63,12 +63,13 @@ class VippsAdapter(PaymentProviderInterface):
         return not (self.config.client_id and self.config.client_secret and self.config.subscription_key)
 
     def start_payment(self, payment: Payment) -> str:
+        booking_id = payment.booking_id
         if self._is_simulated():
             ref = f"vipps:{uuid4()}"
             logger.info("Vipps not fully configured — simulated start_payment => %s", ref)
             return ref
 
-        order_id = f"bgc-{payment.table_reservation_id}-{payment.id or uuid4()}"
+        order_id = f"bgc-{booking_id}-{payment.id or uuid4()}"
         payload = {
             "customerInfo": {},
             "merchantInfo": {
@@ -79,7 +80,7 @@ class VippsAdapter(PaymentProviderInterface):
             "transaction": {
                 "amount": payment.amount_cents,
                 "orderId": order_id,
-                "transactionText": f"Reservation {payment.table_reservation_id}",
+                "transactionText": f"Booking {booking_id}",
             },
         }
         data = self.client.initiate_payment(payload)

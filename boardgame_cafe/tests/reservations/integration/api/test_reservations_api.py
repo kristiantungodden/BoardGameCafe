@@ -2,8 +2,14 @@ from datetime import datetime
 
 from flask import Flask
 import features.reservations.presentation.api.reservation_routes as reservations_module
-from features.reservations.domain.models.reservation import TableReservation
+from features.bookings.domain.models.booking import Booking
 from shared.domain.exceptions import InvalidStatusTransition
+
+
+def _make_reservation(*, table_id: int, **kwargs) -> Booking:
+    reservation = Booking(**kwargs)
+    setattr(reservation, "table_id", table_id)
+    return reservation
 
 
 class FakeTransitionUseCase:
@@ -13,7 +19,7 @@ class FakeTransitionUseCase:
     def execute(self, reservation_id: int):
         if reservation_id != 1:
             return None
-        reservation = TableReservation(
+        reservation = _make_reservation(
             id=1,
             customer_id=1,
             table_id=2,
@@ -40,7 +46,7 @@ class FakeAddGameToReservationUseCase:
             (),
             {
                 "id": 10,
-                "table_reservation_id": cmd.reservation_id,
+                "booking_id": cmd.reservation_id,
                 "requested_game_id": cmd.requested_game_id,
                 "game_copy_id": cmd.game_copy_id,
             },
@@ -62,7 +68,7 @@ class FakeListReservationGamesUseCase:
                 (),
                 {
                     "id": 10,
-                    "table_reservation_id": 1,
+                    "booking_id": 1,
                     "requested_game_id": 3,
                     "game_copy_id": 7,
                 },
@@ -278,7 +284,7 @@ def test_post_reservation_games_adds_game_to_booking(monkeypatch):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert data["table_reservation_id"] == 1
+    assert data["booking_id"] == 1
     assert data["requested_game_id"] == 3
     assert data["game_copy_id"] == 7
 

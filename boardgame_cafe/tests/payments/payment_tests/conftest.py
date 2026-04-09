@@ -6,36 +6,36 @@ import pytest
 
 
 @dataclass
-class FakeTableReservation:
+class FakeBooking:
     id: int | None
     party_size: int
 
 
 @pytest.fixture(autouse=True)
-def stub_reservation_module(monkeypatch):
-    """Provide a lightweight reservation module so payment imports work in isolation."""
+def stub_booking_module(monkeypatch):
+    """Provide a lightweight booking module so payment imports work in isolation."""
     features_pkg = sys.modules.get("features") or types.ModuleType("features")
-    reservations_pkg = sys.modules.get("features.reservations") or types.ModuleType(
-        "features.reservations"
+    bookings_pkg = sys.modules.get("features.bookings") or types.ModuleType(
+        "features.bookings"
     )
     domain_pkg = sys.modules.get(
-        "features.reservations.domain"
-    ) or types.ModuleType("features.reservations.domain")
+        "features.bookings.domain"
+    ) or types.ModuleType("features.bookings.domain")
     models_pkg = sys.modules.get(
-        "features.reservations.domain.models"
-    ) or types.ModuleType("features.reservations.domain.models")
-    reservation_module = types.ModuleType(
-        "features.reservations.domain.models.reservation"
+        "features.bookings.domain.models"
+    ) or types.ModuleType("features.bookings.domain.models")
+    booking_module = types.ModuleType(
+        "features.bookings.domain.models.booking"
     )
-    reservation_module.TableReservation = FakeTableReservation
+    booking_module.Booking = FakeBooking
 
     monkeypatch.setitem(sys.modules, "features", features_pkg)
-    monkeypatch.setitem(sys.modules, "features.reservations", reservations_pkg)
-    monkeypatch.setitem(sys.modules, "features.reservations.domain", domain_pkg)
-    monkeypatch.setitem(sys.modules, "features.reservations.domain.models", models_pkg)
+    monkeypatch.setitem(sys.modules, "features.bookings", bookings_pkg)
+    monkeypatch.setitem(sys.modules, "features.bookings.domain", domain_pkg)
+    monkeypatch.setitem(sys.modules, "features.bookings.domain.models", models_pkg)
     monkeypatch.setitem(
         sys.modules,
-        "features.reservations.domain.models.reservation",
-        reservation_module,
+        "features.bookings.domain.models.booking",
+        booking_module,
     )
     yield

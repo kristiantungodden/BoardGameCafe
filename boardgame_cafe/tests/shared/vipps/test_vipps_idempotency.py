@@ -10,7 +10,7 @@ from features.payments.presentation.api.payment_routes import configure_payment_
 def test_capture_forwards_x_request_id_and_is_idempotent(client, app, monkeypatch):
     repo = PaymentRepository()
     with app.app_context():
-        p = Payment(table_reservation_id=8, amount_cents=1500)
+        p = Payment(booking_id=8, amount_cents=1500)
         saved = repo.add(p)
         saved.provider = "vipps"
         saved.provider_ref = f"vipps:sim-{saved.id}"
@@ -36,7 +36,7 @@ def test_capture_forwards_x_request_id_and_is_idempotent(client, app, monkeypatc
 def test_cancel_forwards_x_request_id(client, app):
     repo = PaymentRepository()
     with app.app_context():
-        p = Payment(table_reservation_id=9, amount_cents=1200)
+        p = Payment(booking_id=9, amount_cents=1200)
         saved = repo.add(p)
         saved.provider = "vipps"
         saved.provider_ref = f"vipps:sim-{saved.id}"

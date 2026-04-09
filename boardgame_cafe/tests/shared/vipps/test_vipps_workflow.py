@@ -10,7 +10,7 @@ from features.payments.presentation.api.payment_routes import configure_payment_
 def test_start_route_and_webhook_updates_status(client, app, monkeypatch):
     repo = PaymentRepository()
     with app.app_context():
-        payment = Payment(table_reservation_id=7, amount_cents=3000)
+        payment = Payment(booking_id=7, amount_cents=3000)
         saved = repo.add(payment)
 
     adapter = VippsAdapter(

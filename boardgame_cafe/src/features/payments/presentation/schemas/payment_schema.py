@@ -9,13 +9,13 @@ class PaymentSchema:
         if not isinstance(data, dict):
             raise ValueError("Request body must be a JSON object")
 
-        reservation_id = data.get("table_reservation_id")
-        if reservation_id is None:
-            raise ValueError("table_reservation_id is required")
-        if not isinstance(reservation_id, int):
-            raise ValueError("table_reservation_id must be an integer")
-        if reservation_id <= 0:
-            raise ValueError("table_reservation_id must be positive")
+        booking_id = data.get("booking_id")
+        if booking_id is None:
+            raise ValueError("booking_id is required")
+        if not isinstance(booking_id, int):
+            raise ValueError("booking_id must be an integer")
+        if booking_id <= 0:
+            raise ValueError("booking_id must be positive")
         
         party_size = data.get("party_size")
         if party_size is None:
@@ -25,13 +25,13 @@ class PaymentSchema:
         if party_size <= 0:
             raise ValueError("party_size must be at least 1")
 
-        return {"table_reservation_id": reservation_id, "party_size": party_size}
+        return {"booking_id": booking_id, "party_size": party_size}
 
     @staticmethod
     def dump(payment: Payment) -> dict[str, Any]:
         return {
             "id": payment.id,
-            "table_reservation_id": payment.table_reservation_id,
+            "booking_id": payment.booking_id,
             "amount_cents": payment.amount_cents,
             "amount_kroner": payment.amount_kroner,
             "currency": payment.currency,

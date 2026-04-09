@@ -14,7 +14,7 @@ class PaymentRepository(PaymentRepositoryInterface):
 
     def add(self, payment: DomainPayment) -> DomainPayment:
         db_payment = PaymentDB(
-            table_reservation_id=payment.table_reservation_id,
+            booking_id=payment.booking_id,
             type=payment.type,
             provider=payment.provider,
             amount_cents=payment.amount_cents,
@@ -37,10 +37,10 @@ class PaymentRepository(PaymentRepositoryInterface):
         if db_payment is None:
             return None
         return db_payment.to_domain()
-    
-    def get_by_reservation_id(self, reservation_id: int) -> DomainPayment | None:
+
+    def get_by_booking_id(self, booking_id: int) -> DomainPayment | None:
         db_payment = self.session.query(PaymentDB).filter_by(
-            table_reservation_id=reservation_id
+            booking_id=booking_id
         ).first()
         if db_payment is None:
             return None
@@ -64,7 +64,7 @@ class PaymentRepository(PaymentRepositoryInterface):
         if db_payment is None:
             raise ValueError(f"Payment with id {payment.id} not found")
 
-        db_payment.table_reservation_id = payment.table_reservation_id
+        db_payment.booking_id = payment.booking_id
         db_payment.type = payment.type
         db_payment.provider = payment.provider
         db_payment.amount_cents = payment.amount_cents

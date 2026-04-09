@@ -1,9 +1,11 @@
 from .reservation_repository_interface import ReservationRepositoryInterface
 from .game_reservation_repository_interface import GameReservationRepositoryInterface
 from .reservation_lookup_repository_interface import ReservationLookupRepositoryInterface
+from .table_reservation_repository_interface import TableReservationRepositoryInterface
 
 __all__ = [
 	"ReservationRepositoryInterface",
 	"GameReservationRepositoryInterface",
 	"ReservationLookupRepositoryInterface",
+	"TableReservationRepositoryInterface",
 ]

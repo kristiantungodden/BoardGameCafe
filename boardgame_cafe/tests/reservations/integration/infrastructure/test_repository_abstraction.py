@@ -66,7 +66,7 @@ class TestRepositoryDependencyInversion:
 		REQUIREMENT: CreateBookingUseCase must depend on availability repository interfaces.
 		This ensures the booking logic can be tested with fake implementations.
 		"""
-		from features.reservations.application.use_cases.booking_use_cases import (
+		from features.bookings.application.use_cases.booking_use_cases import (
 			CreateBookingUseCase
 		)
 		from features.reservations.application.interfaces.available_table_repository_interface import (
@@ -168,7 +168,7 @@ class TestRepositorySwappability:
 			CreateReservationUseCase,
 			CreateReservationCommand
 		)
-		from features.reservations.domain.models.reservation import TableReservation
+		from features.bookings.domain.models.booking import Booking
 		from datetime import datetime
 		
 		# Implement a minimal fake that satisfies the interface
@@ -189,7 +189,9 @@ class TestRepositorySwappability:
 			def list_for_table_in_window(self, table_id, start_ts, end_ts):
 				return [
 					r for r in self.items
-					if r.table_id == table_id and r.start_ts < end_ts and start_ts < r.end_ts
+					if getattr(r, "table_id", None) == table_id
+					and r.start_ts < end_ts
+					and start_ts < r.end_ts
 				]
 			
 			def update(self, reservation):

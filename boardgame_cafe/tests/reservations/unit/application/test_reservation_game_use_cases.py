@@ -5,15 +5,21 @@ from features.reservations.application.use_cases.reservation_game_use_cases impo
     AddGameToReservationUseCase,
     RemoveGameFromReservationUseCase,
 )
-from features.reservations.domain.models.reservation import TableReservation
+from features.bookings.domain.models.booking import Booking
 from features.reservations.domain.models.reservation_game import ReservationGame
 from shared.domain.exceptions import ValidationError
+
+
+def _make_reservation(*, table_id: int, **kwargs) -> Booking:
+    reservation = Booking(**kwargs)
+    setattr(reservation, "table_id", table_id)
+    return reservation
 
 
 class FakeReservationRepo:
     def __init__(self):
         self.reservations = {
-            1: TableReservation(
+            1: _make_reservation(
                 id=1,
                 customer_id=1,
                 table_id=2,
@@ -45,8 +51,8 @@ class FakeReservationGameRepo:
                 return item
         return None
 
-    def list_for_reservation(self, reservation_id):
-        return [item for item in self.items if item.table_reservation_id == reservation_id]
+    def list_for_booking(self, booking_id):
+        return [item for item in self.items if item.booking_id == booking_id]
 
     def delete(self, reservation_game_id):
         item = self.get_by_id(reservation_game_id)
@@ -70,7 +76,7 @@ def test_add_game_to_reservation_success():
     )
 
     assert result.id == 1
-    assert result.table_reservation_id == 1
+    assert result.booking_id == 1
     assert result.requested_game_id == 3
     assert result.game_copy_id == 7
 
@@ -80,7 +86,7 @@ def test_add_game_to_reservation_rejects_duplicate_copy():
     game_repo = FakeReservationGameRepo()
     game_repo.add(
         ReservationGame(
-            table_reservation_id=1,
+            booking_id=1,
             requested_game_id=2,
             game_copy_id=7,
         )
@@ -105,7 +111,7 @@ def test_remove_game_from_reservation_success():
     game_repo = FakeReservationGameRepo()
     saved = game_repo.add(
         ReservationGame(
-            table_reservation_id=1,
+            booking_id=1,
             requested_game_id=2,
             game_copy_id=7,
         )

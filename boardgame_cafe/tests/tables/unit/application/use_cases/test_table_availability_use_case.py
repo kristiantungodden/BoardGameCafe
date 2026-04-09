@@ -1,10 +1,16 @@
 from datetime import datetime
 
-from features.reservations.domain.models.reservation import TableReservation
+from features.bookings.domain.models.booking import Booking
 from features.tables.application.use_cases.table_availability_use_case import (
     GetTableAvailabilityUseCase,
 )
 from features.tables.domain.models.table import Table
+
+
+def _make_reservation(*, table_id: int, **kwargs) -> Booking:
+    reservation = Booking(**kwargs)
+    setattr(reservation, "table_id", table_id)
+    return reservation
 
 
 class FakeTableRepository:
@@ -46,7 +52,7 @@ def test_table_availability_groups_by_floor_and_zone_and_marks_blocked_tables():
         setattr(table, "id", idx)
 
     reservations = [
-        TableReservation(
+        _make_reservation(
             id=99,
             customer_id=1,
             table_id=4,

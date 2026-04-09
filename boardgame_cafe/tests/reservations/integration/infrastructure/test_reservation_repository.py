@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
 from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
@@ -41,11 +42,10 @@ def _create_user_table_game(db_session):
 
 
 def test_table_reservation_db_rejects_invalid_time_window(db_session):
-	user, table, _, _ = _create_user_table_game(db_session)
+	user, _, _, _ = _create_user_table_game(db_session)
 
-	row = TableReservationDB(
+	row = BookingDB(
 		customer_id=user.id,
-		table_id=table.id,
 		start_ts=datetime(2026, 4, 1, 19, 0),
 		end_ts=datetime(2026, 4, 1, 18, 0),
 		party_size=4,
@@ -59,11 +59,10 @@ def test_table_reservation_db_rejects_invalid_time_window(db_session):
 
 
 def test_table_reservation_db_rejects_invalid_status(db_session):
-	user, table, _, _ = _create_user_table_game(db_session)
+	user, _, _, _ = _create_user_table_game(db_session)
 
-	row = TableReservationDB(
+	row = BookingDB(
 		customer_id=user.id,
-		table_id=table.id,
 		start_ts=datetime(2026, 4, 1, 18, 0),
 		end_ts=datetime(2026, 4, 1, 20, 0),
 		party_size=4,
@@ -79,19 +78,22 @@ def test_table_reservation_db_rejects_invalid_status(db_session):
 def test_game_reservation_db_rejects_duplicate_copy_for_same_booking(db_session):
 	user, table, game, copy = _create_user_table_game(db_session)
 
-	reservation = TableReservationDB(
+	booking = BookingDB(
 		customer_id=user.id,
-		table_id=table.id,
 		start_ts=datetime(2026, 4, 1, 18, 0),
 		end_ts=datetime(2026, 4, 1, 20, 0),
 		party_size=4,
 		status="confirmed",
 	)
-	db_session.add(reservation)
+	db_session.add(booking)
+	db_session.commit()
+
+	table_link = TableReservationDB(booking_id=booking.id, table_id=table.id)
+	db_session.add(table_link)
 	db_session.commit()
 
 	first = GameReservationDB(
-		table_reservation_id=reservation.id,
+		booking_id=booking.id,
 		game_copy_id=copy.id,
 		requested_game_id=game.id,
 	)
@@ -99,7 +101,7 @@ def test_game_reservation_db_rejects_duplicate_copy_for_same_booking(db_session)
 	db_session.commit()
 
 	duplicate = GameReservationDB(
-		table_reservation_id=reservation.id,
+		booking_id=booking.id,
 		game_copy_id=copy.id,
 		requested_game_id=game.id,
 	)

@@ -7,8 +7,8 @@ class PaymentDB(db.Model):
     __tablename__ = "payments"
 
     id = db.Column(db.Integer, primary_key=True)
-    table_reservation_id = db.Column(
-        db.Integer, db.ForeignKey("table_reservations.id"), nullable=False
+    booking_id = db.Column(
+        db.Integer, db.ForeignKey("bookings.id"), nullable=False
     )
 
     type = db.Column(db.String(50), nullable=False)
@@ -19,7 +19,7 @@ class PaymentDB(db.Model):
     provider_ref = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
-    table_reservation = db.relationship("TableReservationDB", backref="payments")
+    booking = db.relationship("BookingDB", backref="payments")
 
     def to_domain(self) -> DomainPayment:
         # Convert stored status string to PaymentStatus enum for domain model
@@ -30,7 +30,7 @@ class PaymentDB(db.Model):
 
         return DomainPayment(
             id=self.id,
-            table_reservation_id=self.table_reservation_id,
+            booking_id=self.booking_id,
             type=self.type,
             provider=self.provider,
             amount_cents=self.amount_cents,

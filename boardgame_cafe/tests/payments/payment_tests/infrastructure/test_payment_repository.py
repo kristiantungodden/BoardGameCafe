@@ -42,7 +42,7 @@ class FakePaymentDB:
 
     def __init__(self, **kwargs):
         self.id = None
-        self.table_reservation_id = kwargs["table_reservation_id"]
+        self.booking_id = kwargs["booking_id"]
         self.type = kwargs["type"]
         self.provider = kwargs["provider"]
         self.amount_cents = kwargs["amount_cents"]
@@ -53,7 +53,7 @@ class FakePaymentDB:
     def to_domain(self):
         return Payment(
             id=self.id,
-            table_reservation_id=self.table_reservation_id,
+            booking_id=self.booking_id,
             amount_cents=self.amount_cents,
             currency=self.currency,
             status=self.status,
@@ -73,23 +73,23 @@ def test_add_persists_payment_and_returns_domain_object(monkeypatch):
         FakePaymentDB,
     )
     repository = PaymentRepository()
-    payment = Payment(table_reservation_id=3, amount_cents=30000)
+    payment = Payment(booking_id=3, amount_cents=30000)
 
     saved = repository.add(payment)
 
     assert fake_db.session.committed is True
     assert len(fake_db.session.added) == 1
     inserted = fake_db.session.added[0]
-    assert inserted.table_reservation_id == 3
+    assert inserted.booking_id == 3
     assert inserted.amount_cents == 30000
     assert saved.id == 1
-    assert saved.table_reservation_id == 3
+    assert saved.booking_id == 3
     assert saved.amount_cents == 30000
 
 
 def test_get_by_id_returns_domain_payment_when_found(monkeypatch):
     db_row = FakePaymentDB(
-        table_reservation_id=5,
+        booking_id=5,
         type="reservation",
         provider="none",
         amount_cents=45000,
@@ -126,7 +126,7 @@ def test_get_by_id_returns_domain_payment_when_found(monkeypatch):
     assert stub_query.last_id == 42
     assert payment is not None
     assert payment.id == 42
-    assert payment.table_reservation_id == 5
+    assert payment.booking_id == 5
     assert payment.amount_cents == 45000
 
 

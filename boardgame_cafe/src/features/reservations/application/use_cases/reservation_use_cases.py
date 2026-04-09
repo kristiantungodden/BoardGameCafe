@@ -2,10 +2,12 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from typing import Optional, Sequence
 
-from features.reservations.application.interfaces.reservation_repository_interface import ReservationRepositoryInterface
-from shared.domain.exceptions import ValidationError
+from features.bookings.domain.models.booking import Booking
+from features.reservations.application.interfaces.reservation_repository_interface import (
+    ReservationRepositoryInterface,
+)
 from shared.domain.constants import OVERLAP_BLOCKING_STATUSES
-from features.reservations.domain.models.reservation import TableReservation
+from shared.domain.exceptions import ValidationError
 
 _OPENING_TIME = time(hour=9, minute=0)
 _CLOSING_TIME = time(hour=23, minute=0)
@@ -25,7 +27,7 @@ class CreateReservationUseCase:
     def __init__(self, repo: ReservationRepositoryInterface):
         self.repo = repo
 
-    def execute(self, cmd: CreateReservationCommand) -> TableReservation:
+    def execute(self, cmd: CreateReservationCommand) -> Booking:
         if cmd.table_id is None:
             raise ValidationError("table_id must be selected before creating reservation")
 
@@ -39,14 +41,16 @@ class CreateReservationUseCase:
                 "Reservations must be within opening hours: 09:00 to 23:00."
             )
 
-        candidate = TableReservation(
+        candidate = Booking(
             customer_id=cmd.customer_id,
-            table_id=cmd.table_id,
             start_ts=cmd.start_ts,
             end_ts=cmd.end_ts,
             party_size=cmd.party_size,
             notes=cmd.notes,
         )
+
+        # Reservation compatibility views still include table_id metadata.
+        setattr(candidate, "table_id", cmd.table_id)
 
         existing = self.repo.list_for_table_in_window(
             table_id=cmd.table_id,
@@ -54,7 +58,9 @@ class CreateReservationUseCase:
             end_ts=cmd.end_ts,
         )
         if any(
-            candidate.overlaps(r) and r.status in OVERLAP_BLOCKING_STATUSES
+            candidate.start_ts < r.end_ts
+            and r.start_ts < candidate.end_ts
+            and getattr(r, "status", None) in OVERLAP_BLOCKING_STATUSES
             for r in existing
         ):
             raise ValidationError("Table is not available for the requested timeslot.")
@@ -66,7 +72,7 @@ class ListReservationsUseCase:
     def __init__(self, repo: ReservationRepositoryInterface):
         self.repo = repo
 
-    def execute(self) -> Sequence[TableReservation]:
+    def execute(self) -> Sequence[Booking]:
         return self.repo.list_all()
 
 
@@ -74,7 +80,7 @@ class GetReservationByIdUseCase:
     def __init__(self, repo: ReservationRepositoryInterface):
         self.repo = repo
 
-    def execute(self, reservation_id: int) -> Optional[TableReservation]:
+    def execute(self, reservation_id: int) -> Optional[Booking]:
         return self.repo.get_by_id(reservation_id)
 
 
@@ -82,11 +88,10 @@ class CancelReservationUseCase:
     def __init__(self, repo: ReservationRepositoryInterface):
         self.repo = repo
 
-    def execute(self, reservation_id: int) -> Optional[TableReservation]:
+    def execute(self, reservation_id: int) -> Optional[Booking]:
         reservation = self.repo.get_by_id(reservation_id)
         if reservation is None:
             return None
-
         reservation.cancel()
         return self.repo.update(reservation)
 
@@ -95,11 +100,10 @@ class SeatReservationUseCase:
     def __init__(self, repo: ReservationRepositoryInterface):
         self.repo = repo
 
-    def execute(self, reservation_id: int) -> Optional[TableReservation]:
+    def execute(self, reservation_id: int) -> Optional[Booking]:
         reservation = self.repo.get_by_id(reservation_id)
         if reservation is None:
             return None
-
         reservation.seat()
         return self.repo.update(reservation)
 
@@ -108,11 +112,10 @@ class CompleteReservationUseCase:
     def __init__(self, repo: ReservationRepositoryInterface):
         self.repo = repo
 
-    def execute(self, reservation_id: int) -> Optional[TableReservation]:
+    def execute(self, reservation_id: int) -> Optional[Booking]:
         reservation = self.repo.get_by_id(reservation_id)
         if reservation is None:
             return None
-
         reservation.complete()
         return self.repo.update(reservation)
 
@@ -121,10 +124,9 @@ class MarkReservationNoShowUseCase:
     def __init__(self, repo: ReservationRepositoryInterface):
         self.repo = repo
 
-    def execute(self, reservation_id: int) -> Optional[TableReservation]:
+    def execute(self, reservation_id: int) -> Optional[Booking]:
         reservation = self.repo.get_by_id(reservation_id)
         if reservation is None:
             return None
-
         reservation.mark_no_show()
         return self.repo.update(reservation)

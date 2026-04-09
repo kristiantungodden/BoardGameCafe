@@ -4,6 +4,7 @@ from typing import Optional
 from features.reservations.application.interfaces.available_table_repository_interface import (
     AvailableTableRepositoryInterface,
 )
+from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 from features.tables.infrastructure.database.table_db import TableDB
 from shared.domain.constants import OVERLAP_BLOCKING_STATUSES
@@ -20,9 +21,10 @@ class SqlAlchemyAvailableTableRepository(AvailableTableRepositoryInterface):
         """Get table IDs blocked during the given time window."""
         rows = (
             self.session.query(TableReservationDB.table_id)
-            .filter(TableReservationDB.status.in_(OVERLAP_BLOCKING_STATUSES))
-            .filter(TableReservationDB.start_ts < end_ts)
-            .filter(start_ts < TableReservationDB.end_ts)
+            .join(BookingDB, TableReservationDB.booking_id == BookingDB.id)
+            .filter(BookingDB.status.in_(OVERLAP_BLOCKING_STATUSES))
+            .filter(BookingDB.start_ts < end_ts)
+            .filter(start_ts < BookingDB.end_ts)
             .all()
         )
         return {row[0] for row in rows}

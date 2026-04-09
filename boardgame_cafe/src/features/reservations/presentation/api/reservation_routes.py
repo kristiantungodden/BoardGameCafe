@@ -28,7 +28,7 @@ from features.payments.presentation.schemas.payment_schema import PaymentSchema
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationRequest
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationBookingRequest
 from features.reservations.presentation.schemas.reservation_game_schema import AddReservationGameRequest
-from shared.presentation.api.deps import (
+from features.reservations.presentation.api.deps import (
     get_booking_availability_handler,
     get_create_booking_handler,
     get_add_game_to_reservation_use_case,
@@ -63,7 +63,7 @@ def _serialize_reservation(reservation):
 def _serialize_reservation_game(reservation_game):
     return {
         "id": reservation_game.id,
-        "table_reservation_id": reservation_game.table_reservation_id,
+        "booking_id": reservation_game.booking_id,
         "requested_game_id": reservation_game.requested_game_id,
         "game_copy_id": reservation_game.game_copy_id,
     }

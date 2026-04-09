@@ -20,7 +20,7 @@ class SpyPaymentRepository:
         self.add_calls.append(payment)
         return Payment(
             id=99,
-            table_reservation_id=payment.table_reservation_id,
+            booking_id=payment.booking_id,
             amount_cents=payment.amount_cents,
             currency=payment.currency,
             status=payment.status,
@@ -52,7 +52,7 @@ def test_create_calculated_payment_builds_payment_from_reservation():
     payment = create_calculated_payment(reservation)
 
     assert payment.id is None
-    assert payment.table_reservation_id == 7
+    assert payment.booking_id == 7
     assert payment.amount_cents == 2 * PRICE_PER_CAPACITY_CENTS + PRICE_BASE_TABLE
     assert payment.currency == "NOK"
     assert payment.status == PaymentStatus.CALCULATED
@@ -73,7 +73,7 @@ def test_create_and_save_payment_creates_payment_and_calls_repository():
 
     assert len(repository.add_calls) == 1
     added_payment = repository.add_calls[0]
-    assert added_payment.table_reservation_id == 12
+    assert added_payment.booking_id == 12
     assert added_payment.amount_cents == 5 * PRICE_PER_CAPACITY_CENTS + PRICE_BASE_TABLE
     assert saved_payment.id == 99
     assert saved_payment.amount_cents == 5 * PRICE_PER_CAPACITY_CENTS + PRICE_BASE_TABLE

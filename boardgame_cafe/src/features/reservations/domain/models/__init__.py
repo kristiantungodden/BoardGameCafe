@@ -1,4 +1,7 @@
-from .reservation import TableReservation, VALID_RESERVATION_STATUSES
+from .table_reservation import TableReservation
 from .reservation_game import ReservationGame
 
-__all__ = ["TableReservation", "VALID_RESERVATION_STATUSES", "ReservationGame"]
+__all__ = [
+    "TableReservation",
+    "ReservationGame",
+]
