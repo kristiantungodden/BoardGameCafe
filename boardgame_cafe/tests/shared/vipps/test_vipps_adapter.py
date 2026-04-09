@@ -38,7 +38,7 @@ def test_start_payment_and_fetch_status(monkeypatch):
         return R({}, 404)
 
     with patch("requests.post", side_effect=mock_post):
-        payment = Payment(table_reservation_id=1, amount_cents=5000, id=10)
+        payment = Payment(booking_id=1, amount_cents=5000, id=10)
         order_id = adapter.start_payment(payment)
         assert order_id == "order-abc"
 

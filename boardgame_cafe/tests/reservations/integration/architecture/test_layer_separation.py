@@ -21,9 +21,9 @@ class TestDomainLayerPurity:
 		
 		Domain logic must be pure business logic, testable without HTTP infrastructure.
 		"""
-		from features.reservations.domain.models import reservation
+		from features.reservations.domain.models import reservation_game, table_reservation
 		
-		source = inspect.getsource(reservation)
+		source = inspect.getsource(reservation_game) + inspect.getsource(table_reservation)
 		
 		forbidden = [
 			"from flask",
@@ -45,9 +45,9 @@ class TestDomainLayerPurity:
 		
 		Domain models represent business concepts, not database tables.
 		"""
-		from features.reservations.domain.models import reservation
+		from features.reservations.domain.models import reservation_game, table_reservation
 		
-		source = inspect.getsource(reservation)
+		source = inspect.getsource(reservation_game) + inspect.getsource(table_reservation)
 		
 		forbidden = [
 			"from sqlalchemy",
@@ -166,26 +166,26 @@ class TestApplicationLayerDependencyInjection:
 	
 	def test_dependency_injection_container_has_minimal_logic(self):
 		"""
-		REQUIREMENT: The DI container (deps.py) should ONLY wire up components.
+		REQUIREMENT: DI containers should ONLY wire up components.
 		It should NOT contain business logic, conditionals, or queries.
 		"""
-		from shared.presentation.api import deps
-		
-		source = inspect.getsource(deps)
-		
-		# Allow factory functions like `def get_xxx_handler():`
-		# But discourage business logic and data access
-		
-		# SMELL: Data access in deps
-		assert ".query(" not in source, (
-			"Dependency injection should not perform database queries"
-		)
-		assert "session.query" not in source, (
-			"Dependency injection should not perform database queries"
-		)
-		assert "session.execute" not in source, (
-			"Dependency injection should not perform database queries"
-		)
+		from features.reservations.presentation.api import deps as reservation_deps
+		from features.tables.presentation.api import deps as table_deps
+
+		for module in (reservation_deps, table_deps):
+			source = inspect.getsource(module)
+
+			# Allow factory functions like `def get_xxx_handler():`
+			# But discourage business logic and data access
+			assert ".query(" not in source, (
+				"Dependency injection should not perform database queries"
+			)
+			assert "session.query" not in source, (
+				"Dependency injection should not perform database queries"
+			)
+			assert "session.execute" not in source, (
+				"Dependency injection should not perform database queries"
+			)
 
 
 class TestLayerImportHierarchy:

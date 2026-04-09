@@ -19,7 +19,7 @@ class SqlAlchemyGameReservationRepository(GameReservationRepositoryInterface):
 
     def add(self, reservation_game: ReservationGame) -> ReservationGame:
         row = GameReservationDB(
-            table_reservation_id=reservation_game.table_reservation_id,
+            booking_id=reservation_game.booking_id,
             requested_game_id=reservation_game.requested_game_id,
             game_copy_id=reservation_game.game_copy_id,
         )
@@ -36,10 +36,10 @@ class SqlAlchemyGameReservationRepository(GameReservationRepositoryInterface):
             return None
         return self._to_domain(row)
 
-    def list_for_reservation(self, reservation_id: int) -> Sequence[ReservationGame]:
+    def list_for_booking(self, booking_id: int) -> Sequence[ReservationGame]:
         rows = (
             self.session.query(GameReservationDB)
-            .filter(GameReservationDB.table_reservation_id == reservation_id)
+            .filter(GameReservationDB.booking_id == booking_id)
             .order_by(GameReservationDB.id.asc())
             .all()
         )
@@ -60,7 +60,7 @@ class SqlAlchemyGameReservationRepository(GameReservationRepositoryInterface):
     def _to_domain(row: GameReservationDB) -> ReservationGame:
         return ReservationGame(
             id=row.id,
-            table_reservation_id=row.table_reservation_id,
+            booking_id=row.booking_id,
             requested_game_id=row.requested_game_id,
             game_copy_id=row.game_copy_id,
         )

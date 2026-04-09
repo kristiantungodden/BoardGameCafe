@@ -57,7 +57,7 @@ def _make_fake_put(cancel_ok=True):
 def test_end_to_end_capture_flow(client, app, monkeypatch):
     repo = PaymentRepository()
     with app.app_context():
-        payment = Payment(table_reservation_id=42, amount_cents=2500)
+        payment = Payment(booking_id=42, amount_cents=2500)
         saved = repo.add(payment)
 
     adapter = VippsAdapter(
@@ -95,7 +95,7 @@ def test_end_to_end_capture_flow(client, app, monkeypatch):
 def test_end_to_end_cancel_flow(client, app, monkeypatch):
     repo = PaymentRepository()
     with app.app_context():
-        payment = Payment(table_reservation_id=99, amount_cents=1800)
+        payment = Payment(booking_id=99, amount_cents=1800)
         saved = repo.add(payment)
 
     adapter = VippsAdapter(

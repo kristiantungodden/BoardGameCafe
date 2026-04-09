@@ -34,3 +34,4 @@ def register_all_models() -> None:
         GameRatingDB,
     )
     from features.payments.infrastructure.database import PaymentDB
+    from features.bookings.infrastructure.database import BookingDB

@@ -4,6 +4,7 @@ from typing import Optional
 from features.reservations.application.interfaces.available_game_copy_repository_interface import (
     AvailableGameCopyRepositoryInterface,
 )
+from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
 from features.games.infrastructure.database.game_copy_db import GameCopyDB
@@ -22,13 +23,10 @@ class SqlAlchemyAvailableGameCopyRepository(AvailableGameCopyRepositoryInterface
         """Get game copy IDs blocked during the given time window."""
         rows = (
             self.session.query(GameReservationDB.game_copy_id)
-            .join(
-                TableReservationDB,
-                GameReservationDB.table_reservation_id == TableReservationDB.id,
-            )
-            .filter(TableReservationDB.status.in_(OVERLAP_BLOCKING_STATUSES))
-            .filter(TableReservationDB.start_ts < end_ts)
-            .filter(start_ts < TableReservationDB.end_ts)
+            .join(BookingDB, GameReservationDB.booking_id == BookingDB.id)
+            .filter(BookingDB.status.in_(OVERLAP_BLOCKING_STATUSES))
+            .filter(BookingDB.start_ts < end_ts)
+            .filter(start_ts < BookingDB.end_ts)
             .all()
         )
         return {row[0] for row in rows}

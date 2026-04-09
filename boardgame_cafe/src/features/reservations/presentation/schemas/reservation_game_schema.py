@@ -8,6 +8,6 @@ class AddReservationGameRequest(BaseModel):
 
 class ReservationGameResponse(BaseModel):
     id: int | None
-    table_reservation_id: int
+    booking_id: int
     requested_game_id: int
     game_copy_id: int

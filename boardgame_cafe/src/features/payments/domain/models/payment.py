@@ -16,7 +16,7 @@ class PaymentStatus(StrEnum):
 
 @dataclass
 class Payment:
-    table_reservation_id: int
+    booking_id: int
     amount_cents: int
     id: int | None = None
     currency: str = "NOK"
@@ -28,8 +28,8 @@ class Payment:
 
 
     def __post_init__(self) -> None:
-        if self.table_reservation_id <= 0:
-            raise ValueError("table_reservation_id must be positive")
+        if self.booking_id <= 0:
+            raise ValueError("booking_id must be positive")
         if self.amount_cents < 0:
             raise ValueError("amount_cents cannot be negative")
 

@@ -16,7 +16,7 @@ class GameReservationRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list_for_reservation(self, reservation_id: int) -> Sequence[ReservationGame]:
+    def list_for_booking(self, booking_id: int) -> Sequence[ReservationGame]:
         raise NotImplementedError
 
     @abstractmethod

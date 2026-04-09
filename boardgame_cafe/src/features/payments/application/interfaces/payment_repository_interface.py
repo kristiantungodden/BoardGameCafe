@@ -10,7 +10,7 @@ class PaymentRepositoryInterface(ABC):
     @abstractmethod
     def get_by_id(self, payment_id: int) -> Payment | None:
         raise NotImplementedError
-
+    
     @abstractmethod
-    def get_by_reservation_id(self, reservation_id: int) -> Payment | None:
+    def get_by_booking_id(self, booking_id: int) -> Payment | None:
         raise NotImplementedError

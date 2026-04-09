@@ -17,7 +17,7 @@ class StubRepository:
         self.add_calls.append(payment)
         return Payment(
             id=101,
-            table_reservation_id=payment.table_reservation_id,
+            booking_id=payment.booking_id,
             amount_cents=payment.amount_cents,
             currency=payment.currency,
             status=payment.status,
@@ -44,12 +44,12 @@ def test_calculate_payment_route_returns_calculated_values():
 
     response = client.post(
         "/api/payments/calculate",
-        json={"table_reservation_id": 3, "party_size": 2},
+        json={"booking_id": 3, "party_size": 2},
     )
 
     assert response.status_code == 200
     body = response.get_json()
-    assert body["table_reservation_id"] == 3
+    assert body["booking_id"] == 3
     assert body["party_size"] == 2
     assert body["amount_cents"] == 32500
     assert body["amount_kroner"] == 325.0
@@ -62,7 +62,7 @@ def test_calculate_payment_route_returns_400_for_invalid_party_size():
 
     response = client.post(
         "/api/payments/calculate",
-        json={"table_reservation_id": 3, "party_size": -1},
+        json={"booking_id": 3, "party_size": -1},
     )
 
     assert response.status_code == 400
@@ -74,7 +74,7 @@ def test_create_payment_route_returns_500_when_repository_not_configured():
 
     response = client.post(
         "/api/payments/",
-        json={"table_reservation_id": 3, "party_size": 2},
+        json={"booking_id": 3, "party_size": 2},
     )
 
     assert response.status_code == 500
@@ -87,13 +87,13 @@ def test_create_payment_route_saves_payment_and_returns_created():
 
     response = client.post(
         "/api/payments/",
-        json={"table_reservation_id": 4, "party_size": 3},
+        json={"booking_id": 4, "party_size": 3},
     )
 
     assert response.status_code == 201
     body = response.get_json()
     assert len(repository.add_calls) == 1
-    assert repository.add_calls[0].table_reservation_id == 4
+    assert repository.add_calls[0].booking_id == 4
     assert repository.add_calls[0].amount_cents == 47500
     assert body["id"] == 101
     assert body["amount_cents"] == 47500
@@ -107,4 +107,4 @@ def test_create_payment_route_returns_400_for_missing_reservation_id():
     response = client.post("/api/payments/", json={"party_size": 2})
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "table_reservation_id is required"}
+    assert response.get_json() == {"error": "booking_id is required"}

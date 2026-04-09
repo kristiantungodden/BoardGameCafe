@@ -2,38 +2,46 @@ from datetime import datetime
 
 import pytest
 
-import features.reservations.application.use_cases.booking_use_cases as booking_module
-from features.reservations.application.use_cases.booking_use_cases import CreateBookingUseCase
+import features.bookings.application.use_cases.booking_use_cases as booking_module
+from features.bookings.application.use_cases.booking_use_cases import CreateBookingUseCase
 from shared.domain.exceptions import ValidationError
 
 
-class FakeReservationRepo:
+class FakeBookingRepo:
     _next_id = 1
 
     def __init__(self, session=None, auto_commit=True):
         self._items = []
 
-    def add(self, reservation):
-        reservation.id = FakeReservationRepo._next_id
-        FakeReservationRepo._next_id += 1
-        self._items.append(reservation)
-        return reservation
+    def save(self, booking):
+        booking.id = FakeBookingRepo._next_id
+        FakeBookingRepo._next_id += 1
+        self._items.append(booking)
+        return booking
 
-    def get_by_id(self, reservation_id):
-        return next((r for r in self._items if r.id == reservation_id), None)
+    def get_by_id(self, booking_id):
+        return next((b for b in self._items if b.id == booking_id), None)
 
     def list_all(self):
         return list(self._items)
 
-    def list_for_table_in_window(self, table_id, start_ts, end_ts):
-        return [
-            item
-            for item in self._items
-            if item.table_id == table_id and item.start_ts < end_ts and start_ts < item.end_ts
-        ]
+    def update(self, booking):
+        return booking
 
-    def update(self, reservation):
-        return reservation
+    def list_by_customer(self, customer_id):
+        return [item for item in self._items if item.customer_id == customer_id]
+
+    def find_overlapping_bookings(self, customer_id, start_ts, end_ts, statuses):
+        return []
+
+
+class FakeTableReservationRepo:
+    def __init__(self, session=None, auto_commit=True):
+        self.links = []
+
+    def save(self, table_reservation):
+        self.links.append(table_reservation)
+        return table_reservation
 
 
 class FakeGameRepo:
@@ -43,16 +51,12 @@ class FakeGameRepo:
 
 class FakeAvailableTableRepo:
     should_validate = True
-    best_table_id = 1
 
     def __init__(self, session=None):
         pass
 
-    def get_blocked_table_ids(self, start_ts, end_ts):
-        return set()
-
     def find_best_available_table(self, party_size, start_ts, end_ts):
-        return FakeAvailableTableRepo.best_table_id
+        return 1
 
     def validate_table_selection(self, table_id, party_size, start_ts, end_ts):
         return FakeAvailableTableRepo.should_validate
@@ -61,9 +65,6 @@ class FakeAvailableTableRepo:
 class FakeAvailableCopyRepo:
     def __init__(self, session=None):
         pass
-
-    def get_blocked_copy_ids(self, start_ts, end_ts):
-        return set()
 
     def find_available_copy_id(self, game_id, start_ts, end_ts):
         return 1
@@ -76,7 +77,7 @@ class DummyPayment:
     id = 1
 
 
-def _stub_create_and_save_payment(reservation, payment_repo):
+def _stub_create_and_save_payment(booking, payment_repo):
     return DummyPayment()
 
 
@@ -85,7 +86,8 @@ def test_create_booking_rejects_unavailable_selected_table(app, monkeypatch):
     monkeypatch.setattr(booking_module, "create_and_save_payment", _stub_create_and_save_payment)
 
     use_case = CreateBookingUseCase(
-        reservation_repo=FakeReservationRepo(),
+        booking_repo=FakeBookingRepo(),
+        table_reservation_repo=FakeTableReservationRepo(),
         game_repo=FakeGameRepo(),
         available_table_repo=FakeAvailableTableRepo(),
         available_copy_repo=FakeAvailableCopyRepo(),
@@ -109,7 +111,8 @@ def test_create_booking_accepts_valid_selected_table(app, monkeypatch):
     monkeypatch.setattr(booking_module, "create_and_save_payment", _stub_create_and_save_payment)
 
     use_case = CreateBookingUseCase(
-        reservation_repo=FakeReservationRepo(),
+        booking_repo=FakeBookingRepo(),
+        table_reservation_repo=FakeTableReservationRepo(),
         game_repo=FakeGameRepo(),
         available_table_repo=FakeAvailableTableRepo(),
         available_copy_repo=FakeAvailableCopyRepo(),
@@ -117,7 +120,7 @@ def test_create_booking_accepts_valid_selected_table(app, monkeypatch):
     )
 
     with app.app_context():
-        reservation, created_games, payment = use_case.execute(
+        booking, created_games, payment = use_case.execute(
             customer_id=1,
             table_id=7,
             start_ts=datetime(2026, 4, 10, 18, 0),
@@ -126,6 +129,8 @@ def test_create_booking_accepts_valid_selected_table(app, monkeypatch):
             games=[],
         )
 
-    assert reservation.table_id == 7
+    assert booking.id is not None
+    assert booking.customer_id == 1
+    assert booking.party_size == 4
     assert created_games == []
     assert payment.id == 1

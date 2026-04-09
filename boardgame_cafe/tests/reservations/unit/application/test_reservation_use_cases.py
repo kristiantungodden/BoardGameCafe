@@ -8,8 +8,14 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     MarkReservationNoShowUseCase,
     SeatReservationUseCase,
 )
-from features.reservations.domain.models.reservation import TableReservation
+from features.bookings.domain.models.booking import Booking
 from shared.domain.exceptions import ValidationError
+
+
+def _make_reservation(*, table_id: int, **kwargs) -> Booking:
+    reservation = Booking(**kwargs)
+    setattr(reservation, "table_id", table_id)
+    return reservation
 
 
 class FakeReservationRepo:
@@ -127,7 +133,7 @@ def test_mark_no_show_reservation_use_case_updates_status():
 def test_create_reservation_rejects_overlap_with_confirmed_reservation():
     repo = FakeReservationRepo()
     repo.items.append(
-        TableReservation(
+        _make_reservation(
             id=99,
             customer_id=2,
             table_id=2,
@@ -157,7 +163,7 @@ def test_create_reservation_rejects_overlap_with_confirmed_reservation():
 def test_create_reservation_allows_overlap_with_cancelled_reservation():
     repo = FakeReservationRepo()
     repo.items.append(
-        TableReservation(
+        _make_reservation(
             id=98,
             customer_id=2,
             table_id=2,

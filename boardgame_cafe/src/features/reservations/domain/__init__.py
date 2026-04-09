@@ -1,2 +1,3 @@
-from .models import TableReservation, VALID_RESERVATION_STATUSES
-__all__ = ["TableReservation", "VALID_RESERVATION_STATUSES"]
+from .models import ReservationGame, TableReservation
+
+__all__ = ["TableReservation", "ReservationGame"]

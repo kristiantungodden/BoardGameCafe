@@ -8,7 +8,7 @@ def test_vipps_callback_updates_payment_status(client, app):
     repo = PaymentRepository()
     with app.app_context():
         # Create and save a payment
-        payment = Payment(table_reservation_id=42, amount_cents=1500)
+        payment = Payment(booking_id=42, amount_cents=1500)
         saved = repo.add(payment)
         # Set provider_ref to simulate earlier initiation
         saved.provider = "vipps"

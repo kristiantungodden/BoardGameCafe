@@ -7,7 +7,7 @@ from features.payments.infrastructure.repositories.payment_repository import Pay
 def test_vipps_callback_requires_auth(client, app, monkeypatch):
     repo = PaymentRepository()
     with app.app_context():
-        payment = Payment(table_reservation_id=7, amount_cents=1200)
+        payment = Payment(booking_id=7, amount_cents=1200)
         saved = repo.add(payment)
         saved.provider = "vipps"
         saved.provider_ref = "order-auth"
