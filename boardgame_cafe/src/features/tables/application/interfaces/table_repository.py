@@ -9,6 +9,7 @@ from features.tables.domain.models.table import Table
 
 @dataclass(frozen=True)
 class TableFilters:
+    floor: Optional[int] = None
     zone: Optional[str] = None
     status: Optional[str] = None
     min_capacity: Optional[int] = None

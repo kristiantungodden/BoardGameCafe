@@ -15,3 +15,10 @@ class AvailableTableRepositoryInterface(ABC):
     ) -> Optional[int]:
         """Find the smallest available table that fits party_size and is not blocked during window."""
         raise NotImplementedError
+
+    @abstractmethod
+    def validate_table_selection(
+        self, table_id: int, party_size: int, start_ts: datetime, end_ts: datetime
+    ) -> bool:
+        """Check if a specific table is available and can fit the party during the window."""
+        raise NotImplementedError

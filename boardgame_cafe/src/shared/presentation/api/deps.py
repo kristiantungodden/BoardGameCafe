@@ -14,6 +14,9 @@ from features.reservations.application.use_cases.booking_use_cases import (
 from features.reservations.application.use_cases.booking_availability_use_cases import (
     GetBookingAvailabilityUseCase,
 )
+from features.tables.application.use_cases.table_availability_use_case import (
+    GetTableAvailabilityUseCase,
+)
 from features.payments.application.use_cases.payment_use_cases import create_and_save_payment
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
 from features.reservations.application.use_cases.reservation_use_cases import (
@@ -39,6 +42,7 @@ from features.reservations.infrastructure.repositories.available_table_repositor
 from features.reservations.infrastructure.repositories.available_game_copy_repository import (
     SqlAlchemyAvailableGameCopyRepository,
 )
+from features.tables.infrastructure.repositories.table_repository import TableRepository
 from shared.domain.exceptions import ValidationError
 from shared.infrastructure import db
 
@@ -48,6 +52,7 @@ _lookup_repo = SqlAlchemyReservationLookupRepository()
 _payment_repo = PaymentRepository()
 _available_table_repo = SqlAlchemyAvailableTableRepository()
 _available_copy_repo = SqlAlchemyAvailableGameCopyRepository()
+_table_repo = TableRepository()
 
 
 
@@ -163,3 +168,7 @@ def get_booking_availability_handler():
         return availability_use_case.execute(start_ts, end_ts, party_size)
 
     return _get_availability
+
+
+def get_table_availability_use_case() -> GetTableAvailabilityUseCase:
+    return GetTableAvailabilityUseCase(_table_repo, _repo)
