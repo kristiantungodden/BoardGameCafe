@@ -1,7 +1,7 @@
 from typing import Optional, Sequence
 
 from features.games.application.interfaces.game_copy_repository_interface import GameCopyRepository
-from domain.models.game_copy import GameCopy
+from features.games.domain.models.game_copy import GameCopy
 from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from shared.infrastructure import db
 
