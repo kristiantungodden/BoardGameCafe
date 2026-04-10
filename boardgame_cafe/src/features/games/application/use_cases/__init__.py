@@ -8,6 +8,13 @@ from .game_tag_use_cases import (
 	ListGameTagsUseCase,
 	RemoveGameTagUseCase,
 )
+from .game_copy_use_cases import (
+	GetGameCopyByIdUseCase,
+	UpdateGameCopyConditionNoteUseCase,
+	UpdateGameCopyLocationUseCase,
+	UpdateGameCopyStatusUseCase,
+)
+
 
 __all__ = [
 	"GameUseCases",
@@ -18,4 +25,8 @@ __all__ = [
 	"AttachGameTagUseCase",
 	"RemoveGameTagUseCase",
 	"ListGameTagsForGameUseCase",
+	"GetGameCopyByIdUseCase",
+	"UpdateGameCopyStatusUseCase",
+	"UpdateGameCopyLocationUseCase",
+	"UpdateGameCopyConditionNoteUseCase",
 ]
