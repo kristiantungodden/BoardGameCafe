@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence
 
-from domain.models.game_copy import GameCopy
+from features.games.domain.models.game_copy import GameCopy
 
 
 class GameCopyRepository(ABC):
