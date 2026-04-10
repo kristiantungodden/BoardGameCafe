@@ -28,4 +28,5 @@ class ReservationResponse(BaseModel):
 class CreateReservationBookingRequest(CreateReservationRequest):
     customer_id: int | None = None
     table_id: int | None = None
+    table_ids: list[int] = Field(default_factory=list)
     games: list[ReservationGameSelectionRequest] = Field(default_factory=list)

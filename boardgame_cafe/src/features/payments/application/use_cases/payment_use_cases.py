@@ -15,8 +15,20 @@ class BillableBooking(Protocol):
     party_size: int
 
 
+def _resolve_billable_units(booking: BillableBooking) -> int:
+    table_count = getattr(booking, "table_count", None)
+    if table_count is None:
+        table_count = getattr(booking, "party_size", None)
+
+    if table_count is None:
+        raise ValueError("Booking must define table_count or party_size for billing")
+
+    return int(table_count)
+
+
 def calculate_amount_cents(booking: BillableBooking) -> int:
-    return (booking.party_size * PRICE_PER_CAPACITY_CENTS) + PRICE_BASE_TABLE
+    billable_units = _resolve_billable_units(booking)
+    return (billable_units * PRICE_PER_CAPACITY_CENTS) + PRICE_BASE_TABLE
 
 
 def calculate_amount_kroner(booking: BillableBooking) -> float:
@@ -26,8 +38,8 @@ def calculate_amount_kroner(booking: BillableBooking) -> float:
 def create_calculated_payment(booking: BillableBooking) -> Payment:
     if booking.id is None:
         raise ValueError("Reservation must have an id before payment can be calculated")
-    if booking.party_size <= 0:
-        raise ValueError("party_size must be at least 1")
+    if _resolve_billable_units(booking) <= 0:
+        raise ValueError("table_count/party_size must be at least 1")
 
     amount_cents = calculate_amount_cents(booking)
     return Payment(

@@ -15,18 +15,25 @@
 					<span>BoardGameCafe</span>
 				</a>
 
+				<nav class="auth-nav" aria-label="Main navigation">
+					<a class="button button-secondary" href="/">Home</a>
+					<a class="button button-secondary" href="/games">Game Library</a>
+					<a class="button" href="/reservations">Book Now</a>
+				</nav>
+
 				<nav class="auth-nav" aria-label="Account">
 					{% if current_user.is_authenticated %}
 						<span class="auth-status">Signed in as <strong>{{ current_user.name }}</strong></span>
 						<a class="button button-secondary" href="/me">My Account</a>
+						<a class="button button-secondary" href="/my-bookings">My Bookings</a>
 						<form method="post" action="/logout" class="inline-form">
 							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 							<button class="button" type="submit">Logout</button>
 						</form>
 					{% else %}
 						<span class="auth-status">You are not signed in.</span>
-						<a class="button button-secondary" href="/login">Login</a>
-						<a class="button" href="/register">Register</a>
+						<a class="button button-secondary" href="/login">Sign In</a>
+						<a class="button" href="/register">Sign Up</a>
 					{% endif %}
 				</nav>
 			</div>

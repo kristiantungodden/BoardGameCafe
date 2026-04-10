@@ -89,6 +89,9 @@ def login():
         return {"message": "Logged in", "user": UserResponse.from_domain(user).model_dump()}, 200
 
     flash("Logged in successfully.", "success")
+    next_target = request.form.get("next") or request.args.get("next")
+    if next_target and next_target.startswith("/") and not next_target.startswith("//"):
+        return redirect(next_target)
     return redirect(url_for("home"))
 
 

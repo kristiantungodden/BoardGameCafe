@@ -48,10 +48,16 @@ bp = Blueprint("reservations", __name__, url_prefix="/api/reservations")
 
 
 def _serialize_reservation(reservation):
+    table_id = getattr(reservation, "table_id", None)
+    table_ids = getattr(reservation, "table_ids", None)
+    if table_ids is None:
+        table_ids = [table_id] if table_id is not None else []
+
     return {
         "id": reservation.id,
         "customer_id": reservation.customer_id,
-        "table_id": reservation.table_id,
+        "table_id": table_id,
+        "table_ids": table_ids,
         "start_ts": reservation.start_ts.isoformat(),
         "end_ts": reservation.end_ts.isoformat(),
         "party_size": reservation.party_size,

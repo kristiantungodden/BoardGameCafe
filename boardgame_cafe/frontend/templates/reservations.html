@@ -148,7 +148,8 @@
 <script>
     const csrfToken = "{{ csrf_token() }}";
     const currentUserId = Number("{{ current_user.id if current_user.is_authenticated else 0 }}");
-    const PRICE_PER_PERSON_CENTS = 15000;
+    const PRICE_PER_TABLE_CENTS = 15000;
+    const BOOKING_BASE_FEE_CENTS = 2500;
     const OPEN_HOUR = 9;
     const CLOSE_HOUR = 23;
     const SLOT_STEP_MINUTES = 30;
@@ -159,7 +160,7 @@
         pendingGames: [],
         reservationGames: {},
         selectedFloor: null,
-        selectedTableId: null,
+        selectedTableIds: [],
         lookup: {
             games: [],
         },
@@ -282,11 +283,19 @@
         );
     }
 
-    function getSelectedTable() {
-        if (!state.selectedTableId) {
-            return null;
+    function getSelectedTables() {
+        if (!state.selectedTableIds.length) {
+            return [];
         }
-        return flattenAvailableTables().find((table) => table.id === state.selectedTableId) || null;
+
+        const selected = [];
+        state.selectedTableIds.forEach((tableId) => {
+            const table = flattenAvailableTables().find((item) => item.id === tableId);
+            if (table) {
+                selected.push(table);
+            }
+        });
+        return selected;
     }
 
     function renderGameSelectOptions() {
@@ -350,13 +359,17 @@
             ? `${startSlot} to ${endSlot}`
             : "Not selected";
 
-        const table = getSelectedTable();
-        document.getElementById("summary-table").textContent = table
-            ? `#${table.id} (T${table.table_nr}) cap ${table.capacity}`
+        const selectedTables = getSelectedTables();
+        document.getElementById("summary-table").textContent = selectedTables.length
+            ? selectedTables.map((table) => `#${table.id} (T${table.table_nr})`).join(", ")
             : "None selected";
 
         document.getElementById("summary-party-size").textContent = String(Math.max(0, partySize));
-        document.getElementById("summary-payment").textContent = moneyFromCents(Math.max(0, partySize) * PRICE_PER_PERSON_CENTS);
+        const tableCount = selectedTables.length;
+        const estimate = tableCount === 0
+            ? 0
+            : (tableCount * PRICE_PER_TABLE_CENTS) + BOOKING_BASE_FEE_CENTS;
+        document.getElementById("summary-payment").textContent = moneyFromCents(estimate);
     }
 
     function renderSelectedTableMeta() {
@@ -365,13 +378,13 @@
             return;
         }
 
-        const selected = getSelectedTable();
-        if (!selected) {
+        const selectedTables = getSelectedTables();
+        if (selectedTables.length === 0) {
             box.textContent = "No table selected.";
             return;
         }
 
-        box.textContent = `Selected table #${selected.id} (T${selected.table_nr}), capacity ${selected.capacity}`;
+        box.textContent = `Selected tables: ${selectedTables.map((table) => `#${table.id} (T${table.table_nr})`).join(", ")}`;
     }
 
     function ensureSelectedFloor() {
@@ -387,10 +400,10 @@
     }
 
     function syncSelectedTableToAvailability() {
-        const selected = getSelectedTable();
-        if (!selected || !selected.available) {
-            state.selectedTableId = null;
-        }
+        state.selectedTableIds = state.selectedTableIds.filter((selectedId) => {
+            const selected = flattenAvailableTables().find((table) => table.id === selectedId);
+            return Boolean(selected && selected.available);
+        });
     }
 
     function renderFloorSelector() {
@@ -438,7 +451,7 @@
                 const tablesMarkup = (zone.tables || [])
                     .map((table) => {
                         const unavailable = !table.available;
-                        const selected = state.selectedTableId === table.id;
+                        const selected = state.selectedTableIds.includes(table.id);
                         const classes = ["table-tile"];
                         if (unavailable) {
                             classes.push("table-tile-unavailable");
@@ -481,7 +494,11 @@
         map.querySelectorAll("button[data-select-table-id]").forEach((btn) => {
             btn.addEventListener("click", () => {
                 const tableId = Number(btn.getAttribute("data-select-table-id"));
-                state.selectedTableId = tableId;
+                if (state.selectedTableIds.includes(tableId)) {
+                    state.selectedTableIds = state.selectedTableIds.filter((id) => id !== tableId);
+                } else {
+                    state.selectedTableIds.push(tableId);
+                }
                 renderFloorPlan();
                 renderSelectedTableMeta();
                 renderBookingSummary();
@@ -499,7 +516,7 @@
         state.tableAvailability = { floors: [], filters: {} };
 
         if (!bookingDate || !startSlot || !endSlot || partySize <= 0) {
-            state.selectedTableId = null;
+            state.selectedTableIds = [];
             renderBookingSummary();
             renderGameSelectOptions();
             renderFloorSelector();
@@ -542,6 +559,11 @@
             state.tableAvailability = tableBody;
             ensureSelectedFloor();
             syncSelectedTableToAvailability();
+
+            if (state.selectedTableIds.length === 0 && Array.isArray(tableBody.suggested_tables)) {
+                state.selectedTableIds = tableBody.suggested_tables.map((item) => item.id);
+                syncSelectedTableToAvailability();
+            }
         } catch (error) {
             setFeedback(error.message, "error");
         }
@@ -740,6 +762,12 @@
             return;
         }
 
+        const maxGames = Math.max(1, state.selectedTableIds.length) * 2;
+        if (state.pendingGames.length >= maxGames) {
+            setFeedback(`You can queue at most ${maxGames} games for the currently selected tables.`, "error");
+            return;
+        }
+
         if (state.pendingGames.some((item) => item.requested_game_id === selectedGameId)) {
             setFeedback("That game is already queued.", "error");
             return;
@@ -764,14 +792,21 @@
             return;
         }
 
-        const selectedTable = getSelectedTable();
-        if (!selectedTable || !selectedTable.available) {
-            setFeedback("Select an available table from the floor plan before booking.", "error");
+        const selectedTables = getSelectedTables();
+        if (selectedTables.length === 0) {
+            setFeedback("Select one or more available tables from the floor plan before booking.", "error");
+            return;
+        }
+
+        const maxGames = selectedTables.length * 2;
+        if (state.pendingGames.length > maxGames) {
+            setFeedback(`Selected tables allow a maximum of ${maxGames} games.`, "error");
             return;
         }
 
         const payload = {
-            table_id: selectedTable.id,
+            table_id: selectedTables[0].id,
+            table_ids: selectedTables.map((table) => table.id),
             party_size: Number(form.party_size.value),
             start_ts: composeDateTime(bookingDate, startSlot),
             end_ts: composeDateTime(bookingDate, endSlot),
@@ -794,6 +829,7 @@
             }
 
             state.pendingGames = [];
+            state.selectedTableIds = [];
             state.reservationGames[body.id] = body.games || [];
             setSelectedReservation(body);
             renderReservationGames();
@@ -808,6 +844,7 @@
                 "success"
             );
             await loadReservations();
+            window.location.href = `/reservations/confirmation/${body.id}`;
         } catch (error) {
             setFeedback(error.message, "error");
         }
@@ -873,7 +910,7 @@
         }
 
         state.pendingGames = [];
-        state.selectedTableId = null;
+        state.selectedTableIds = [];
         renderReservationGames();
         refreshAvailability();
     }

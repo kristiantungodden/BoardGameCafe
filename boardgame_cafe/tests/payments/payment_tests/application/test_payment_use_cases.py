@@ -30,7 +30,15 @@ class SpyPaymentRepository:
         )
 
 
-def test_calculate_amount_cents_returns_price_per_person_times_party_size():
+def test_calculate_amount_cents_uses_table_count_when_present():
+    reservation = SimpleNamespace(id=1, party_size=9, table_count=4)
+
+    result = calculate_amount_cents(reservation)
+
+    assert result == 4 * PRICE_PER_CAPACITY_CENTS + PRICE_BASE_TABLE
+
+
+def test_calculate_amount_cents_falls_back_to_party_size():
     reservation = SimpleNamespace(id=1, party_size=4)
 
     result = calculate_amount_cents(reservation)
@@ -39,7 +47,7 @@ def test_calculate_amount_cents_returns_price_per_person_times_party_size():
 
 
 def test_calculate_amount_kroner_returns_kroner_value():
-    reservation = SimpleNamespace(id=1, party_size=3)
+    reservation = SimpleNamespace(id=1, party_size=9, table_count=3)
 
     result = calculate_amount_kroner(reservation)
 
@@ -47,7 +55,7 @@ def test_calculate_amount_kroner_returns_kroner_value():
 
 
 def test_create_calculated_payment_builds_payment_from_reservation():
-    reservation = SimpleNamespace(id=7, party_size=2)
+    reservation = SimpleNamespace(id=7, party_size=7, table_count=2)
 
     payment = create_calculated_payment(reservation)
 

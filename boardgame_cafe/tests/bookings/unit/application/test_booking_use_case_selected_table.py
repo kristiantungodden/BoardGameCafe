@@ -81,6 +81,25 @@ def _stub_create_and_save_payment(booking, payment_repo):
     return DummyPayment()
 
 
+class _FakeAddGameUseCase:
+    def __init__(self, bookings, reservation_games):
+        self._next_id = 1
+
+    def execute(self, cmd):
+        item = type(
+            "ReservationGame",
+            (),
+            {
+                "id": self._next_id,
+                "booking_id": cmd.reservation_id,
+                "requested_game_id": cmd.requested_game_id,
+                "game_copy_id": cmd.game_copy_id,
+            },
+        )()
+        self._next_id += 1
+        return item
+
+
 def test_create_booking_rejects_unavailable_selected_table(app, monkeypatch):
     FakeAvailableTableRepo.should_validate = False
     monkeypatch.setattr(booking_module, "create_and_save_payment", _stub_create_and_save_payment)
@@ -134,3 +153,66 @@ def test_create_booking_accepts_valid_selected_table(app, monkeypatch):
     assert booking.party_size == 4
     assert created_games == []
     assert payment.id == 1
+
+
+def test_create_booking_rejects_more_than_two_games_per_selected_table(app, monkeypatch):
+    FakeAvailableTableRepo.should_validate = True
+    monkeypatch.setattr(booking_module, "create_and_save_payment", _stub_create_and_save_payment)
+
+    use_case = CreateBookingUseCase(
+        booking_repo=FakeBookingRepo(),
+        table_reservation_repo=FakeTableReservationRepo(),
+        game_repo=FakeGameRepo(),
+        available_table_repo=FakeAvailableTableRepo(),
+        available_copy_repo=FakeAvailableCopyRepo(),
+        payment_repo=None,
+    )
+
+    with app.app_context():
+        with pytest.raises(ValidationError, match="maximum number of games"):
+            use_case.execute(
+                customer_id=1,
+                table_id=7,
+                start_ts=datetime(2026, 4, 10, 18, 0),
+                end_ts=datetime(2026, 4, 10, 20, 0),
+                party_size=4,
+                games=[
+                    booking_module.BookingGameRequest(requested_game_id=1),
+                    booking_module.BookingGameRequest(requested_game_id=2),
+                    booking_module.BookingGameRequest(requested_game_id=3),
+                ],
+            )
+
+
+def test_create_booking_allows_two_games_per_table_across_multiple_tables(app, monkeypatch):
+    FakeAvailableTableRepo.should_validate = True
+    monkeypatch.setattr(booking_module, "create_and_save_payment", _stub_create_and_save_payment)
+    monkeypatch.setattr(booking_module, "AddGameToReservationUseCase", _FakeAddGameUseCase)
+
+    use_case = CreateBookingUseCase(
+        booking_repo=FakeBookingRepo(),
+        table_reservation_repo=FakeTableReservationRepo(),
+        game_repo=FakeGameRepo(),
+        available_table_repo=FakeAvailableTableRepo(),
+        available_copy_repo=FakeAvailableCopyRepo(),
+        payment_repo=None,
+    )
+
+    with app.app_context():
+        booking, created_games, _ = use_case.execute(
+            customer_id=1,
+            table_id=None,
+            table_ids=[5, 6],
+            start_ts=datetime(2026, 4, 10, 18, 0),
+            end_ts=datetime(2026, 4, 10, 20, 0),
+            party_size=4,
+            games=[
+                booking_module.BookingGameRequest(requested_game_id=1),
+                booking_module.BookingGameRequest(requested_game_id=2),
+                booking_module.BookingGameRequest(requested_game_id=3),
+                booking_module.BookingGameRequest(requested_game_id=4),
+            ],
+        )
+
+    assert booking.id is not None
+    assert len(created_games) == 4

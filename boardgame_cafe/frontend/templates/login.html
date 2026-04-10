@@ -8,6 +8,7 @@
 
 <form method="post" action="/api/auth/login" class="form-stack" autocomplete="on">
 	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
 	<label class="form-label" for="email">Email</label>
 	<input class="form-input" type="email" id="email" name="email" required>
 
@@ -19,4 +20,6 @@
 		<a class="button button-secondary" href="/register">Create Account</a>
 	</div>
 </form>
+
+<p class="page-intro">Don't have an account? Sign up here! <a href="/register">Create an account</a>.</p>
 {% endblock %}

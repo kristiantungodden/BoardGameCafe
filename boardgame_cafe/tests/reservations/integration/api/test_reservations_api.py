@@ -157,6 +157,7 @@ def test_post_reservations_creates_booking_with_real_logic(app, test_data):
                 assert data["payment"] is not None
                 # Table should be auto-selected (the smallest one fitting the party)
                 assert data["table_id"] == table_id
+                assert data["table_ids"] == [table_id]
 
 
 def test_post_reservations_requires_authentication(monkeypatch):
@@ -180,6 +181,36 @@ def test_post_reservations_requires_authentication(monkeypatch):
 
     assert response.status_code == 401
     assert response.get_json()["error"] == "Authentication required"
+
+
+def test_post_reservations_accepts_multiple_selected_tables(app, test_data):
+    user_id = test_data["user"]["id"]
+    table_ids = [test_data["tables"][0]["id"], test_data["tables"][1]["id"]]
+
+    monkeypatch_user = FakeCurrentUser(user_id=user_id, is_authenticated=True)
+
+    with app.app_context():
+        with app.test_client() as client:
+            import features.reservations.presentation.api.reservation_routes as reservations_module
+            from unittest.mock import patch
+
+            with patch.object(reservations_module, "current_user", monkeypatch_user):
+                response = client.post(
+                    "/api/reservations",
+                    json={
+                        "table_id": table_ids[0],
+                        "table_ids": table_ids,
+                        "start_ts": "2026-03-30T18:00:00",
+                        "end_ts": "2026-03-30T20:00:00",
+                        "party_size": 1,
+                        "games": [],
+                    },
+                )
+
+                assert response.status_code == 201
+                data = response.get_json()
+                assert data["table_id"] == table_ids[0]
+                assert data["table_ids"] == table_ids
 
 
 def test_get_reservation_availability_returns_suggestions(monkeypatch):

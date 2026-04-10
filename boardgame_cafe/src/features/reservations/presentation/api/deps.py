@@ -158,6 +158,7 @@ def get_create_booking_handler():
         return booking_use_case.execute(
             customer_id=cmd.customer_id,
             table_id=cmd.table_id,
+            table_ids=getattr(cmd, "table_ids", None),
             start_ts=cmd.start_ts,
             end_ts=cmd.end_ts,
             party_size=cmd.party_size,
