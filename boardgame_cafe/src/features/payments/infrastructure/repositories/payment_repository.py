@@ -30,10 +30,11 @@ class PaymentRepository(PaymentRepositoryInterface):
         return db_payment.to_domain()
 
     def get_by_id(self, payment_id: int) -> DomainPayment | None:
-        if self.session is db.session:
-            db_payment = PaymentDB.query.get(payment_id)
-        else:
+        try:
             db_payment = self.session.get(PaymentDB, payment_id)
+        except RuntimeError:
+            # Fallback for contexts where scoped session isn't bound (tests)
+            db_payment = PaymentDB.query.get(payment_id)
         if db_payment is None:
             return None
         return db_payment.to_domain()
@@ -56,10 +57,11 @@ class PaymentRepository(PaymentRepositoryInterface):
         if payment.id is None:
             raise ValueError("Cannot update payment without id")
 
-        if self.session is db.session:
-            db_payment = PaymentDB.query.get(payment.id)
-        else:
+        try:
             db_payment = self.session.get(PaymentDB, payment.id)
+        except RuntimeError:
+            # Fallback for contexts where scoped session isn't bound (tests)
+            db_payment = PaymentDB.query.get(payment.id)
 
         if db_payment is None:
             raise ValueError(f"Payment with id {payment.id} not found")

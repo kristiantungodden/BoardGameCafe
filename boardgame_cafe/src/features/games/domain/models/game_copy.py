@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from shared.domain.exceptions import InvalidStatusTransition, ValidationError
@@ -20,7 +20,7 @@ class GameCopy:
     location: Optional[str] = None
     condition_note: Optional[str] = None
     id: Optional[int] = None
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def __post_init__(self) -> None:
         self._validate()
@@ -46,7 +46,7 @@ class GameCopy:
                 f"Cannot reserve game copy in status '{self.status}'"
             )
         self.status = "reserved"
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def mark_in_use(self) -> None:
         if self.status not in {"available", "reserved"}:
@@ -54,26 +54,26 @@ class GameCopy:
                 f"Cannot mark game copy as in use from status '{self.status}'"
             )
         self.status = "in_use"
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def return_to_shelf(self, location: Optional[str] = None) -> None:
         self.status = "available"
         if location is not None and location.strip():
             self.location = location
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def send_to_maintenance(self) -> None:
         if self.status == "maintenance":
             raise InvalidStatusTransition("Game copy is already in maintenance")
         self.status = "maintenance"
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def update_condition_note(self, note: Optional[str]) -> None:
         self.condition_note = note
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def move(self, new_location: str) -> None:
         if not new_location or not new_location.strip():
             raise ValidationError("new_location cannot be empty")
         self.location = new_location
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
