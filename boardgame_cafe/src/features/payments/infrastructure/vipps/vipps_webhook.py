@@ -14,16 +14,17 @@ vipps_callbacks = Blueprint("vipps_callbacks", __name__)
 @vipps_callbacks.route("/api/payments/vipps/callback/v2/payments/<string:order_id>", methods=["POST"])
 def vipps_callback(order_id: str):
     try:
-        data = request.get_json(silent=True) or {}
-        tx = data.get("transactionInfo") or (data.get("transaction") and data.get("transaction").get("transactionInfo"))
-        status = tx.get("status") if tx else None
-
         expected = getenv("VIPPS_CALLBACK_AUTH_TOKEN")
         if expected:
             auth = request.headers.get("Authorization")
             if auth != expected:
                 logger.warning("Vipps callback auth failed for order=%s", order_id)
                 return jsonify({"error": "forbidden"}), HTTPStatus.FORBIDDEN
+            
+        data = request.get_json(silent=True) or {}
+        tx = data.get("transactionInfo") or (data.get("transaction") and data.get("transaction").get("transactionInfo"))
+        status = tx.get("status") if tx else None
+
 
         repo = PaymentRepository()
         payment = repo.get_by_provider_ref(order_id)

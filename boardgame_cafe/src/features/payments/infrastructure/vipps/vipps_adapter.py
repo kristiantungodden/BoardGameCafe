@@ -66,8 +66,9 @@ class VippsAdapter(PaymentProviderInterface):
         booking_id = payment.booking_id
         if self._is_simulated():
             ref = f"vipps:{uuid4()}"
-            logger.info("Vipps not fully configured — simulated start_payment => %s", ref)
-            return ref
+            logger.info("Simulated start_payment => %s", ref)
+            return f"http://localhost:5000/mock-vipps/pay?ref={ref}&amount={payment.amount_cents}"
+        
 
         order_id = f"bgc-{booking_id}-{payment.id or uuid4()}"
         payload = {

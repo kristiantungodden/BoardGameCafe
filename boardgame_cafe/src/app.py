@@ -19,7 +19,6 @@ from features.reservations.presentation.api import reservation_routes
 from features.tables.presentation.api import table_routes
 from features.users.presentation.api import auth_routes, steward_routes
 from features.users.infrastructure import UserDB as User
- 
 
 def create_app(config_name: str = None):
     """
@@ -72,6 +71,16 @@ def create_app(config_name: str = None):
 
     # Register error handlers
     register_error_handlers(app)
+
+    if os.getenv("FLASK_ENV") == "development":
+        from features.payments.infrastructure.vipps.mock_vipps import mock_vipps
+        app.register_blueprint(mock_vipps)
+
+    
+    @app.route("/payments/<int:booking_id>")
+    @login_required
+    def payment_page(booking_id):
+        return render_template("payment.html", booking_id=booking_id)
 
     @app.route("/", methods=["GET"])
     def home():
