@@ -1,6 +1,9 @@
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, TYPE_CHECKING
 from decimal import Decimal
+
+if TYPE_CHECKING:
+    from features.games.domain.models.game_tag import GameTag
 
 
 @dataclass
@@ -14,6 +17,7 @@ class Game:
     description: Optional[str] = None
     image_url: Optional[str] = None
     created_at: Optional[str] = None  # optional, for read-only display
+    tags: list["GameTag"] = field(default_factory=list)
 
     def is_playable_by(self, player_count: int) -> bool:
         """Check if game supports the given number of players."""

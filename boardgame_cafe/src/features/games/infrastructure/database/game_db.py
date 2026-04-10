@@ -14,3 +14,17 @@ class GameDB(db.Model):
     image_url = db.Column(db.Text)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
+    tag_links = db.relationship(
+        "GameTagLinkDB",
+        back_populates="game",
+        cascade="all, delete-orphan",
+    )
+
+    tags = db.relationship(
+        "GameTagDB",
+        secondary="game_tag_links",
+        back_populates="games",
+        viewonly=True,
+        lazy="selectin",
+    )
+

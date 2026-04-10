@@ -21,6 +21,43 @@ def test_get_games_returns_tags_in_response(client):
         assert "tags" in game
 
 
+def test_get_and_update_game_expose_attached_tags(client):
+    create_game = client.post(
+        "/api/games/",
+        json={
+            "title": "Ticket to Ride",
+            "min_players": 2,
+            "max_players": 5,
+            "playtime_min": 60,
+            "complexity": 2.1,
+        },
+    )
+    assert create_game.status_code == 201
+    game_id = create_game.get_json()["id"]
+
+    create_tag = client.post("/api/games/tags", json={"name": "Family"})
+    assert create_tag.status_code == 201
+    tag = create_tag.get_json()
+
+    attach = client.post(f"/api/games/{game_id}/tags", json={"tag_id": tag["id"]})
+    assert attach.status_code == 201
+
+    get_response = client.get(f"/api/games/{game_id}")
+    assert get_response.status_code == 200
+    game_data = get_response.get_json()
+    assert "tags" in game_data
+    assert any(t["id"] == tag["id"] for t in game_data["tags"])
+
+    update_response = client.put(
+        f"/api/games/{game_id}",
+        json={"title": "Ticket to Ride Europe"},
+    )
+    assert update_response.status_code == 200
+    updated_data = update_response.get_json()
+    assert "tags" in updated_data
+    assert any(t["id"] == tag["id"] for t in updated_data["tags"])
+
+
 def test_games_default_list_backward_compatible(client):
     client.post(
         "/api/games/",

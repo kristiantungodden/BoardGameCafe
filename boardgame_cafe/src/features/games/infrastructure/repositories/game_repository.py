@@ -1,8 +1,8 @@
 # src/infrastructure/repositories/game_repository.py
-from typing import List, Optional, Dict, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from typing import List, Optional, Tuple
+from sqlalchemy.orm import Session, selectinload
 from features.games.domain.models.game import Game  # Domain model
+from features.games.domain.models.game_tag import GameTag
 from shared.infrastructure import db  # Flask-SQLAlchemy instance
 from features.games.infrastructure import GameDB  # SQLAlchemy model
 
@@ -34,41 +34,23 @@ class GameRepository:
 
     # Match test name: get_by_id()
     def get_by_id(self, game_id: int) -> Optional[Game]:
-        db_game = self.session.get(GameDB, game_id)
+        db_game = (
+            self.session.query(GameDB)
+            .options(selectinload(GameDB.tags))
+            .filter(GameDB.id == game_id)
+            .first()
+        )
         if not db_game:
             return None
-        return Game(
-            id=db_game.id,
-            title=db_game.title,
-            min_players=db_game.min_players,
-            max_players=db_game.max_players,
-            playtime_min=db_game.playtime_min,
-            complexity=db_game.complexity,
-            description=db_game.description,
-            image_url=db_game.image_url,
-            created_at=db_game.created_at,
-        )
+        return self._game_db_to_domain(db_game)
 
     def get_game(self, game_id: int) -> Optional[Game]:
         return self.get_by_id(game_id)
 
     # Match test name: get_all()
     def get_all(self) -> List[Game]:
-        db_games = self.session.query(GameDB).all()
-        return [
-            Game(
-                id=g.id,
-                title=g.title,
-                min_players=g.min_players,
-                max_players=g.max_players,
-                playtime_min=g.playtime_min,
-                complexity=g.complexity,
-                description=g.description,
-                image_url=g.image_url,
-                created_at=g.created_at,
-            )
-            for g in db_games
-        ]
+        db_games = self.session.query(GameDB).options(selectinload(GameDB.tags)).all()
+        return [self._game_db_to_domain(g) for g in db_games]
 
     def get_all_games(self) -> List[Game]:
         return self.get_all()
@@ -93,7 +75,7 @@ class GameRepository:
         page_size = max(1, min(page_size, 100))  # Max 100 per page
         
         # Build query with filters
-        query = self.session.query(GameDB)
+        query = self.session.query(GameDB).options(selectinload(GameDB.tags))
         
         # Apply filters
         if search:
@@ -129,27 +111,13 @@ class GameRepository:
         db_games = query.offset(offset).limit(page_size).all()
         
         # Convert to domain models
-        games = [
-            Game(
-                id=g.id,
-                title=g.title,
-                min_players=g.min_players,
-                max_players=g.max_players,
-                playtime_min=g.playtime_min,
-                complexity=g.complexity,
-                description=g.description,
-                image_url=g.image_url,
-                created_at=g.created_at,
-            )
-            for g in db_games
-        ]
-        
-        total_pages = (total_count + page_size - 1) // page_size
-        
+        games = [self._game_db_to_domain(g) for g in db_games]
+
         return games, total_count, page, page_size
 
     def _game_db_to_domain(self, db_game: GameDB) -> Game:
         """Convert GameDB model to Game domain model."""
+        tags = [GameTag(id=tag.id, name=tag.name) for tag in (db_game.tags or [])]
         return Game(
             id=db_game.id,
             title=db_game.title,
@@ -160,6 +128,7 @@ class GameRepository:
             description=db_game.description,
             image_url=db_game.image_url,
             created_at=db_game.created_at,
+            tags=tags,
         )
 
     # Optional: you can keep these for API/use case usage
