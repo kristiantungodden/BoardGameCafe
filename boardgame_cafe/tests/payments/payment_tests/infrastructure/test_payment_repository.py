@@ -119,11 +119,20 @@ def test_get_by_id_returns_domain_payment_when_found(monkeypatch):
         "PaymentDB",
         StubPaymentDB,
     )
-    repository = PaymentRepository()
+    class StubSession:
+        def __init__(self):
+            self.last_id = None
+
+        def get(self, model, _id):
+            self.last_id = _id
+            return db_row
+
+    stub_session = StubSession()
+    repository = PaymentRepository(session=stub_session)
 
     payment = repository.get_by_id(42)
 
-    assert stub_query.last_id == 42
+    assert stub_session.last_id == 42
     assert payment is not None
     assert payment.id == 42
     assert payment.booking_id == 5
@@ -131,7 +140,11 @@ def test_get_by_id_returns_domain_payment_when_found(monkeypatch):
 
 
 def test_get_by_id_returns_none_when_not_found(monkeypatch):
-    repository = PaymentRepository()
+    class StubSessionNone:
+        def get(self, model, _id):
+            return None
+
+    repository = PaymentRepository(session=StubSessionNone())
 
     class StubQuery:
         def get(self, _id):
