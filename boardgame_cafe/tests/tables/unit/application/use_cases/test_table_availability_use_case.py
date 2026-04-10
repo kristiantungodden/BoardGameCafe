@@ -115,3 +115,47 @@ def test_table_availability_filters_to_requested_floor():
 
     assert [floor["floor"] for floor in result["floors"]] == [2]
     assert result["floors"][0]["zones"][0]["tables"][0]["table_nr"] == "2"
+
+
+def test_table_availability_suggests_single_table_when_capacity_fits():
+    start_ts = datetime(2026, 4, 10, 18, 0)
+    end_ts = datetime(2026, 4, 10, 20, 0)
+
+    tables = [
+        Table(number=1, capacity=4, floor=1, zone="A", status="available"),
+        Table(number=2, capacity=6, floor=1, zone="A", status="available"),
+    ]
+    for idx, table in enumerate(tables, start=1):
+        setattr(table, "id", idx)
+
+    use_case = GetTableAvailabilityUseCase(
+        table_repo=FakeTableRepository(tables),
+        reservation_repo=FakeReservationRepository([]),
+    )
+
+    result = use_case.execute(start_ts, end_ts, party_size=4)
+
+    assert [item["id"] for item in result["suggested_tables"]] == [1]
+
+
+def test_table_availability_suggests_combined_tables_when_needed():
+    start_ts = datetime(2026, 4, 10, 18, 0)
+    end_ts = datetime(2026, 4, 10, 20, 0)
+
+    tables = [
+        Table(number=1, capacity=4, floor=1, zone="A", status="available"),
+        Table(number=2, capacity=6, floor=1, zone="A", status="available"),
+        Table(number=3, capacity=8, floor=1, zone="A", status="available"),
+    ]
+    for idx, table in enumerate(tables, start=1):
+        setattr(table, "id", idx)
+
+    use_case = GetTableAvailabilityUseCase(
+        table_repo=FakeTableRepository(tables),
+        reservation_repo=FakeReservationRepository([]),
+    )
+
+    result = use_case.execute(start_ts, end_ts, party_size=10)
+
+    # Best fit by minimal number of tables, then capacity, then ids: [2, 1] capacities 6+4
+    assert [item["id"] for item in result["suggested_tables"]] == [1, 2]

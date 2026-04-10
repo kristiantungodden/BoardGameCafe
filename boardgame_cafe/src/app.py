@@ -47,6 +47,14 @@ def create_app(config_name: str = None):
     csrf.init_app(app)
     mail.init_app(app)
     login_manager.init_app(app)
+    login_manager.login_view = "login_page"
+    login_manager.login_message = "Please sign in to continue."
+
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        if request.path.startswith("/api/"):
+            return {"error": "Authentication required"}, 401
+        return redirect(url_for("login_page", next=request.path))
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -85,6 +93,16 @@ def create_app(config_name: str = None):
     @login_required
     def reservations_page():
         return render_template("reservations.html")
+
+    @app.route("/my-bookings", methods=["GET"])
+    @login_required
+    def my_bookings_page():
+        return redirect(url_for("reservations_page"))
+
+    @app.route("/reservations/confirmation/<int:reservation_id>", methods=["GET"])
+    @login_required
+    def reservation_confirmation_page(reservation_id: int):
+        return render_template("reservation_confirmation.html", reservation_id=reservation_id)
 
     @app.route("/login", methods=["GET"])
     def login_page():

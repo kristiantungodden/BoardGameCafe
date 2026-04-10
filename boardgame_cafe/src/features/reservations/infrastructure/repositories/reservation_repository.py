@@ -71,7 +71,14 @@ class SqlAlchemyReservationRepository(ReservationRepositoryInterface):
             .order_by(BookingDB.start_ts.asc(), BookingDB.id.asc())
             .all()
         )
-        return [self._to_domain(booking, link) for booking, link in rows]
+        deduped: list[Booking] = []
+        seen_booking_ids: set[int] = set()
+        for booking, link in rows:
+            if booking.id in seen_booking_ids:
+                continue
+            seen_booking_ids.add(booking.id)
+            deduped.append(self._to_domain(booking, link))
+        return deduped
 
     def list_for_table_in_window(
         self, table_id: int, start_ts: datetime, end_ts: datetime

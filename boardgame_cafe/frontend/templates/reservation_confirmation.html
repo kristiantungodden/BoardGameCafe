@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}BoardGameCafe | Booking Confirmed{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Booking Confirmed</h1>
+<p class="page-intro">
+    Reservation #{{ reservation_id }} has been created. Payment was created in the same transaction.
+</p>
+
+<div class="action-row">
+    <a class="button" href="/my-bookings">View My Bookings</a>
+    <a class="button button-secondary" href="/reservations">Create Another Booking</a>
+</div>
+{% endblock %}

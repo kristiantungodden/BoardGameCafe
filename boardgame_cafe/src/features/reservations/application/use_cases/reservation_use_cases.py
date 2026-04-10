@@ -21,6 +21,7 @@ class CreateReservationCommand:
     end_ts: datetime
     party_size: int
     notes: Optional[str] = None
+    table_ids: list[int] | None = None
 
 
 class CreateReservationUseCase:
