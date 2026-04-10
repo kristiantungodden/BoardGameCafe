@@ -10,5 +10,5 @@ class GameTagLinkDB(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"), nullable=False)
     game_tag_id = db.Column(db.Integer, db.ForeignKey("game_tags.id"), nullable=False)
 
-    game = db.relationship("GameDB", backref="tags")
-    tag = db.relationship("GameTagDB")
+    game = db.relationship("GameDB", back_populates="tag_links")
+    tag = db.relationship("GameTagDB", back_populates="tag_links")

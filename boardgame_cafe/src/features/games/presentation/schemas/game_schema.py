@@ -74,7 +74,7 @@ class GameResponse(BaseModel):
 	description: str | None = None
 	image_url: str | None = None
 	created_at: datetime | None = None
-	tags: list[GameTagResponse] = []
+	tags: list[GameTagResponse] = Field(default_factory=list)
 
 
 class GameTagCreateRequest(BaseModel):
