@@ -26,12 +26,13 @@
                     <th>Time</th>
                     <th>Party</th>
                     <th>Status</th>
+                    <th>Actions</th>
                     <th>History</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="6" class="game-state">No reservations loaded yet.</td>
+                    <td colspan="7" class="game-state">No reservations loaded yet.</td>
                 </tr>
             </tbody>
         </table>
@@ -39,6 +40,7 @@
 </section>
 
 <script>
+    const csrfToken = "{{ csrf_token() }}";
     const currentUserId = Number("{{ current_user.id if current_user.is_authenticated else 0 }}");
 
     function setFeedback(message, level = "error") {
@@ -75,7 +77,7 @@
         if (items.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="game-state">No bookings found for your account.</td>
+                    <td colspan="7" class="game-state">No bookings found for your account.</td>
                 </tr>
             `;
             return;
@@ -86,6 +88,13 @@
                 const tableIds = Array.isArray(item.table_ids) && item.table_ids.length
                     ? item.table_ids.join(", ")
                     : (item.table_id ?? "-");
+                const start = new Date(item.start_ts);
+                const canCancelByPolicy = (start.getTime() - Date.now()) >= (24 * 60 * 60 * 1000);
+                const isCancelableStatus = item.status === "confirmed";
+                const canCancel = isCancelableStatus && canCancelByPolicy;
+                const cancelLabel = isCancelableStatus
+                    ? (canCancelByPolicy ? "Cancel" : "Too late")
+                    : "N/A";
 
                 return `
                     <tr>
@@ -94,14 +103,30 @@
                         <td>${new Date(item.start_ts).toLocaleString()} to ${new Date(item.end_ts).toLocaleString()}</td>
                         <td>${item.party_size}</td>
                         <td><span class="status-pill status-${item.status}">${item.status}</span></td>
+                        <td>
+                            <button
+                                class="button button-secondary"
+                                type="button"
+                                data-cancel-id="${item.id}"
+                                ${canCancel ? "" : "disabled"}
+                                title="${canCancel ? "Cancel this booking" : "Bookings can only be cancelled at least 24 hours before start"}"
+                            >${cancelLabel}</button>
+                        </td>
                         <td><button class="button button-secondary" type="button" data-history-id="${item.id}">Show</button></td>
                     </tr>
                     <tr id="history-row-${item.id}" style="display:none;">
-                        <td colspan="6" id="history-cell-${item.id}" class="game-state">Loading...</td>
+                        <td colspan="7" id="history-cell-${item.id}" class="game-state">Loading...</td>
                     </tr>
                 `;
             })
             .join("");
+
+        tbody.querySelectorAll("[data-cancel-id]").forEach((btn) => {
+            btn.addEventListener("click", async (event) => {
+                const bookingId = Number(event.currentTarget.getAttribute("data-cancel-id"));
+                await cancelBooking(bookingId);
+            });
+        });
 
         tbody.querySelectorAll("[data-history-id]").forEach((btn) => {
             btn.addEventListener("click", async (event) => {
@@ -151,6 +176,29 @@
             cell.innerHTML = renderHistoryItems(body.history);
         } catch (error) {
             cell.textContent = "Could not load status history.";
+        }
+    }
+
+    async function cancelBooking(bookingId) {
+        if (!window.confirm("Cancel this booking?")) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/reservations/${bookingId}/cancel`, {
+                method: "PATCH",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                },
+            });
+            const body = await readResponseBody(response);
+            if (!response.ok) {
+                throw new Error(body.error || "Failed to cancel booking");
+            }
+            setFeedback("Booking cancelled.", "success");
+            await loadMyBookings();
+        } catch (error) {
+            setFeedback(error.message || "Could not cancel booking.");
         }
     }
 

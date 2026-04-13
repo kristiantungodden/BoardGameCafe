@@ -30,8 +30,8 @@ def test_cancel_transition_rolls_back_when_history_write_fails(app):
         repo = SqlAlchemyReservationRepository()
         booking = Booking(
             customer_id=11,
-            start_ts=datetime.now() + timedelta(days=1),
-            end_ts=datetime.now() + timedelta(days=1, hours=2),
+            start_ts=datetime.now() + timedelta(hours=30),
+            end_ts=datetime.now() + timedelta(hours=32),
             party_size=2,
             status="confirmed",
         )

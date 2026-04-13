@@ -84,6 +84,8 @@ def _serialize_status_history(entry):
         "to_status": entry.to_status,
         "source": entry.source,
         "reason": entry.reason,
+        "actor_user_id": entry.actor_user_id,
+        "actor_role": entry.actor_role,
         "created_at": entry.created_at.isoformat(),
     }
 
@@ -209,7 +211,17 @@ def create_reservation():
 
 def _run_status_transition(use_case, reservation_id: int):
     try:
-        reservation = use_case.execute(reservation_id)
+        actor_role = getattr(current_user, "role", None)
+        if actor_role is None and getattr(current_user, "is_staff", False):
+            actor_role = "staff"
+        if actor_role is None and getattr(current_user, "is_authenticated", False):
+            actor_role = "customer"
+
+        reservation = use_case.execute(
+            reservation_id,
+            actor_user_id=getattr(current_user, "id", None),
+            actor_role=actor_role,
+        )
     except DomainError as exc:
         return {"error": str(exc)}, 400
 
