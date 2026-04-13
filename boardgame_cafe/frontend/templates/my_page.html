@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}BoardGameCafe | My Page{% endblock %}
+
+{% block content %}
+<h1 class="page-header">My Page</h1>
+<p class="page-intro">Your previous bookings are listed here.</p>
+
+<div id="my-page-feedback" class="flash-stack" aria-live="polite"></div>
+
+<section class="panel reservation-box reservation-list-box">
+    <div class="reservation-list-head">
+        <h2>My Bookings</h2>
+        <p class="page-intro compact">Showing reservations for your account.</p>
+    </div>
+    <div class="action-row" style="margin-bottom: 1rem;">
+        <a class="button" href="/booking">Create New Booking</a>
+        <button class="button button-secondary" id="refresh-my-bookings" type="button">Refresh</button>
+    </div>
+    <div class="table-wrap">
+        <table class="table-clean" id="my-bookings-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Tables</th>
+                    <th>Time</th>
+                    <th>Party</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="5" class="game-state">No reservations loaded yet.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+    const currentUserId = Number("{{ current_user.id if current_user.is_authenticated else 0 }}");
+
+    function setFeedback(message, level = "error") {
+        const box = document.getElementById("my-page-feedback");
+        if (!box) {
+            return;
+        }
+        box.innerHTML = `<div class="flash flash-${level}">${message}</div>`;
+    }
+
+    async function readResponseBody(response) {
+        const rawText = await response.text();
+        if (!rawText) {
+            return {};
+        }
+
+        try {
+            return JSON.parse(rawText);
+        } catch (error) {
+            return { error: `Server returned non-JSON response (HTTP ${response.status}).` };
+        }
+    }
+
+    function renderMyBookings(rows) {
+        const tbody = document.querySelector("#my-bookings-table tbody");
+        if (!tbody) {
+            return;
+        }
+
+        const items = currentUserId
+            ? rows.filter((item) => item.customer_id === currentUserId)
+            : rows;
+
+        if (items.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="game-state">No bookings found for your account.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = items
+            .map((item) => {
+                const tableIds = Array.isArray(item.table_ids) && item.table_ids.length
+                    ? item.table_ids.join(", ")
+                    : (item.table_id ?? "-");
+
+                return `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${tableIds}</td>
+                        <td>${new Date(item.start_ts).toLocaleString()} to ${new Date(item.end_ts).toLocaleString()}</td>
+                        <td>${item.party_size}</td>
+                        <td><span class="status-pill status-${item.status}">${item.status}</span></td>
+                    </tr>
+                `;
+            })
+            .join("");
+    }
+
+    async function loadMyBookings() {
+        try {
+            const response = await fetch("/api/reservations");
+            const body = await readResponseBody(response);
+            if (!response.ok) {
+                throw new Error(body.error || "Failed to load reservations");
+            }
+            renderMyBookings(body);
+        } catch (error) {
+            setFeedback("Could not load your bookings.");
+        }
+    }
+
+    document.getElementById("refresh-my-bookings")?.addEventListener("click", loadMyBookings);
+    loadMyBookings();
+</script>
+{% endblock %}

@@ -16,23 +16,23 @@ def test_auth_redirect_to_booking_then_confirmation_and_my_bookings(client, test
         db.session.add(user)
         db.session.commit()
 
-    redirect_response = client.get("/reservations")
+    redirect_response = client.get("/booking")
     assert redirect_response.status_code == 302
     location = redirect_response.headers.get("Location", "")
     assert "/login" in location
-    assert ("next=%2Freservations" in location) or ("next=/reservations" in location)
+    assert ("next=%2Fbooking" in location) or ("next=/booking" in location)
 
     login_response = client.post(
         "/api/auth/login",
         data={
             "email": "flow@example.com",
             "password": password,
-            "next": "/reservations",
+            "next": "/booking",
         },
         follow_redirects=False,
     )
     assert login_response.status_code == 302
-    assert login_response.headers.get("Location", "") == "/reservations"
+    assert login_response.headers.get("Location", "") == "/booking"
 
     now = datetime(2026, 4, 20, 18, 0)
     booking_response = client.post(
@@ -54,9 +54,9 @@ def test_auth_redirect_to_booking_then_confirmation_and_my_bookings(client, test
     assert confirmation_response.status_code == 200
     assert "Booking Confirmed" in confirmation_response.get_data(as_text=True)
 
-    my_bookings_response = client.get("/my-bookings", follow_redirects=True)
+    my_bookings_response = client.get("/my-page", follow_redirects=True)
     assert my_bookings_response.status_code == 200
-    assert "Reservations" in my_bookings_response.get_data(as_text=True)
+    assert "My Bookings" in my_bookings_response.get_data(as_text=True)
 
     list_response = client.get("/api/reservations")
     assert list_response.status_code == 200
