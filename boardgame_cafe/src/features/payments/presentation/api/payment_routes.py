@@ -124,9 +124,9 @@ def check_payment_status_route(payment_id: int):
         payment = get_payment_by_id(payment_id, _payment_repository)
         status = _payment_provider.fetch_status(payment.provider_ref)
         # Map provider status to domain PaymentStatus where appropriate
-        if status == "paid":
+        if status == PaymentStatus.PAID:
             payment.status = PaymentStatus.PAID
-        elif status == "failed":
+        elif status == PaymentStatus.FAILED:
             payment.status = PaymentStatus.FAILED
         else:
             payment.status = PaymentStatus.PENDING

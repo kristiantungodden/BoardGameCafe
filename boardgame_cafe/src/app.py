@@ -68,12 +68,6 @@ def create_app(config_name: str = None):
     register_email_event_handlers(event_bus, email_service)
     app.event_bus = event_bus
 
-    # Initialize event bus and email service
-    event_bus = EventBus()
-    email_service = FlaskMailService(mail)
-    register_email_event_handlers(event_bus, email_service)
-    app.event_bus = event_bus
-
     # Register blueprints
     register_blueprints(app)
 
