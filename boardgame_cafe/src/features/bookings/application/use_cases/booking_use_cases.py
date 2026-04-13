@@ -6,6 +6,9 @@ from features.bookings.application.use_cases.booking_lifecycle_use_cases import 
     BookingCommand,
     CreateBookingRecordUseCase,
 )
+from features.bookings.application.interfaces.booking_status_history_repository_interface import (
+    BookingStatusHistoryRepositoryInterface,
+)
 from features.payments.application.interfaces.payment_repository_interface import (
     PaymentRepositoryInterface,
 )
@@ -40,6 +43,7 @@ class CreateBookingUseCase:
         available_table_repo: AvailableTableRepositoryInterface,
         available_copy_repo: AvailableGameCopyRepositoryInterface,
         payment_repo: PaymentRepositoryInterface,
+        status_history_repo: BookingStatusHistoryRepositoryInterface | None = None,
     ):
         self.booking_repo = booking_repo
         self.table_reservation_repo = table_reservation_repo
@@ -47,6 +51,7 @@ class CreateBookingUseCase:
         self.available_table_repo = available_table_repo
         self.available_copy_repo = available_copy_repo
         self.payment_repo = payment_repo
+        self.status_history_repo = status_history_repo
 
     def execute(
         self,
@@ -74,6 +79,11 @@ class CreateBookingUseCase:
                 None
                 if self.payment_repo is None
                 else self.payment_repo.__class__(session=session, auto_commit=False)
+            )
+            status_history_repo = (
+                None
+                if self.status_history_repo is None
+                else self.status_history_repo.__class__(session=session, auto_commit=False)
             )
 
             selected_table_ids = list(dict.fromkeys(table_ids or []))
@@ -119,6 +129,7 @@ class CreateBookingUseCase:
             booking = CreateBookingRecordUseCase(
                 booking_repo=booking_repo,
                 table_reservation_repo=table_reservation_repo,
+                status_history_repo=status_history_repo,
             ).execute(
                 BookingCommand(
                     customer_id=customer_id,

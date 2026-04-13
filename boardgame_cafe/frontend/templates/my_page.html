@@ -26,11 +26,12 @@
                     <th>Time</th>
                     <th>Party</th>
                     <th>Status</th>
+                    <th>History</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="5" class="game-state">No reservations loaded yet.</td>
+                    <td colspan="6" class="game-state">No reservations loaded yet.</td>
                 </tr>
             </tbody>
         </table>
@@ -74,7 +75,7 @@
         if (items.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" class="game-state">No bookings found for your account.</td>
+                    <td colspan="6" class="game-state">No bookings found for your account.</td>
                 </tr>
             `;
             return;
@@ -93,10 +94,64 @@
                         <td>${new Date(item.start_ts).toLocaleString()} to ${new Date(item.end_ts).toLocaleString()}</td>
                         <td>${item.party_size}</td>
                         <td><span class="status-pill status-${item.status}">${item.status}</span></td>
+                        <td><button class="button button-secondary" type="button" data-history-id="${item.id}">Show</button></td>
+                    </tr>
+                    <tr id="history-row-${item.id}" style="display:none;">
+                        <td colspan="6" id="history-cell-${item.id}" class="game-state">Loading...</td>
                     </tr>
                 `;
             })
             .join("");
+
+        tbody.querySelectorAll("[data-history-id]").forEach((btn) => {
+            btn.addEventListener("click", async (event) => {
+                const bookingId = Number(event.currentTarget.getAttribute("data-history-id"));
+                await toggleHistory(bookingId, event.currentTarget);
+            });
+        });
+    }
+
+    function renderHistoryItems(items) {
+        if (!Array.isArray(items) || items.length === 0) {
+            return "No status history recorded yet.";
+        }
+
+        return items
+            .map((entry) => {
+                const fromStatus = entry.from_status ? entry.from_status : "start";
+                const at = new Date(entry.created_at).toLocaleString();
+                return `${at}: ${fromStatus} -> ${entry.to_status}`;
+            })
+            .join("<br>");
+    }
+
+    async function toggleHistory(bookingId, buttonEl) {
+        const row = document.getElementById(`history-row-${bookingId}`);
+        const cell = document.getElementById(`history-cell-${bookingId}`);
+        if (!row || !cell) {
+            return;
+        }
+
+        if (row.style.display !== "none") {
+            row.style.display = "none";
+            buttonEl.textContent = "Show";
+            return;
+        }
+
+        row.style.display = "table-row";
+        buttonEl.textContent = "Hide";
+        cell.textContent = "Loading...";
+
+        try {
+            const response = await fetch(`/api/reservations/${bookingId}/history`);
+            const body = await readResponseBody(response);
+            if (!response.ok) {
+                throw new Error(body.error || "Failed to load reservation history");
+            }
+            cell.innerHTML = renderHistoryItems(body.history);
+        } catch (error) {
+            cell.textContent = "Could not load status history.";
+        }
     }
 
     async function loadMyBookings() {
