@@ -92,9 +92,17 @@
                 const canCancelByPolicy = (start.getTime() - Date.now()) >= (24 * 60 * 60 * 1000);
                 const isCancelableStatus = item.status === "confirmed";
                 const canCancel = isCancelableStatus && canCancelByPolicy;
-                const cancelLabel = isCancelableStatus
-                    ? (canCancelByPolicy ? "Cancel" : "Too late")
-                    : "N/A";
+                const cancelControl = isCancelableStatus
+                    ? `
+                        <button
+                            class="button button-secondary"
+                            type="button"
+                            data-cancel-id="${item.id}"
+                            ${canCancel ? "" : "disabled"}
+                            title="${canCancel ? "Cancel this booking" : "Bookings can only be cancelled at least 24 hours before start"}"
+                        >Cancel</button>
+                    `
+                    : "";
 
                 return `
                     <tr>
@@ -103,15 +111,7 @@
                         <td>${new Date(item.start_ts).toLocaleString()} to ${new Date(item.end_ts).toLocaleString()}</td>
                         <td>${item.party_size}</td>
                         <td><span class="status-pill status-${item.status}">${item.status}</span></td>
-                        <td>
-                            <button
-                                class="button button-secondary"
-                                type="button"
-                                data-cancel-id="${item.id}"
-                                ${canCancel ? "" : "disabled"}
-                                title="${canCancel ? "Cancel this booking" : "Bookings can only be cancelled at least 24 hours before start"}"
-                            >${cancelLabel}</button>
-                        </td>
+                        <td>${cancelControl}</td>
                         <td><button class="button button-secondary" type="button" data-history-id="${item.id}">Show</button></td>
                     </tr>
                     <tr id="history-row-${item.id}" style="display:none;">
