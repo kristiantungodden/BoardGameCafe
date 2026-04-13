@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import BadRequest
 
 from features.games.application.use_cases.game_copy_use_cases import (
@@ -22,6 +23,7 @@ from features.games.presentation.schemas.game_copy_schema import (
     GameCopyStatusUpdateRequest,
 )
 from shared.domain.exceptions import DomainError
+from shared.infrastructure import db
 
 bp = Blueprint("game_copies", __name__, url_prefix="/api/game-copies")
 
@@ -94,6 +96,9 @@ def create_game_copy():
         return jsonify({"error": str(exc)}), 400
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "copy_code already exists"}), 409
 
     return jsonify(_serialize_game_copy(game_copy)), 201
 

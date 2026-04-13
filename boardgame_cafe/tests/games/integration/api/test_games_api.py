@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 import pytest
+from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from src.app import create_app
 from shared.infrastructure import db
 
@@ -164,6 +165,35 @@ def test_delete_non_existing_game_returns_404(client):
 
     assert response.status_code == 404
     assert response.get_json()["error"] == "Game not found"
+
+
+def test_delete_game_with_existing_copies_returns_conflict(client, app):
+    create_response = client.post(
+        "/api/games/",
+        json={
+            "title": "Carcassonne",
+            "min_players": 2,
+            "max_players": 5,
+            "playtime_min": 45,
+            "complexity": 2.0,
+        },
+    )
+    assert create_response.status_code == 201
+    game_id = create_response.get_json()["id"]
+
+    with app.app_context():
+        db.session.add(
+            GameCopyDB(game_id=game_id, copy_code="CAR-001", status="available")
+        )
+        db.session.commit()
+
+    delete_response = client.delete(f"/api/games/{game_id}")
+
+    assert delete_response.status_code == 409
+    assert (
+        delete_response.get_json()["error"]
+        == "Cannot delete game with existing copies"
+    )
 
 
 def test_get_all_games(client):
