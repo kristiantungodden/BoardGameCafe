@@ -5,13 +5,20 @@ from typing import Optional, Sequence
 from features.bookings.application.interfaces.booking_repository_interface import (
     BookingRepositoryInterface,
 )
+from features.bookings.application.interfaces.booking_status_history_repository_interface import (
+    BookingStatusHistoryRepositoryInterface,
+)
 from features.bookings.domain.models.booking import Booking
+from features.bookings.domain.models.booking_status_history import (
+    BookingStatusHistoryEntry,
+)
 from features.reservations.application.interfaces.table_reservation_repository_interface import (
     TableReservationRepositoryInterface,
 )
 from features.reservations.domain.models.table_reservation import TableReservation
 from shared.domain.constants import OVERLAP_BLOCKING_STATUSES
 from shared.domain.exceptions import ValidationError
+from shared.infrastructure import db
 
 _OPENING_TIME = time(hour=9, minute=0)
 _CLOSING_TIME = time(hour=23, minute=0)
@@ -32,9 +39,11 @@ class CreateBookingRecordUseCase:
         self,
         booking_repo: BookingRepositoryInterface,
         table_reservation_repo: TableReservationRepositoryInterface,
+        status_history_repo: Optional[BookingStatusHistoryRepositoryInterface] = None,
     ):
         self.booking_repo = booking_repo
         self.table_reservation_repo = table_reservation_repo
+        self.status_history_repo = status_history_repo
 
     def execute(self, cmd: BookingCommand) -> Booking:
         if cmd.table_id is None:
@@ -74,6 +83,16 @@ class CreateBookingRecordUseCase:
             TableReservation(booking_id=booking.id, table_id=cmd.table_id)
         )
 
+        if self.status_history_repo is not None:
+            self.status_history_repo.save(
+                BookingStatusHistoryEntry(
+                    booking_id=booking.id,
+                    from_status=None,
+                    to_status=booking.status,
+                    source="create",
+                )
+            )
+
         return booking
 
 
@@ -94,48 +113,147 @@ class GetBookingByIdUseCase:
 
 
 class CancelBookingUseCase:
-    def __init__(self, booking_repo: BookingRepositoryInterface):
+    def __init__(
+        self,
+        booking_repo: BookingRepositoryInterface,
+        status_history_repo: Optional[BookingStatusHistoryRepositoryInterface] = None,
+    ):
         self.booking_repo = booking_repo
+        self.status_history_repo = status_history_repo
 
     def execute(self, booking_id: int) -> Optional[Booking]:
-        booking = self.booking_repo.get_by_id(booking_id)
-        if booking is None:
-            return None
-        booking.cancel()
-        return self.booking_repo.update(booking)
+        return _execute_transition_with_history(
+            booking_repo=self.booking_repo,
+            status_history_repo=self.status_history_repo,
+            booking_id=booking_id,
+            transition_method_name="cancel",
+        )
 
 
 class SeatBookingUseCase:
-    def __init__(self, booking_repo: BookingRepositoryInterface):
+    def __init__(
+        self,
+        booking_repo: BookingRepositoryInterface,
+        status_history_repo: Optional[BookingStatusHistoryRepositoryInterface] = None,
+    ):
         self.booking_repo = booking_repo
+        self.status_history_repo = status_history_repo
 
     def execute(self, booking_id: int) -> Optional[Booking]:
-        booking = self.booking_repo.get_by_id(booking_id)
-        if booking is None:
-            return None
-        booking.seat()
-        return self.booking_repo.update(booking)
+        return _execute_transition_with_history(
+            booking_repo=self.booking_repo,
+            status_history_repo=self.status_history_repo,
+            booking_id=booking_id,
+            transition_method_name="seat",
+        )
 
 
 class CompleteBookingUseCase:
-    def __init__(self, booking_repo: BookingRepositoryInterface):
+    def __init__(
+        self,
+        booking_repo: BookingRepositoryInterface,
+        status_history_repo: Optional[BookingStatusHistoryRepositoryInterface] = None,
+    ):
         self.booking_repo = booking_repo
+        self.status_history_repo = status_history_repo
 
     def execute(self, booking_id: int) -> Optional[Booking]:
-        booking = self.booking_repo.get_by_id(booking_id)
-        if booking is None:
-            return None
-        booking.complete()
-        return self.booking_repo.update(booking)
+        return _execute_transition_with_history(
+            booking_repo=self.booking_repo,
+            status_history_repo=self.status_history_repo,
+            booking_id=booking_id,
+            transition_method_name="complete",
+        )
 
 
 class MarkBookingNoShowUseCase:
-    def __init__(self, booking_repo: BookingRepositoryInterface):
+    def __init__(
+        self,
+        booking_repo: BookingRepositoryInterface,
+        status_history_repo: Optional[BookingStatusHistoryRepositoryInterface] = None,
+    ):
         self.booking_repo = booking_repo
+        self.status_history_repo = status_history_repo
 
     def execute(self, booking_id: int) -> Optional[Booking]:
-        booking = self.booking_repo.get_by_id(booking_id)
-        if booking is None:
-            return None
-        booking.mark_no_show()
-        return self.booking_repo.update(booking)
+        return _execute_transition_with_history(
+            booking_repo=self.booking_repo,
+            status_history_repo=self.status_history_repo,
+            booking_id=booking_id,
+            transition_method_name="mark_no_show",
+        )
+
+
+class ListBookingStatusHistoryUseCase:
+    def __init__(self, status_history_repo: BookingStatusHistoryRepositoryInterface):
+        self.status_history_repo = status_history_repo
+
+    def execute(self, booking_id: int) -> Sequence[BookingStatusHistoryEntry]:
+        return self.status_history_repo.list_for_booking(booking_id)
+
+
+def _execute_transition_with_history(
+    booking_repo: BookingRepositoryInterface,
+    status_history_repo: Optional[BookingStatusHistoryRepositoryInterface],
+    booking_id: int,
+    transition_method_name: str,
+) -> Optional[Booking]:
+    try:
+        session = db.session()
+    except RuntimeError:
+        return _apply_transition_and_log(
+            booking_repo,
+            status_history_repo,
+            booking_id,
+            transition_method_name,
+        )
+
+    tx_ctx = session.begin_nested() if session.in_transaction() else session.begin()
+    with tx_ctx:
+        transition_booking_repo = _instantiate_repo_in_transaction(booking_repo, session)
+        transition_history_repo = _instantiate_repo_in_transaction(
+            status_history_repo, session
+        )
+        return _apply_transition_and_log(
+            transition_booking_repo,
+            transition_history_repo,
+            booking_id,
+            transition_method_name,
+        )
+
+
+def _instantiate_repo_in_transaction(repo, session):
+    if repo is None:
+        return None
+
+    try:
+        return repo.__class__(session=session, auto_commit=False)
+    except TypeError:
+        return repo
+
+
+def _apply_transition_and_log(
+    booking_repo,
+    status_history_repo,
+    booking_id: int,
+    transition_method_name: str,
+) -> Optional[Booking]:
+    booking = booking_repo.get_by_id(booking_id)
+    if booking is None:
+        return None
+
+    previous_status = booking.status
+    getattr(booking, transition_method_name)()
+    updated = booking_repo.update(booking)
+
+    if status_history_repo is not None:
+        status_history_repo.save(
+            BookingStatusHistoryEntry(
+                booking_id=updated.id,
+                from_status=previous_status,
+                to_status=updated.status,
+                source="status_transition",
+            )
+        )
+
+    return updated

@@ -40,6 +40,7 @@ from features.reservations.presentation.api.deps import (
     get_reservation_lookup_use_case,
     get_list_reservation_games_use_case,
     get_reservation_by_id_use_case,
+    get_reservation_status_history_use_case,
     get_remove_game_from_reservation_use_case,
     get_seat_reservation_use_case,
 )
@@ -72,6 +73,18 @@ def _serialize_reservation_game(reservation_game):
         "booking_id": reservation_game.booking_id,
         "requested_game_id": reservation_game.requested_game_id,
         "game_copy_id": reservation_game.game_copy_id,
+    }
+
+
+def _serialize_status_history(entry):
+    return {
+        "id": entry.id,
+        "booking_id": entry.booking_id,
+        "from_status": entry.from_status,
+        "to_status": entry.to_status,
+        "source": entry.source,
+        "reason": entry.reason,
+        "created_at": entry.created_at.isoformat(),
     }
 
 
@@ -137,6 +150,28 @@ def get_reservation(reservation_id: int):
             return {"error": "Unauthorized access to reservation"}, 403
     
     return _serialize_reservation(reservation), 200
+
+
+@bp.get("/<int:reservation_id>/history")
+def get_reservation_history(reservation_id: int):
+    if not current_user.is_authenticated:
+        return {"error": "Authentication required"}, 401
+
+    reservation_use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
+    reservation = reservation_use_case.execute(reservation_id)
+    if reservation is None:
+        return {"error": "Reservation not found"}, 404
+
+    if not (hasattr(current_user, "is_staff") and current_user.is_staff):
+        if reservation.customer_id != current_user.id:
+            return {"error": "Unauthorized access to reservation"}, 403
+
+    history_use_case = get_reservation_status_history_use_case()
+    history = history_use_case.execute(reservation_id)
+    return {
+        "reservation_id": reservation_id,
+        "history": [_serialize_status_history(item) for item in history],
+    }, 200
 
 @bp.post("")
 def create_reservation():
