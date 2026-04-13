@@ -92,20 +92,20 @@ def create_app(config_name: str = None):
     def games_page():
         return render_template("games.html")
 
-    @app.route("/reservations", methods=["GET"])
+    @app.route("/booking", methods=["GET"])
     @login_required
-    def reservations_page():
-        return render_template("reservations.html")
+    def booking_page():
+        return render_template("booking.html")
 
-    @app.route("/my-bookings", methods=["GET"])
+    @app.route("/my-page", methods=["GET"])
     @login_required
-    def my_bookings_page():
-        return redirect(url_for("reservations_page"))
+    def my_page():
+        return render_template("my_page.html")
 
     @app.route("/reservations/confirmation/<int:reservation_id>", methods=["GET"])
     @login_required
     def reservation_confirmation_page(reservation_id: int):
-        return render_template("reservation_confirmation.html", reservation_id=reservation_id)
+        return render_template("booking_confirmation.html", reservation_id=reservation_id)
 
     @app.route("/login", methods=["GET"])
     def login_page():
