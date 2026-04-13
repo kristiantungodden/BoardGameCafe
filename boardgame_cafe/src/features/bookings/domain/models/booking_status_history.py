@@ -15,6 +15,8 @@ class BookingStatusHistoryEntry:
     from_status: Optional[str] = None
     source: Optional[str] = None
     reason: Optional[str] = None
+    actor_user_id: Optional[int] = None
+    actor_role: Optional[str] = None
     id: Optional[int] = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -28,3 +30,5 @@ class BookingStatusHistoryEntry:
             and self.from_status not in VALID_BOOKING_STATUSES
         ):
             raise ValidationError(f"Invalid from_status '{self.from_status}'")
+        if self.actor_user_id is not None and self.actor_user_id <= 0:
+            raise ValidationError("actor_user_id must be a positive integer")

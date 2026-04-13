@@ -28,6 +28,8 @@ class SqlAlchemyBookingStatusHistoryRepository(BookingStatusHistoryRepositoryInt
             to_status=entry.to_status,
             source=entry.source,
             reason=entry.reason,
+            actor_user_id=entry.actor_user_id,
+            actor_role=entry.actor_role,
             created_at=entry.created_at,
         )
         self.session.add(row)
@@ -59,5 +61,7 @@ class SqlAlchemyBookingStatusHistoryRepository(BookingStatusHistoryRepositoryInt
             to_status=row.to_status,
             source=row.source,
             reason=row.reason,
+            actor_user_id=row.actor_user_id,
+            actor_role=row.actor_role,
             created_at=row.created_at,
         )

@@ -16,7 +16,7 @@ class FakeTransitionUseCase:
     def __init__(self, status: str):
         self.status = status
 
-    def execute(self, reservation_id: int):
+    def execute(self, reservation_id: int, actor_user_id=None, actor_role=None):
         if reservation_id != 1:
             return None
         reservation = _make_reservation(
@@ -33,7 +33,7 @@ class FakeTransitionUseCase:
 
 
 class FailingTransitionUseCase:
-    def execute(self, reservation_id: int):
+    def execute(self, reservation_id: int, actor_user_id=None, actor_role=None):
         raise InvalidStatusTransition("Cannot complete reservation in status 'confirmed'")
 
 

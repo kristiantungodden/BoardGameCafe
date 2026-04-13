@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import Optional, Sequence
 
 from features.bookings.application.interfaces.booking_repository_interface import (
@@ -90,6 +90,8 @@ class CreateBookingRecordUseCase:
                     from_status=None,
                     to_status=booking.status,
                     source="create",
+                    actor_user_id=cmd.customer_id,
+                    actor_role="customer",
                 )
             )
 
@@ -121,12 +123,19 @@ class CancelBookingUseCase:
         self.booking_repo = booking_repo
         self.status_history_repo = status_history_repo
 
-    def execute(self, booking_id: int) -> Optional[Booking]:
+    def execute(
+        self,
+        booking_id: int,
+        actor_user_id: Optional[int] = None,
+        actor_role: Optional[str] = None,
+    ) -> Optional[Booking]:
         return _execute_transition_with_history(
             booking_repo=self.booking_repo,
             status_history_repo=self.status_history_repo,
             booking_id=booking_id,
             transition_method_name="cancel",
+            actor_user_id=actor_user_id,
+            actor_role=actor_role,
         )
 
 
@@ -139,12 +148,19 @@ class SeatBookingUseCase:
         self.booking_repo = booking_repo
         self.status_history_repo = status_history_repo
 
-    def execute(self, booking_id: int) -> Optional[Booking]:
+    def execute(
+        self,
+        booking_id: int,
+        actor_user_id: Optional[int] = None,
+        actor_role: Optional[str] = None,
+    ) -> Optional[Booking]:
         return _execute_transition_with_history(
             booking_repo=self.booking_repo,
             status_history_repo=self.status_history_repo,
             booking_id=booking_id,
             transition_method_name="seat",
+            actor_user_id=actor_user_id,
+            actor_role=actor_role,
         )
 
 
@@ -157,12 +173,19 @@ class CompleteBookingUseCase:
         self.booking_repo = booking_repo
         self.status_history_repo = status_history_repo
 
-    def execute(self, booking_id: int) -> Optional[Booking]:
+    def execute(
+        self,
+        booking_id: int,
+        actor_user_id: Optional[int] = None,
+        actor_role: Optional[str] = None,
+    ) -> Optional[Booking]:
         return _execute_transition_with_history(
             booking_repo=self.booking_repo,
             status_history_repo=self.status_history_repo,
             booking_id=booking_id,
             transition_method_name="complete",
+            actor_user_id=actor_user_id,
+            actor_role=actor_role,
         )
 
 
@@ -175,12 +198,19 @@ class MarkBookingNoShowUseCase:
         self.booking_repo = booking_repo
         self.status_history_repo = status_history_repo
 
-    def execute(self, booking_id: int) -> Optional[Booking]:
+    def execute(
+        self,
+        booking_id: int,
+        actor_user_id: Optional[int] = None,
+        actor_role: Optional[str] = None,
+    ) -> Optional[Booking]:
         return _execute_transition_with_history(
             booking_repo=self.booking_repo,
             status_history_repo=self.status_history_repo,
             booking_id=booking_id,
             transition_method_name="mark_no_show",
+            actor_user_id=actor_user_id,
+            actor_role=actor_role,
         )
 
 
@@ -197,6 +227,8 @@ def _execute_transition_with_history(
     status_history_repo: Optional[BookingStatusHistoryRepositoryInterface],
     booking_id: int,
     transition_method_name: str,
+    actor_user_id: Optional[int],
+    actor_role: Optional[str],
 ) -> Optional[Booking]:
     try:
         session = db.session()
@@ -206,6 +238,8 @@ def _execute_transition_with_history(
             status_history_repo,
             booking_id,
             transition_method_name,
+            actor_user_id,
+            actor_role,
         )
 
     tx_ctx = session.begin_nested() if session.in_transaction() else session.begin()
@@ -219,6 +253,8 @@ def _execute_transition_with_history(
             transition_history_repo,
             booking_id,
             transition_method_name,
+            actor_user_id,
+            actor_role,
         )
 
 
@@ -237,12 +273,17 @@ def _apply_transition_and_log(
     status_history_repo,
     booking_id: int,
     transition_method_name: str,
+    actor_user_id: Optional[int],
+    actor_role: Optional[str],
 ) -> Optional[Booking]:
     booking = booking_repo.get_by_id(booking_id)
     if booking is None:
         return None
 
     previous_status = booking.status
+    if transition_method_name == "cancel":
+        _validate_cancellation_window(booking.start_ts)
+
     getattr(booking, transition_method_name)()
     updated = booking_repo.update(booking)
 
@@ -253,7 +294,17 @@ def _apply_transition_and_log(
                 from_status=previous_status,
                 to_status=updated.status,
                 source="status_transition",
+                actor_user_id=actor_user_id,
+                actor_role=actor_role,
             )
         )
 
     return updated
+
+
+def _validate_cancellation_window(start_ts: datetime) -> None:
+    now = datetime.now(tz=start_ts.tzinfo) if start_ts.tzinfo else datetime.now()
+    if start_ts - now < timedelta(hours=24):
+        raise ValidationError(
+            "Booking can only be cancelled at least 24 hours before start time"
+        )
