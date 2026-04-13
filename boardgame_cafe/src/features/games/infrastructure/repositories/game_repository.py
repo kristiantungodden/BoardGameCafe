@@ -149,5 +149,7 @@ class GameRepository:
     def delete_game(self, game_id: int) -> None:
         db_game = self.session.get(GameDB, game_id)
         if db_game:
+            if db_game.copies:
+                raise ValueError("Cannot delete game with existing copies")
             self.session.delete(db_game)
             self.session.commit()
