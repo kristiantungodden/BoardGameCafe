@@ -4,6 +4,7 @@ from flask_wtf.csrf import CSRFError
 import os
 
 from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
+from shared.infrastructure import init_booking_draft_store
 from shared.infrastructure.message_bus.realtime import stream_realtime_events
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.application.event_handlers.email_event_handler import register_email_event_handlers
@@ -48,6 +49,7 @@ def create_app(config_name: str = None):
     csrf.init_app(app)
     mail.init_app(app)
     login_manager.init_app(app)
+    init_booking_draft_store(app)
     login_manager.login_view = "login_page"
     login_manager.login_message = "Please sign in to continue."
 
