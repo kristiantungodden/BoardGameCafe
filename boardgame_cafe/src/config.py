@@ -20,6 +20,11 @@ class Config:
 
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672/")
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "rpc://")
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    BOOKING_DRAFT_REDIS_REQUIRED = os.getenv("BOOKING_DRAFT_REDIS_REQUIRED", "false").lower() == "true"
+
+    BOOKING_DRAFT_TTL_SECONDS = int(os.getenv("BOOKING_DRAFT_TTL_SECONDS", str(60 * 60 * 24 * 7)))
+    BOOKING_DRAFT_CACHE_DIR = os.getenv("BOOKING_DRAFT_CACHE_DIR")
 
 class DevelopmentConfig(Config):
     """Development configuration."""
@@ -38,6 +43,7 @@ class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
+    REDIS_URL = None
 
 
 class ProductionConfig(Config):
