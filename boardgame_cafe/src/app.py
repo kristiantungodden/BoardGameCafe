@@ -3,7 +3,8 @@ from flask_login import current_user, login_required, logout_user
 from flask_wtf.csrf import CSRFError
 import os
 
-from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db, init_booking_draft_store
+from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
+from shared.infrastructure import init_booking_draft_store
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.application.event_handlers.email_event_handler import register_email_event_handlers
 
