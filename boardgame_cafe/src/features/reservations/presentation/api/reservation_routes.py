@@ -235,6 +235,20 @@ def create_reservation():
     response["games"] = [_serialize_reservation_game(item) for item in reservation_games]
     response["payment"] = PaymentSchema.dump(payment)
 
+    event_bus = getattr(current_app, "event_bus", None)
+    if event_bus is not None:
+        event_bus.publish(
+            ReservationCreated(
+                reservation_id=reservation.id,
+                user_id=current_user.id,
+                user_email=getattr(current_user, "email", None),
+                reservation_details=(
+                    f"Reservation #{reservation.id}: "
+                    f"{reservation.start_ts.isoformat()} to {reservation.end_ts.isoformat()}, "
+                    f"party_size={reservation.party_size}, tables={response['table_ids']}"
+                ),
+            )
+        )
     get_or_create_reservation_qr_token(
         current_app.config["SECRET_KEY"],
         user_id=current_user.id,
