@@ -11,6 +11,10 @@ or with Flask CLI:
 
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if it exists
+load_dotenv()
 
 # Add src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "boardgame_cafe", "src"))

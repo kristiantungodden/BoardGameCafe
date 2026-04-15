@@ -1,3 +1,8 @@
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if it exists
+load_dotenv()
+
 from app import create_app
 from shared.infrastructure import celery, init_celery
 
