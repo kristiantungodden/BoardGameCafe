@@ -46,6 +46,8 @@ class TestingConfig(Config):
     CELERY_BROKER_URL = "memory://"
     CELERY_RESULT_BACKEND = "cache+memory://"
     REDIS_URL = None
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
 
 
 class ProductionConfig(Config):
