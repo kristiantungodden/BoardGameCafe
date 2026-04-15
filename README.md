@@ -29,6 +29,26 @@ Alternativ manuel start med venv-python:
 .\.venv\Scripts\python.exe -m flask --app run.py run --debug
 ```
 
+## Pub/Sub med Celery + Redis
+
+For å bruke distribuert event system (email + realtime events):
+
+1. Start Redis lokalt (port 6379).
+2. Start Flask app som normalt.
+3. Start Celery worker i egen terminal:
+
+```powershell
+.\.venv\Scripts\python.exe -m celery -A boardgame_cafe.src.celery_worker.celery_app worker -l info
+```
+
+Event stream for realtime-klienter er tilgjengelig på:
+
+```text
+GET /api/events/stream
+```
+
+SSE klienter kan abonnere via EventSource i frontend.
+
 MacOS startup:
 ```bash
 chmod +x startup.sh
