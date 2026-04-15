@@ -1,11 +1,12 @@
+import os
+from pathlib import Path
+
 from flask import Flask, render_template, flash, redirect, url_for, request, jsonify, stream_with_context
 from flask_login import current_user, login_required, logout_user
 from flask_wtf.csrf import CSRFError
-import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file if it exists
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
 from shared.infrastructure.message_bus.realtime import stream_realtime_events
