@@ -24,6 +24,7 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     SeatReservationUseCase,
 )
 from shared.domain.exceptions import DomainError
+from shared.domain.events import ReservationCreated
 from shared.infrastructure import csrf
 from shared.infrastructure.qr_codes import (
     decode_reservation_qr_token,
@@ -240,6 +241,21 @@ def create_reservation():
         reservation_id=reservation.id,
     )
 
+
+    event_bus = getattr(current_app, "event_bus", None)
+    if event_bus is not None:
+        event_bus.publish(
+            ReservationCreated(
+                reservation_id=reservation.id,
+                user_id=current_user.id,
+                user_email=getattr(current_user, "email", None),
+                reservation_details=(
+                    f"Reservation #{reservation.id}: "
+                    f"{reservation.start_ts.isoformat()} to {reservation.end_ts.isoformat()}, "
+                    f"party_size={reservation.party_size}, tables={response['table_ids']}"
+                ),
+            )
+        )
     return response, 201
 
 

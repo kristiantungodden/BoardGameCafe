@@ -28,6 +28,7 @@ Flask-Mail==0.9.1
 celery==5.3.4
 kombu==5.3.4
 pika==1.3.2
+redis==5.0.1
 
 # Payment Provider
 requests==2.31.0

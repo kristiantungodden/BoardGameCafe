@@ -18,8 +18,10 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "jwt-dev-key")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
 
-    CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672/")
-    CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "rpc://")
+    CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+    CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/2")
+    REALTIME_EVENTS_CHANNEL = os.getenv("REALTIME_EVENTS_CHANNEL", "boardgame_cafe.events")
 
 class DevelopmentConfig(Config):
     """Development configuration."""
@@ -34,10 +36,12 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(Config):
     """Testing configuration."""
-    
+
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
 
 
 class ProductionConfig(Config):

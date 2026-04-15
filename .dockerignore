@@ -1,0 +1,24 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Git and editor
+.git/
+.vscode/
+
+# Local runtime files
+*.db
+*.sqlite
+boardgame_cafe/src/instance/
+
+# OS noise
+.DS_Store
+Thumbs.db
