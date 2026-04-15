@@ -47,6 +47,7 @@ DEMO_USERS = [
 ]
 
 
+
 def ensure_floor_column_for_tables() -> None:
     """Add `floor` column for legacy databases before ORM table queries."""
     inspector = inspect(db.engine)
