@@ -37,6 +37,13 @@ DEMO_USERS = [
         "phone": None,
         "password": "bbbbbbbb",
     },
+    {
+        "role": "staff",
+        "name": "steward",
+        "email": "steward@local",
+        "phone": None,
+        "password": "stewardpw",
+    },
 ]
 
 

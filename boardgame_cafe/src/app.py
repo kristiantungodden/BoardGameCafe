@@ -1,4 +1,4 @@
-from flask import Flask, render_template, flash, redirect, url_for, request
+from flask import Flask, app, render_template, flash, redirect, url_for, request, jsonify
 from flask_login import current_user, login_required, logout_user
 from flask_wtf.csrf import CSRFError
 import os
@@ -19,6 +19,7 @@ from features.reservations.presentation.api import reservation_routes
 from features.tables.presentation.api import table_routes
 from features.users.presentation.api import auth_routes, steward_routes
 from features.users.infrastructure import UserDB as User
+
 
 def create_app(config_name: str = None):
     """
@@ -77,6 +78,7 @@ def create_app(config_name: str = None):
     if os.getenv("FLASK_ENV") == "development":
         from features.payments.infrastructure.vipps.mock_vipps import mock_vipps
         app.register_blueprint(mock_vipps)
+        # development-only mock vipps blueprint registered above
 
     
     @app.route("/payments/<int:booking_id>")
@@ -120,6 +122,62 @@ def create_app(config_name: str = None):
     def me():
         return render_template("account.html", user=current_user)
 
+
+    @app.route('/steward', methods=['GET'])
+    @login_required
+    def steward_page():
+        # Only staff or admin users can access the steward dashboard
+        if getattr(current_user, "role", None) not in ("staff", "admin"):
+            flash("Staff access required.", "error")
+            return redirect(url_for("home"))
+
+        return render_template("steward_dashboard.html")
+
+
+    @app.route('/steward/pending', methods=['GET'])
+    @login_required
+    def steward_pending_page():
+        if getattr(current_user, "role", None) not in ("staff", "admin"):
+            flash("Staff access required.", "error")
+            return redirect(url_for("home"))
+        return render_template("steward_pending.html")
+
+
+    @app.route('/steward/seated', methods=['GET'])
+    @login_required
+    def steward_seated_page():
+        if getattr(current_user, "role", None) not in ("staff", "admin"):
+            flash("Staff access required.", "error")
+            return redirect(url_for("home"))
+        return render_template("steward_seated.html")
+
+
+    @app.route('/steward/game-copies', methods=['GET'])
+    @login_required
+    def steward_game_copies_page():
+        if getattr(current_user, "role", None) not in ("staff", "admin"):
+            flash("Staff access required.", "error")
+            return redirect(url_for("home"))
+        return render_template("steward_game_copies.html")
+
+
+    @app.route('/steward/incidents', methods=['GET'])
+    @login_required
+    def steward_incidents_page():
+        if getattr(current_user, "role", None) not in ("staff", "admin"):
+            flash("Staff access required.", "error")
+            return redirect(url_for("home"))
+        return render_template("steward_incidents.html")
+
+
+    @app.route('/steward/incidents/create', methods=['GET'])
+    @login_required
+    def steward_create_incident_page():
+        if getattr(current_user, "role", None) not in ("staff", "admin"):
+            flash("Staff access required.", "error")
+            return redirect(url_for("home"))
+        return render_template("create_incident.html")
+
     @app.route('/logout', methods=['POST'])
     @login_required
     def logout():
@@ -131,6 +189,8 @@ def create_app(config_name: str = None):
     with app.app_context():
         init_db(app)
 
+        # Note: demo data seeding is handled by the standalone script `scripts/seed_demo_data.py`.
+
     return app
 
 
@@ -138,7 +198,6 @@ def register_blueprints(app: Flask):
     """Register all API blueprints."""
     repo = PaymentRepository()
     configure_payment_routes(repo)
-    # instantiate Vipps adapter (reads env vars if present)
     vipps = VippsAdapter()
     configure_payment_provider(vipps)
     app.register_blueprint(vipps_callbacks)
