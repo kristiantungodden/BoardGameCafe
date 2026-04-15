@@ -1,3 +1,4 @@
 from .booking_repository import SqlAlchemyBookingRepository
+from .booking_status_history_repository import SqlAlchemyBookingStatusHistoryRepository
 
-__all__ = ["SqlAlchemyBookingRepository"]
+__all__ = ["SqlAlchemyBookingRepository", "SqlAlchemyBookingStatusHistoryRepository"]

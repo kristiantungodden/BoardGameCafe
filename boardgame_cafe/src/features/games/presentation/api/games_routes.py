@@ -216,7 +216,11 @@ def delete_game(game_id: int):
     if not game:
         return jsonify({"error": "Game not found"}), 404
 
-    use_cases.delete_game(game_id)
+    try:
+        use_cases.delete_game(game_id)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 409
+
     return jsonify({"message": "Game deleted"}), 200
 
 

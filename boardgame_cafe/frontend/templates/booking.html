@@ -3,7 +3,7 @@
 {% block title %}BoardGameCafe | Reservations{% endblock %}
 
 {% block content %}
-<h1 class="page-header">Reservations</h1>
+<h1 class="page-header">Booking</h1>
 <p class="page-intro">
     Choose date and timeslot, pick a table from the floor plan, add games, and create your booking in one step.
     Final table/game reservation and payment are still completed in one atomic transaction.
@@ -91,7 +91,6 @@
             <div class="action-row">
                 <button class="button" type="submit">Create Booking</button>
                 <button class="button button-secondary" id="reset-booking-form" type="button">Clear Form</button>
-                <button class="button button-secondary" id="refresh-reservations" type="button">Refresh Reservations</button>
             </div>
         </form>
     </article>
@@ -112,37 +111,7 @@
 
         <h4 class="subsection-title">Latest Payment</h4>
         <div id="latest-payment" class="mini-list">No payment created in this session.</div>
-
-        <h4 class="subsection-title">Selected Reservation</h4>
-        <div id="active-reservation-label" class="inline-meta">None selected yet.</div>
-        <div id="selected-reservation-games" class="mini-list">Select a reservation to view attached games.</div>
     </aside>
-</section>
-
-<section class="panel reservation-box reservation-list-box">
-    <div class="reservation-list-head">
-        <h3>Reservations</h3>
-        <p class="page-intro compact">Showing reservations for your account.</p>
-    </div>
-    <div class="table-wrap">
-        <table class="table-clean" id="reservations-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Table</th>
-                    <th>Time</th>
-                    <th>Party</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td colspan="6" class="game-state">No reservations loaded yet.</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
 </section>
 
 <script>
@@ -831,7 +800,6 @@
             state.pendingGames = [];
             state.selectedTableIds = [];
             state.reservationGames[body.id] = body.games || [];
-            setSelectedReservation(body);
             renderReservationGames();
             await refreshAvailability();
 
@@ -843,7 +811,6 @@
                 `Booking #${body.id} created with ${body.games?.length || 0} game selections and payment.`,
                 "success"
             );
-            await loadReservations();
             window.location.href = `/reservations/confirmation/${body.id}`;
         } catch (error) {
             setFeedback(error.message, "error");
@@ -923,7 +890,6 @@
 
     document.getElementById("reservation-form")?.addEventListener("submit", createReservation);
     document.getElementById("add-game-button")?.addEventListener("click", queueGameForBooking);
-    document.getElementById("refresh-reservations")?.addEventListener("click", loadReservations);
     document.getElementById("reset-booking-form")?.addEventListener("click", resetBookingForm);
     document.getElementById("party-size")?.addEventListener("input", refreshAvailability);
     document.getElementById("booking-date")?.addEventListener("change", refreshAvailability);
@@ -936,13 +902,11 @@
     document.getElementById("requested-game-id")?.addEventListener("change", renderSelectedGameAvailability);
 
     renderReservationGames();
-    renderSelectedReservationGames();
     renderBookingSummary();
     renderSelectedTableMeta();
     renderFloorSelector();
     renderFloorPlan();
     loadLookupData();
-    loadReservations();
     refreshAvailability();
 </script>
 {% endblock %}

@@ -112,6 +112,20 @@ footer {
     color: #2b2926;
 }
 
+.button:disabled,
+.button.button-secondary:disabled {
+    background: #c7c1b8;
+    color: #6d665d;
+    cursor: not-allowed;
+    filter: none;
+}
+
+.button:disabled:hover,
+.button.button-secondary:disabled:hover {
+    transform: none;
+    filter: none;
+}
+
 .hero-title {
     margin: 0 0 0.35rem;
     font-size: clamp(1.6rem, 3vw, 2.4rem);

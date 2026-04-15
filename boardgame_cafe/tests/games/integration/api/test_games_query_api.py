@@ -243,3 +243,93 @@ def test_get_games_with_multiple_filters(client):
     titles = [g["title"] for g in data["games"]]
     assert "Catan" in titles
     assert "Catan: Seafarers" in titles
+
+
+def test_get_games_pagination_clamps_invalid_values(client):
+    for i in range(3):
+        client.post(
+            "/api/games/",
+            json={
+                "title": f"Clamp {i}",
+                "min_players": 2,
+                "max_players": 4,
+                "playtime_min": 60,
+                "complexity": 2.0,
+            },
+        )
+
+    response = client.get("/api/games/?page=0&page_size=0")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    assert data["page"] == 1
+    assert data["page_size"] == 1
+    assert data["total_count"] == 3
+    assert len(data["games"]) == 1
+
+
+def test_get_games_out_of_range_page_returns_empty_list(client):
+    for i in range(5):
+        client.post(
+            "/api/games/",
+            json={
+                "title": f"Page {i}",
+                "min_players": 2,
+                "max_players": 4,
+                "playtime_min": 45,
+                "complexity": 1.5,
+            },
+        )
+
+    response = client.get("/api/games/?page=3&page_size=3")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    assert data["page"] == 3
+    assert data["page_size"] == 3
+    assert data["total_count"] == 5
+    assert data["total_pages"] == 2
+    assert data["games"] == []
+
+
+def test_get_games_prefers_tag_over_tags_when_both_provided(client):
+    catan = client.post(
+        "/api/games/",
+        json={
+            "title": "Catan",
+            "min_players": 3,
+            "max_players": 4,
+            "playtime_min": 60,
+            "complexity": 2.5,
+        },
+    )
+    azul = client.post(
+        "/api/games/",
+        json={
+            "title": "Azul",
+            "min_players": 2,
+            "max_players": 4,
+            "playtime_min": 45,
+            "complexity": 1.9,
+        },
+    )
+    catan_id = catan.get_json()["id"]
+    azul_id = azul.get_json()["id"]
+
+    strategy_tag = client.post("/api/games/tags", json={"name": "strategy"}).get_json()[
+        "id"
+    ]
+    abstract_tag = client.post("/api/games/tags", json={"name": "abstract"}).get_json()[
+        "id"
+    ]
+
+    client.post(f"/api/games/{catan_id}/tags", json={"tag_id": strategy_tag})
+    client.post(f"/api/games/{azul_id}/tags", json={"tag_id": abstract_tag})
+
+    response = client.get("/api/games/?tag=strategy&tags=abstract")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    titles = [game["title"] for game in data["games"]]
+    assert "Catan" in titles
+    assert "Azul" not in titles

@@ -4,6 +4,7 @@ from features.bookings.application.use_cases.booking_lifecycle_use_cases import 
     CompleteBookingUseCase,
     CreateBookingRecordUseCase,
     GetBookingByIdUseCase,
+    ListBookingStatusHistoryUseCase,
     ListBookingsUseCase,
     MarkBookingNoShowUseCase,
     SeatBookingUseCase,
@@ -14,6 +15,9 @@ from features.bookings.application.use_cases.booking_use_cases import (
 )
 from features.bookings.infrastructure.repositories.booking_repository import (
     SqlAlchemyBookingRepository,
+)
+from features.bookings.infrastructure.repositories.booking_status_history_repository import (
+    SqlAlchemyBookingStatusHistoryRepository,
 )
 from features.payments.application.use_cases.payment_use_cases import create_and_save_payment
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
@@ -54,12 +58,17 @@ _table_reservation_repo = SqlAlchemyTableReservationRepository()
 _game_repo = SqlAlchemyGameReservationRepository()
 _lookup_repo = SqlAlchemyReservationLookupRepository()
 _payment_repo = PaymentRepository()
+_status_history_repo = SqlAlchemyBookingStatusHistoryRepository()
 _available_table_repo = SqlAlchemyAvailableTableRepository()
 _available_copy_repo = SqlAlchemyAvailableGameCopyRepository()
 
 
 def get_create_reservation_use_case() -> CreateBookingRecordUseCase:
-    return CreateBookingRecordUseCase(_booking_repo, _table_reservation_repo)
+    return CreateBookingRecordUseCase(
+        _booking_repo,
+        _table_reservation_repo,
+        _status_history_repo,
+    )
 
 
 def get_list_reservations_use_case() -> ListBookingsUseCase:
@@ -71,19 +80,23 @@ def get_reservation_by_id_use_case() -> GetBookingByIdUseCase:
 
 
 def get_cancel_reservation_use_case() -> CancelBookingUseCase:
-    return CancelBookingUseCase(_repo)
+    return CancelBookingUseCase(_repo, _status_history_repo)
 
 
 def get_seat_reservation_use_case() -> SeatBookingUseCase:
-    return SeatBookingUseCase(_repo)
+    return SeatBookingUseCase(_repo, _status_history_repo)
 
 
 def get_complete_reservation_use_case() -> CompleteBookingUseCase:
-    return CompleteBookingUseCase(_repo)
+    return CompleteBookingUseCase(_repo, _status_history_repo)
 
 
 def get_no_show_reservation_use_case() -> MarkBookingNoShowUseCase:
-    return MarkBookingNoShowUseCase(_repo)
+    return MarkBookingNoShowUseCase(_repo, _status_history_repo)
+
+
+def get_reservation_status_history_use_case() -> ListBookingStatusHistoryUseCase:
+    return ListBookingStatusHistoryUseCase(_status_history_repo)
 
 
 def get_add_game_to_reservation_use_case() -> AddGameToReservationUseCase:
@@ -128,6 +141,10 @@ def get_create_reservation_with_payment_handler():
             booking = CreateBookingRecordUseCase(
                 booking_repo=booking_repo,
                 table_reservation_repo=table_reservation_repo,
+                status_history_repo=SqlAlchemyBookingStatusHistoryRepository(
+                    session=session,
+                    auto_commit=False,
+                ),
             ).execute(cmd)
             payment = create_and_save_payment(booking, payment_repo)
 
@@ -145,6 +162,7 @@ def get_create_booking_handler():
             available_table_repo=_available_table_repo,
             available_copy_repo=_available_copy_repo,
             payment_repo=_payment_repo,
+            status_history_repo=_status_history_repo,
         )
 
         game_requests = [
@@ -195,5 +213,6 @@ __all__ = [
     "get_remove_game_from_reservation_use_case",
     "get_reservation_by_id_use_case",
     "get_reservation_lookup_use_case",
+    "get_reservation_status_history_use_case",
     "get_seat_reservation_use_case",
 ]
