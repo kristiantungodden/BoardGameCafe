@@ -7,7 +7,7 @@ from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.application.event_handlers.email_event_handler import register_email_event_handlers
 
-from features.games.presentation.api import games_routes
+from features.games.presentation.api import games_routes, game_copy_routes
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
 from features.payments.presentation.api.payment_routes import (
     configure_payment_routes,
@@ -204,6 +204,7 @@ def register_blueprints(app: Flask):
 
     app.register_blueprint(auth_routes.bp)
     app.register_blueprint(games_routes.bp)
+    app.register_blueprint(game_copy_routes.bp)
     app.register_blueprint(payment_bp)
     app.register_blueprint(reservation_routes.bp)
     app.register_blueprint(table_routes.bp)

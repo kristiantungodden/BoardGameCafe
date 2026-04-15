@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, current_app, request, jsonify, url_for
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import BadRequest
@@ -24,6 +24,11 @@ from features.games.presentation.schemas.game_copy_schema import (
 )
 from shared.domain.exceptions import DomainError
 from shared.infrastructure import db
+from shared.infrastructure.qr_codes import (
+    generate_qr_svg,
+    get_game_copy_id_by_qr_token,
+    get_or_create_game_copy_qr_token,
+)
 
 bp = Blueprint("game_copies", __name__, url_prefix="/api/game-copies")
 
@@ -47,6 +52,20 @@ def _serialize_game_copy(game_copy: GameCopy) -> dict:
         "updated_at": game_copy.updated_at.isoformat()
         if hasattr(game_copy.updated_at, "isoformat")
         else game_copy.updated_at,
+    }
+
+
+def _serialize_game_copy_db(game_copy_db) -> dict:
+    return {
+        "id": game_copy_db.id,
+        "game_id": game_copy_db.game_id,
+        "copy_code": game_copy_db.copy_code,
+        "status": game_copy_db.status,
+        "location": game_copy_db.location,
+        "condition_note": game_copy_db.condition_note,
+        "updated_at": game_copy_db.updated_at.isoformat()
+        if hasattr(game_copy_db.updated_at, "isoformat")
+        else game_copy_db.updated_at,
     }
 
 
@@ -192,3 +211,34 @@ def update_game_copy_condition_note(copy_id: int):
         return jsonify({"error": str(exc)}), 400
 
     return jsonify(_serialize_game_copy(game_copy)), 200
+
+
+@bp.route("/<int:copy_id>/qr", methods=["GET"])
+def get_game_copy_qr(copy_id: int):
+    game_copy = get_game_copy_by_id_use_case.execute(copy_id)
+    if not game_copy:
+        return jsonify({"error": "Game copy not found"}), 404
+
+    token = get_or_create_game_copy_qr_token(copy_id)
+    info_url = url_for("game_copies.get_game_copy_by_qr", token=token, _external=True)
+    svg = generate_qr_svg(info_url)
+    response = current_app.response_class(svg, mimetype="image/svg+xml")
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@bp.route("/scan/<string:token>", methods=["GET"])
+def get_game_copy_by_qr(token: str):
+    copy_id = get_game_copy_id_by_qr_token(token)
+    if copy_id is None:
+        return jsonify({"error": "Invalid game copy QR code"}), 404
+
+    from features.games.infrastructure.database.game_copy_db import GameCopyDB
+
+    game_copy_db = db.session.get(GameCopyDB, copy_id)
+    if game_copy_db is None:
+        return jsonify({"error": "Game copy not found"}), 404
+
+    payload = _serialize_game_copy_db(game_copy_db)
+    payload["qr_token"] = token
+    return jsonify(payload), 200

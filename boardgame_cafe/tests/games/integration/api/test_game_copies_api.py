@@ -1,6 +1,7 @@
 import pytest
 
 from features.games.presentation.api.game_copy_routes import bp as game_copy_bp
+from shared.infrastructure.qr_codes import get_or_create_game_copy_qr_token
 from shared.infrastructure import db
 from src.app import create_app
 
@@ -201,3 +202,39 @@ def test_game_copy_status_lifecycle_flow(client):
     )
     assert maintenance_response.status_code == 200
     assert maintenance_response.get_json()["status"] == "maintenance"
+
+
+def test_game_copy_qr_endpoint_returns_svg(client):
+    create_response = client.post(
+        "/api/game-copies/",
+        json={"game_id": 1, "copy_code": "AZUL-QR-001", "status": "available"},
+    )
+    assert create_response.status_code == 201
+    copy_id = create_response.get_json()["id"]
+
+    qr_response = client.get(f"/api/game-copies/{copy_id}/qr")
+
+    assert qr_response.status_code == 200
+    assert qr_response.mimetype == "image/svg+xml"
+    assert qr_response.get_data(as_text=True).lstrip().startswith("<svg")
+
+
+def test_game_copy_qr_scan_returns_copy_info(client, app):
+    create_response = client.post(
+        "/api/game-copies/",
+        json={"game_id": 1, "copy_code": "AZUL-QR-002", "status": "available"},
+    )
+    assert create_response.status_code == 201
+    created_copy = create_response.get_json()
+    copy_id = created_copy["id"]
+
+    with app.app_context():
+        token = get_or_create_game_copy_qr_token(copy_id)
+
+    scan_response = client.get(f"/api/game-copies/scan/{token}")
+
+    assert scan_response.status_code == 200
+    payload = scan_response.get_json()
+    assert payload["id"] == copy_id
+    assert payload["copy_code"] == "AZUL-QR-002"
+    assert payload["qr_token"] == token
