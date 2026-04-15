@@ -3,6 +3,10 @@ from typing import Optional, Sequence
 
 from features.games.application.interfaces.game_copy_repository_interface import GameCopyRepository
 from features.games.domain.models.game_copy import GameCopy
+from features.reservations.application.interfaces.game_reservation_repository_interface import (
+    GameReservationRepositoryInterface,
+)
+from features.reservations.domain.models.reservation_game import ReservationGame
 
 
 @dataclass
@@ -63,6 +67,8 @@ class UpdateGameCopyStatusUseCase:
             game_copy.return_to_shelf()
         elif action == "maintenance":
             game_copy.send_to_maintenance()
+        elif action == "lost":
+            game_copy.mark_lost()
         else:
             raise ValueError("Invalid action")
 

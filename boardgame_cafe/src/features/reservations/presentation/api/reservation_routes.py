@@ -1,6 +1,7 @@
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, redirect, flash, request, url_for
 from flask_login import current_user
 from pydantic import ValidationError as PydanticValidationError
+from itsdangerous import BadSignature, SignatureExpired
 from werkzeug.exceptions import BadRequest
 
 from features.reservations.application.use_cases.reservation_game_use_cases import (
@@ -25,6 +26,11 @@ from features.reservations.application.use_cases.reservation_use_cases import (
 from shared.domain.exceptions import DomainError
 from shared.domain.events import ReservationCreated
 from shared.infrastructure import csrf
+from shared.infrastructure.qr_codes import (
+    decode_reservation_qr_token,
+    generate_qr_svg,
+    get_or_create_reservation_qr_token,
+)
 from features.payments.presentation.schemas.payment_schema import PaymentSchema
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationRequest
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationBookingRequest
@@ -47,6 +53,27 @@ from features.reservations.presentation.api.deps import (
 )
 
 bp = Blueprint("reservations", __name__, url_prefix="/api/reservations")
+
+
+def _is_staff_or_admin(user) -> bool:
+    role = getattr(user, "role", None)
+    if hasattr(role, "value"):
+        role = role.value
+    if role in {"staff", "admin"}:
+        return True
+    return bool(getattr(user, "is_staff", False) or getattr(user, "is_admin", False))
+
+
+def _can_view_reservation(user, reservation) -> bool:
+    if _is_staff_or_admin(user):
+        return True
+    return getattr(reservation, "customer_id", None) == getattr(user, "id", None)
+
+
+def _checkin_redirect_target(reservation_id: int) -> str:
+    if "my_page" in current_app.view_functions:
+        return url_for("my_page")
+    return url_for("reservations.get_reservation", reservation_id=reservation_id)
 
 
 def _serialize_reservation(reservation):
@@ -222,6 +249,27 @@ def create_reservation():
                 ),
             )
         )
+    get_or_create_reservation_qr_token(
+        current_app.config["SECRET_KEY"],
+        user_id=current_user.id,
+        reservation_id=reservation.id,
+    )
+
+
+    event_bus = getattr(current_app, "event_bus", None)
+    if event_bus is not None:
+        event_bus.publish(
+            ReservationCreated(
+                reservation_id=reservation.id,
+                user_id=current_user.id,
+                user_email=getattr(current_user, "email", None),
+                reservation_details=(
+                    f"Reservation #{reservation.id}: "
+                    f"{reservation.start_ts.isoformat()} to {reservation.end_ts.isoformat()}, "
+                    f"party_size={reservation.party_size}, tables={response['table_ids']}"
+                ),
+            )
+        )
     return response, 201
 
 
@@ -324,4 +372,66 @@ def remove_game_from_reservation(reservation_id: int, reservation_game_id: int):
         return {"error": "Reservation game not found"}, 404
 
     return {}, 204
+
+
+@bp.get("/<int:reservation_id>/qr")
+def get_reservation_qr(reservation_id: int):
+    if not current_user.is_authenticated:
+        return {"error": "Authentication required"}, 401
+
+    reservation_use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
+    reservation = reservation_use_case.execute(reservation_id)
+    if reservation is None:
+        return {"error": "Reservation not found"}, 404
+
+    if not _can_view_reservation(current_user, reservation):
+        return {"error": "Unauthorized access to reservation"}, 403
+
+    token = get_or_create_reservation_qr_token(
+        current_app.config["SECRET_KEY"],
+        user_id=reservation.customer_id,
+        reservation_id=reservation_id,
+    )
+    checkin_url = url_for("reservations.check_in_with_token", token=token, _external=True)
+    svg = generate_qr_svg(checkin_url)
+    response = current_app.response_class(svg, mimetype="image/svg+xml")
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@bp.get("/checkin/<string:token>")
+def check_in_with_token(token: str):
+    if not current_user.is_authenticated:
+        return {"error": "Authentication required"}, 401
+
+    if not _is_staff_or_admin(current_user):
+        return {"error": "Staff access required"}, 403
+
+    try:
+        reservation_id = decode_reservation_qr_token(current_app.config["SECRET_KEY"], token)
+    except SignatureExpired:
+        return {"error": "Reservation QR code expired"}, 400
+    except BadSignature:
+        return {"error": "Invalid reservation QR code"}, 400
+
+    reservation_use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
+    reservation = reservation_use_case.execute(reservation_id)
+    if reservation is None:
+        return {"error": "Reservation not found"}, 404
+
+    if reservation.status == "seated":
+        flash(f"Reservation #{reservation_id} is already checked in.", "success")
+        return redirect(_checkin_redirect_target(reservation_id))
+
+    seat_use_case = get_seat_reservation_use_case()
+    try:
+        updated_reservation = seat_use_case.execute(reservation_id)
+    except DomainError as exc:
+        return {"error": str(exc)}, 400
+
+    if updated_reservation is None:
+        return {"error": "Reservation not found"}, 404
+
+    flash(f"Reservation #{reservation_id} checked in successfully.", "success")
+    return redirect(_checkin_redirect_target(reservation_id))
 

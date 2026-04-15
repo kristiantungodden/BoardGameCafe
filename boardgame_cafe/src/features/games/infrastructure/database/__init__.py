@@ -3,5 +3,13 @@ from .game_db import GameDB
 from .game_tag_link_db import GameTagLinkDB
 from .game_tag_db import GameTagDB
 from .game_rating_db import GameRatingDB
+from .game_copy_qr_code_db import GameCopyQRCodeDB
 
-__all__ = ["GameDB", "GameCopyDB", "GameTagDB", "GameTagLinkDB", "GameRatingDB"]
+__all__ = [
+	"GameDB",
+	"GameCopyDB",
+	"GameTagDB",
+	"GameTagLinkDB",
+	"GameRatingDB",
+	"GameCopyQRCodeDB",
+]

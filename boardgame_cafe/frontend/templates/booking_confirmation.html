@@ -8,6 +8,20 @@
     Reservation #{{ reservation_id }} has been created. Payment was created in the same transaction.
 </p>
 
+<section class="panel">
+    <h3>Check-In QR</h3>
+    <p class="page-intro">
+        Show this QR code to staff when you arrive. It opens the reservation check-in flow.
+    </p>
+    <div class="qr-code-wrap">
+        <img
+            class="qr-code-image"
+            src="{{ url_for('reservations.get_reservation_qr', reservation_id=reservation_id) }}"
+            alt="Reservation check-in QR code"
+        >
+    </div>
+</section>
+
 <div class="action-row">
     <a class="button" href="/my-page">View My Bookings</a>
     <a class="button button-secondary" href="/booking">Create Another Booking</a>

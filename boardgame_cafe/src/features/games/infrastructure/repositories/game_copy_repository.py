@@ -23,7 +23,7 @@ class GameCopyRepositoryImpl(GameCopyRepository):
         return self._to_domain(db_copy)
 
     def get_by_id(self, copy_id: int) -> Optional[GameCopy]:
-        db_copy = GameCopyDB.query.get(copy_id)
+        db_copy = db.session.get(GameCopyDB, copy_id)
         if not db_copy:
             return None
 
@@ -34,7 +34,7 @@ class GameCopyRepositoryImpl(GameCopyRepository):
         return [self._to_domain(c) for c in db_copies]
 
     def update(self, game_copy: GameCopy) -> GameCopy:
-        db_copy = GameCopyDB.query.get(game_copy.id)
+        db_copy = db.session.get(GameCopyDB, game_copy.id)
 
         if not db_copy:
             raise ValueError("Game copy not found")
