@@ -7,7 +7,7 @@ from typing import Optional
 from shared.domain.exceptions import InvalidStatusTransition, ValidationError
 
 
-VALID_GAME_COPY_STATUSES = {"available", "reserved", "in_use", "maintenance"}
+VALID_GAME_COPY_STATUSES = {"available", "reserved", "in_use", "maintenance", "lost"}
 
 
 @dataclass
@@ -76,4 +76,11 @@ class GameCopy:
         if not new_location or not new_location.strip():
             raise ValidationError("new_location cannot be empty")
         self.location = new_location
+        self.updated_at = datetime.now(timezone.utc)
+
+    def mark_lost(self) -> None:
+        """Mark the game copy as lost and update timestamp."""
+        if self.status == "lost":
+            raise InvalidStatusTransition("Game copy is already marked as lost")
+        self.status = "lost"
         self.updated_at = datetime.now(timezone.utc)

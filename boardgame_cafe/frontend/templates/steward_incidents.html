@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Recent Incidents{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Recent Incidents</h1>
+<p class="page-intro">Incidents reported by stewards.</p>
+<p><a class="button" href="/steward/incidents/create">Create Incident</a></p>
+<div id="incident-list">(loading...)</div>
+<p><a class="button" href="/steward">Back to Dashboard</a></p>
+<script src="/static/js/steward.js"></script>
+{% endblock %}

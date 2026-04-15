@@ -5,6 +5,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>{% block title %}BoardGameCafe{% endblock %}</title>
 	<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body>
 	<header>
@@ -24,7 +25,10 @@
 					{% if current_user.is_authenticated %}
 						<span class="auth-status">Signed in as <strong>{{ current_user.name }}</strong></span>
 						<a class="button button-secondary" href="/me">My Account</a>
-						<a class="button button-secondary" href="/my-page">My Page</a>
+						{% if current_user.role in ("staff", "admin") %}
+							<a class="button button-secondary" href="/steward">Steward Dashboard</a>
+						{% endif %}
+						<a class="button button-secondary" href="/my-bookings">My Bookings</a>
 						<form method="post" action="/logout" class="inline-form">
 							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 							<button class="button" type="submit">Logout</button>

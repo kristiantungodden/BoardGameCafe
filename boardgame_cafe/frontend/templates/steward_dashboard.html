@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Steward Dashboard{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Steward Dashboard</h1>
+<p class="page-intro">Quick actions for staff: view pending reservations, seat parties, manage game copies and incidents.</p>
+
+<div class="panel-grid">
+	<div class="panel">
+		<h3>Reservations</h3>
+		<ul>
+			<li><a href="/steward/pending" id="link-pending">View Pending Reservations</a></li>
+			<li><a href="/steward/seated" id="link-seated">View Seated Reservations</a></li>
+		</ul>
+	</div>
+	<div class="panel">
+		<h3>Game Copies</h3>
+		<ul>
+			<li><a href="/games">Game Library</a></li>
+			<li><a href="/steward/game-copies" id="link-game-copies">Manage Game Copies</a></li>
+		</ul>
+	</div>
+	<div class="panel">
+		<h3>Incidents</h3>
+		<ul>
+			<li><a href="/steward/incidents" id="link-incidents">Recent Incidents</a></li>
+		</ul>
+	</div>
+</div>
+
+<p class="page-intro">This dashboard links to API-driven workflows. Use the API endpoints under <code>/api/steward</code> for actions.</p>
+<section class="card" id="steward-data">
+	<h2>Live Data</h2>
+	<div>
+		<h3>Pending / Confirmed</h3>
+		<div id="pending-list">(loading...)</div>
+	</div>
+	<div>
+		<h3>Seated</h3>
+		<div id="seated-list">(loading...)</div>
+	</div>
+	<div>
+		<h3>Game Copies</h3>
+		<div id="game-copy-list">(loading...)</div>
+	</div>
+	<div>
+		<h3>Incidents</h3>
+		<div id="incident-list">(loading...)</div>
+	</div>
+</section>
+
+<script src="/static/js/steward.js"></script>
+{% endblock %}

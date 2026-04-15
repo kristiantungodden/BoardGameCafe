@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Report Incident{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Report Incident</h1>
+<p class="page-intro">Create a new incident for a game copy.</p>
+
+<form id="incident-form">
+  <div>
+    <label for="game-copy">Game Copy</label>
+    <select id="game-copy" name="game_copy_id">
+      <option value="">Loading...</option>
+    </select>
+  </div>
+
+  <div>
+    <label for="incident-type">Incident Type</label>
+    <select id="incident-type" name="incident_type">
+      <option value="damage">Damage</option>
+      <option value="loss">Loss</option>
+    </select>
+  </div>
+
+  <div>
+    <label for="note">Note</label>
+    <textarea id="note" name="note" rows="4" cols="50"></textarea>
+  </div>
+
+  <div>
+    <button class="button" id="submit">Create Incident</button>
+    <a class="button button-secondary" href="/steward/incidents">Cancel</a>
+  </div>
+</form>
+
+<script>
+async function getCsrf() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute('content') : null;
+}
+
+async function loadGameCopies() {
+  try {
+    const res = await fetch('/api/steward/game-copies', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('Failed to load game copies');
+    const data = await res.json();
+    const sel = document.getElementById('game-copy');
+    sel.innerHTML = '';
+    if (!data.length) {
+      const opt = document.createElement('option'); opt.value=''; opt.textContent='(no copies)'; sel.appendChild(opt); return;
+    }
+    data.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = `#${c.id} ${c.copy_code} (${c.status})`;
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.error(e);
+    const sel = document.getElementById('game-copy');
+    sel.innerHTML = '';
+    const opt = document.createElement('option'); opt.value=''; opt.textContent='Error loading copies'; sel.appendChild(opt);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadGameCopies();
+  const form = document.getElementById('incident-form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const copyId = document.getElementById('game-copy').value;
+    const incidentType = document.getElementById('incident-type').value;
+    const note = document.getElementById('note').value;
+    if (!copyId) { alert('Select a game copy'); return; }
+    if (!note || !note.trim()) { alert('Please add a note'); return; }
+    const token = await getCsrf();
+    try {
+      const res = await fetch(`/api/steward/game-copies/${copyId}/incidents`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': token,
+          'X-CSRF-Token': token,
+        },
+        body: JSON.stringify({ incident_type: incidentType, note }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || 'Failed to create incident');
+      }
+      // on success, navigate back to incidents list
+      window.location.href = '/steward/incidents';
+    } catch (err) {
+      console.error(err);
+      alert('Error creating incident: ' + err.message);
+    }
+  });
+});
+</script>
+
+{% endblock %}

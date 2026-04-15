@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Reservations{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Pending Reservations</h1>
+<p class="page-intro">Reservations awaiting action.</p>
+<div id="pending-list">(loading...)</div>
+<p><a class="button" href="/steward">Back to Dashboard</a></p>
+<script src="/static/js/steward.js"></script>
+{% endblock %}

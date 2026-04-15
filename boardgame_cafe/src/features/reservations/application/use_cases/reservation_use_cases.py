@@ -131,3 +131,56 @@ class MarkReservationNoShowUseCase:
             return None
         reservation.mark_no_show()
         return self.repo.update(reservation)
+
+
+class ListConfirmedReservationsUseCase:
+    """Workflow 2 — View all confirmed (pending seating) reservations.
+ 
+    'confirmed' is the initial status a booking gets on creation.
+    These are the reservations a steward needs to action — seat, cancel, or mark no-show.
+    """
+ 
+    def __init__(self, repo: ReservationRepositoryInterface):
+        self.repo = repo
+ 
+    def execute(self) -> Sequence[Booking]:
+        # Pending filter: only include confirmed reservations for today
+        today = datetime.utcnow().date()
+        return [
+            r for r in self.repo.list_all()
+            if r.status == "confirmed" and r.start_ts.date() == today
+        ]
+ 
+ 
+class ListSeatedReservationsUseCase:
+    """Returns all currently seated reservations.
+ 
+    Useful for the steward dashboard to see who is currently in the cafe.
+    """
+ 
+    def __init__(self, repo: ReservationRepositoryInterface):
+        self.repo = repo
+ 
+    def execute(self) -> Sequence[Booking]:
+        return [
+            r for r in self.repo.list_all()
+            if r.status == "seated"
+        ]
+ 
+ 
+class ListActiveReservationsUseCase:
+    """Returns confirmed + seated reservations combined.
+ 
+    The main steward view — everything that still needs attention.
+    """
+ 
+    def __init__(self, repo: ReservationRepositoryInterface):
+        self.repo = repo
+ 
+    def execute(self) -> Sequence[Booking]:
+        return [
+            r for r in self.repo.list_all()
+            if r.status in ("confirmed", "seated")
+        ]
+ 
+
