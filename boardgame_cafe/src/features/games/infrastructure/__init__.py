@@ -1,4 +1,11 @@
-from .database import GameDB, GameCopyDB, GameTagDB, GameTagLinkDB, GameRatingDB
+from .database import (
+    GameDB,
+    GameCopyDB,
+    GameTagDB,
+    GameTagLinkDB,
+    GameRatingDB,
+    GameCopyQRCodeDB,
+)
 from .repositories import GameRepository, GameTagRepository
 __all__ = [
 	"GameDB",
@@ -6,6 +13,7 @@ __all__ = [
 	"GameTagDB",
 	"GameTagLinkDB",
 	"GameRatingDB",
+	"GameCopyQRCodeDB",
 	"GameRepository",
 	"GameTagRepository",
 ]

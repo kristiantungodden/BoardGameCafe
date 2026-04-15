@@ -10,6 +10,7 @@ from features.reservations.application.interfaces.game_reservation_repository_in
 )
 from features.reservations.domain.models.reservation_game import ReservationGame
 from shared.domain.exceptions import ValidationError
+from features.games.application.interfaces.game_copy_repository_interface import GameCopyRepository
 
 
 _NON_MODIFIABLE_STATUSES = {"cancelled", "completed", "no_show"}
@@ -93,3 +94,43 @@ class ListReservationGamesUseCase:
         if booking is None:
             raise ValidationError("Reservation not found")
         return list(self.reservation_games.list_for_booking(reservation_id))
+    
+class SwapGameCopyUseCase:
+    """Workflow 4 — Swap an assigned game copy for another on a reservation."""
+ 
+    def __init__(
+        self,
+        game_copy_repo: GameCopyRepository,
+        game_reservation_repo: GameReservationRepositoryInterface,
+    ):
+        self.game_copy_repo = game_copy_repo
+        self.game_reservation_repo = game_reservation_repo
+ 
+    def execute(self, reservation_game_id: int, new_copy_id: int) -> ReservationGame:
+        # Load the existing reservation_game link
+        reservation_game = self.game_reservation_repo.get_by_id(reservation_game_id)
+        if not reservation_game:
+            raise ValueError(f"ReservationGame {reservation_game_id} not found")
+ 
+        # Return the old copy to shelf
+        if reservation_game.game_copy_id:
+            old_copy = self.game_copy_repo.get_by_id(reservation_game.game_copy_id)
+            if old_copy:
+                old_copy.return_to_shelf()
+                self.game_copy_repo.update(old_copy)
+ 
+        # Reserve the new copy
+        new_copy = self.game_copy_repo.get_by_id(new_copy_id)
+        if not new_copy:
+            raise ValueError(f"Game copy {new_copy_id} not found")
+        new_copy.reserve()
+        self.game_copy_repo.update(new_copy)
+ 
+        # Delete old link and create new one
+        self.game_reservation_repo.delete(reservation_game_id)
+        new_reservation_game = ReservationGame(
+            booking_id=reservation_game.booking_id,
+            requested_game_id=reservation_game.requested_game_id,
+            game_copy_id=new_copy_id,
+        )
+        return self.game_reservation_repo.add(new_reservation_game)

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Game Copies{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Manage Game Copies</h1>
+<p class="page-intro">View and change game copy statuses.</p>
+<div id="game-copy-list">(loading...)</div>
+<p><a class="button" href="/steward">Back to Dashboard</a></p>
+<script src="/static/js/steward.js"></script>
+{% endblock %}

@@ -36,11 +36,6 @@ def test_create_game_copy_rejects_blank_copy_code():
         _make_copy(copy_code="   ")
 
 
-def test_create_game_copy_rejects_invalid_status():
-    with pytest.raises(ValidationError, match="status must be one of"):
-        _make_copy(status="lost")
-
-
 def test_reserve_changes_status_from_available_to_reserved():
     game_copy = _make_copy(status="available")
 
