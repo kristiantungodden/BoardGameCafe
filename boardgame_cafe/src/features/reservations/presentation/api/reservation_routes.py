@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 from flask_login import current_user
 from pydantic import ValidationError as PydanticValidationError
 from werkzeug.exceptions import BadRequest
@@ -23,6 +23,7 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     SeatReservationUseCase,
 )
 from shared.domain.exceptions import DomainError
+from shared.domain.events import ReservationCreated
 from shared.infrastructure import csrf
 from features.payments.presentation.schemas.payment_schema import PaymentSchema
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationRequest
@@ -206,6 +207,21 @@ def create_reservation():
     response = _serialize_reservation(reservation)
     response["games"] = [_serialize_reservation_game(item) for item in reservation_games]
     response["payment"] = PaymentSchema.dump(payment)
+
+    event_bus = getattr(current_app, "event_bus", None)
+    if event_bus is not None:
+        event_bus.publish(
+            ReservationCreated(
+                reservation_id=reservation.id,
+                user_id=current_user.id,
+                user_email=getattr(current_user, "email", None),
+                reservation_details=(
+                    f"Reservation #{reservation.id}: "
+                    f"{reservation.start_ts.isoformat()} to {reservation.end_ts.isoformat()}, "
+                    f"party_size={reservation.party_size}, tables={response['table_ids']}"
+                ),
+            )
+        )
     return response, 201
 
 
