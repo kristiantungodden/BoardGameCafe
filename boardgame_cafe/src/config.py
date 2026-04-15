@@ -21,6 +21,10 @@ class Config:
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672/")
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "rpc://")
 
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5000")
+
 class DevelopmentConfig(Config):
     """Development configuration."""
     

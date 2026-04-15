@@ -807,6 +807,25 @@
                 renderPayment(body.payment, "Payment created with booking.");
             }
 
+            const paymentId = body.payment.id;
+
+            const paymentStartResponse = await fetch(`/api/payments/start/${paymentId}`, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                },
+            });
+
+            const paymentStartResult = await readResponseBody(paymentStartResponse);
+            if (!paymentStartResponse.ok) {
+                throw new Error(paymentStartResult.error || "Failed to start payment");
+            }
+
+            if (paymentStartResult.redirect_url) {
+                window.location.href = paymentStartResult.redirect_url;
+                return;
+            }
+
             setFeedback(
                 `Booking #${body.id} created with ${body.games?.length || 0} game selections and payment.`,
                 "success"
@@ -859,7 +878,7 @@
         box.innerHTML = `
             <div class="mini-list-row"><strong>${contextMessage}</strong></div>
             <div class="mini-list-row">Payment #${payment.id || "n/a"}</div>
-            <div class="mini-list-row">Reservation #${payment.table_reservation_id}</div>
+            <div class="mini-list-row">Reservation #${payment.booking_id}</div>
             <div class="mini-list-row">Amount: ${payment.amount_kroner} ${payment.currency}</div>
             <div class="mini-list-row">Status: ${payment.status}</div>
         `;

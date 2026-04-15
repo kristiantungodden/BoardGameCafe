@@ -28,7 +28,7 @@
 						{% if current_user.role in ("staff", "admin") %}
 							<a class="button button-secondary" href="/steward">Steward Dashboard</a>
 						{% endif %}
-						<a class="button button-secondary" href="/my-bookings">My Bookings</a>
+						<a class="button button-secondary" href="{{ url_for('my_page') }}">My Bookings</a>
 						<form method="post" action="/logout" class="inline-form">
 							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 							<button class="button" type="submit">Logout</button>
