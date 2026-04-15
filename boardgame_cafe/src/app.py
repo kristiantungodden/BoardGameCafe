@@ -141,6 +141,39 @@ def create_app(config_name: str = None):
         response.headers["Cache-Control"] = "no-cache"
         response.headers["X-Accel-Buffering"] = "no"
         return response
+# Bare å fjerne når vi har en fungerende email-tjeneste. Sender bare en 
+    # mail med en gang for å se at det fungerer.
+    @app.route("/api/dev/mail-smoke", methods=["POST"])
+    @csrf.exempt
+    def mail_smoke_test():
+        if os.getenv("FLASK_ENV") != "development":
+            return {"error": "Not available outside development"}, 404
+
+        try:
+            payload = request.get_json() or {}
+        except Exception:
+            return {"error": "Invalid JSON body"}, 400
+
+        recipient = payload.get("email")
+        if not recipient:
+            return {"error": "email is required"}, 400
+
+        task_payload = {
+            "event_type": "MailSmokeTest",
+            "event_module": "dev",
+            "data": {"email": recipient},
+        }
+        task = celery.send_task(
+            "shared.tasks.send_welcome_email",
+            kwargs={"event_payload": task_payload},
+            retry=False,
+        )
+
+        return {
+            "message": "Mail smoke test task queued",
+            "task_id": task.id,
+            "recipient": recipient,
+        }, 202
 
     # Create database tables
     with app.app_context():
