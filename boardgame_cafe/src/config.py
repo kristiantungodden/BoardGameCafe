@@ -22,6 +22,9 @@ class Config:
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/2")
     REALTIME_EVENTS_CHANNEL = os.getenv("REALTIME_EVENTS_CHANNEL", "boardgame_cafe.events")
+    BOOKING_DRAFT_REDIS_REQUIRED = os.getenv("BOOKING_DRAFT_REDIS_REQUIRED", "false").lower() == "true"
+
+    BOOKING_DRAFT_TTL_SECONDS = int(os.getenv("BOOKING_DRAFT_TTL_SECONDS", str(60 * 60 * 24 * 7)))
 
 class DevelopmentConfig(Config):
     """Development configuration."""
@@ -42,6 +45,7 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False
     CELERY_BROKER_URL = "memory://"
     CELERY_RESULT_BACKEND = "cache+memory://"
+    REDIS_URL = None
 
 
 class ProductionConfig(Config):
