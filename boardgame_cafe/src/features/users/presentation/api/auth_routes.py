@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, redirect, url_for, flash, render_template
+from flask import Blueprint, request, jsonify, redirect, url_for, flash, render_template, current_app
 from flask_login import logout_user, login_required, current_user
 
 from werkzeug.exceptions import BadRequest
@@ -14,6 +14,7 @@ bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
 from features.users.presentation.schemas.user_schema import UserCreate, UserResponse
+from shared.domain.events import UserRegistered
 
 
 def _is_json_request() -> bool:
@@ -43,12 +44,16 @@ def register():
     use_case = get_register_use_case()
 
     try:
-        use_case.execute(RegisterCommand(**payload.model_dump()))
+        user = use_case.execute(RegisterCommand(**payload.model_dump()))
     except DomainValidationError as exc:
         if is_json_request:
             return {"error": str(exc)}, 409
         flash(str(exc), "error")
         return redirect(url_for("register_page"))
+
+    event_bus = getattr(current_app, "event_bus", None)
+    if event_bus is not None:
+        event_bus.publish(UserRegistered(user_id=user.id, email=user.email))
 
     if is_json_request:
         return {"message": "User registered successfully"}, 201

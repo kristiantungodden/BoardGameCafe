@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from shared.infrastructure import db
 from features.bookings.infrastructure.database.booking_db import BookingDB
@@ -14,7 +14,7 @@ def test_swap_success(client, app, test_data):
     with app.app_context():
         user_id = test_data["user"]["id"]
         table_id = test_data["tables"][0]["id"]
-        start_ts = datetime.utcnow()
+        start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
         booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
         db.session.add(booking)
@@ -60,7 +60,7 @@ def test_swap_missing_new_copy(client, app, test_data):
     with app.app_context():
         user_id = test_data["user"]["id"]
         table_id = test_data["tables"][0]["id"]
-        start_ts = datetime.utcnow()
+        start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
         booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
         db.session.add(booking)

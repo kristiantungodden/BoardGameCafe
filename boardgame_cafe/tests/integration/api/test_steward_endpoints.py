@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from shared.infrastructure import db
 from features.bookings.infrastructure.database.booking_db import BookingDB
@@ -10,7 +10,7 @@ def test_steward_list_and_seat_flow(client, app, test_data):
     with app.app_context():
         user_id = test_data["user"]["id"]
         table_id = test_data["tables"][0]["id"]
-        start_ts = datetime.utcnow()
+        start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
         booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=3)
         db.session.add(booking)
@@ -52,7 +52,7 @@ def test_steward_list_and_seat_flow(client, app, test_data):
 
 def test_steward_complete_flow(client, app, test_data):
     # Create a booking and table reservation, seat it, then complete
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     from shared.infrastructure import db
     from features.bookings.infrastructure.database.booking_db import BookingDB
     from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
@@ -60,7 +60,7 @@ def test_steward_complete_flow(client, app, test_data):
     with app.app_context():
         user_id = test_data["user"]["id"]
         table_id = test_data["tables"][0]["id"]
-        start_ts = datetime.utcnow()
+        start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
         booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
         db.session.add(booking)
@@ -86,7 +86,7 @@ def test_steward_complete_flow(client, app, test_data):
 
 def test_steward_no_show_flow(client, app, test_data):
     # Create a booking and table reservation, then mark no-show
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     from shared.infrastructure import db
     from features.bookings.infrastructure.database.booking_db import BookingDB
     from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
@@ -94,7 +94,7 @@ def test_steward_no_show_flow(client, app, test_data):
     with app.app_context():
         user_id = test_data["user"]["id"]
         table_id = test_data["tables"][0]["id"]
-        start_ts = datetime.utcnow()
+        start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
         booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
         db.session.add(booking)
@@ -118,7 +118,7 @@ def test_steward_no_show_flow(client, app, test_data):
 
 def test_steward_swap_and_game_copy_status_and_incident_flow(client, app, test_data):
     # Create booking + table reservation + a reservation_game linking a copy, then swap to another copy
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     from shared.infrastructure import db
     from features.bookings.infrastructure.database.booking_db import BookingDB
     from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
@@ -128,7 +128,7 @@ def test_steward_swap_and_game_copy_status_and_incident_flow(client, app, test_d
     with app.app_context():
         user_id = test_data["user"]["id"]
         table_id = test_data["tables"][0]["id"]
-        start_ts = datetime.utcnow()
+        start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
         booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
         db.session.add(booking)
