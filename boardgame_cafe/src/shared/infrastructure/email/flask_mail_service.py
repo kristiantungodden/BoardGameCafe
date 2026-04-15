@@ -6,7 +6,8 @@ class FlaskMailService:
         self.mail = mail
 
     def _default_sender(self):
-        return current_app.config.get("MAIL_DEFAULT_SENDER", "ktungodden@gmail.com")
+        sender = current_app.config.get("MAIL_DEFAULT_SENDER")
+        return sender or "no-reply@localhost"
     
     def send_email(self, subject, sender, recipients, body):
         msg = Message(subject, sender=sender, recipients=recipients)
