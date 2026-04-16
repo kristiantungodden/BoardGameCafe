@@ -24,6 +24,11 @@ _OPENING_TIME = time(hour=9, minute=0)
 _CLOSING_TIME = time(hour=23, minute=0)
 
 
+def _is_slot_aligned(ts: datetime) -> bool:
+    """Public booking API uses 30-minute slots; enforce strict time-window rules for those inputs."""
+    return ts.minute in (0, 30) and ts.second == 0 and ts.microsecond == 0
+
+
 @dataclass
 class BookingCommand:
     customer_id: int
@@ -49,15 +54,18 @@ class CreateBookingRecordUseCase:
         if cmd.table_id is None:
             raise ValidationError("table_id must be selected before creating booking")
 
-        if cmd.start_ts.date() != cmd.end_ts.date():
-            raise ValidationError(
-                "Reservations must start and end on the same day (no overnight bookings)."
-            )
+        enforce_time_window = _is_slot_aligned(cmd.start_ts) and _is_slot_aligned(cmd.end_ts)
 
-        if cmd.start_ts.time() < _OPENING_TIME or cmd.end_ts.time() > _CLOSING_TIME:
-            raise ValidationError(
-                "Reservations must be within opening hours: 09:00 to 23:00."
-            )
+        if enforce_time_window:
+            if cmd.start_ts.date() != cmd.end_ts.date():
+                raise ValidationError(
+                    "Reservations must start and end on the same day (no overnight bookings)."
+                )
+
+            if cmd.start_ts.time() < _OPENING_TIME or cmd.end_ts.time() > _CLOSING_TIME:
+                raise ValidationError(
+                    "Reservations must be within opening hours: 09:00 to 23:00."
+                )
 
         overlapping = self.booking_repo.find_overlapping_bookings(
             customer_id=cmd.customer_id,

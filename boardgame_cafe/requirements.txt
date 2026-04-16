@@ -49,3 +49,4 @@ python-dotenv==1.0.0
 qrcode==7.4.2
 cachelib==0.13.0
 redis==5.0.1
+stripe

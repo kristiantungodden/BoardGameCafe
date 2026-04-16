@@ -2,6 +2,8 @@ from flask import Flask, render_template, flash, redirect, url_for, request, jso
 from flask_login import current_user, login_required, logout_user
 from flask_wtf.csrf import CSRFError
 import os
+from dotenv import load_dotenv
+import stripe
 
 from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
 from shared.infrastructure import init_booking_draft_store
@@ -17,6 +19,9 @@ from features.payments.presentation.api.payment_routes import (
 )
 from features.payments.presentation.api.payment_routes import configure_payment_provider
 from features.payments.infrastructure.vipps import VippsAdapter, vipps_callbacks
+from features.payments.infrastructure.stripe.stripe_adapter import StripeAdapter
+from features.payments.infrastructure.stripe.stripe_webhook import bp as stripe_webhook_bp
+from features.payments.infrastructure.database.payments_db import PaymentDB
 from features.reservations.presentation.api import reservation_routes
 from features.tables.presentation.api import table_routes
 from features.users.presentation.api import auth_routes, steward_routes
@@ -38,6 +43,11 @@ def create_app(config_name: str = None):
         os.path.join(os.path.dirname(__file__), "..", "frontend", "static")
     )
     app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
+
+    # Ensure environment variables are loaded even when running from workspace root.
+    env_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
+    load_dotenv(env_file, override=False)
+
     # Configuration
     if config_name is None:
         config_name = os.getenv("FLASK_ENV", "development")
@@ -74,6 +84,7 @@ def create_app(config_name: str = None):
 
     # Register blueprints
     register_blueprints(app)
+    app.register_blueprint(stripe_webhook_bp)
 
     # Register error handlers
     register_error_handlers(app)
@@ -88,6 +99,58 @@ def create_app(config_name: str = None):
     @login_required
     def payment_page(booking_id):
         return render_template("payment.html", booking_id=booking_id)
+
+    @app.route("/payments/success", methods=["GET"])
+    def payment_success_page():
+        payment_id = request.args.get("payment_id", type=int)
+        booking_id = request.args.get("booking_id", type=int)
+        session_id = request.args.get("session_id", type=str)
+
+        payment = db.session.get(PaymentDB, payment_id) if payment_id else None
+        if payment and not booking_id:
+            booking_id = payment.booking_id
+
+        is_paid = False
+        if session_id and app.config.get("STRIPE_SECRET_KEY"):
+            try:
+                stripe.api_key = app.config["STRIPE_SECRET_KEY"]
+                checkout_session = stripe.checkout.Session.retrieve(session_id)
+                payment_status = getattr(checkout_session, "payment_status", None)
+                if payment_status is None and isinstance(checkout_session, dict):
+                    payment_status = checkout_session.get("payment_status")
+                is_paid = payment_status == "paid"
+            except Exception:
+                app.logger.exception("Could not verify Stripe checkout session: %s", session_id)
+
+        if payment and is_paid:
+            payment.status = "paid"
+            db.session.commit()
+
+        return render_template(
+            "payment_result.html",
+            status="success" if (is_paid or (payment and payment.status == "paid")) else "pending",
+            title="Payment Confirmation",
+            message=(
+                "Payment completed successfully."
+                if (is_paid or (payment and payment.status == "paid"))
+                else "Payment is being verified. Please check your bookings in a moment."
+            ),
+            booking_id=booking_id,
+            payment_id=payment_id,
+        )
+
+    @app.route("/payments/cancel", methods=["GET"])
+    def payment_cancel_page():
+        payment_id = request.args.get("payment_id", type=int)
+        booking_id = request.args.get("booking_id", type=int)
+        return render_template(
+            "payment_result.html",
+            status="cancelled",
+            title="Payment Cancelled",
+            message="Payment was cancelled. You can try again from your booking page.",
+            booking_id=booking_id,
+            payment_id=payment_id,
+        )
 
     @app.route("/", methods=["GET"])
     def home():
@@ -216,7 +279,7 @@ def register_blueprints(app: Flask):
     repo = PaymentRepository()
     configure_payment_routes(repo)
     vipps = VippsAdapter()
-    configure_payment_provider(vipps)
+    configure_payment_provider(StripeAdapter(app.config["STRIPE_SECRET_KEY"], app.config["APP_BASE_URL"]))
     app.register_blueprint(vipps_callbacks)
 
     app.register_blueprint(auth_routes.bp)

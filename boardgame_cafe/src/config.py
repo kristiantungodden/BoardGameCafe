@@ -26,6 +26,10 @@ class Config:
 
     BOOKING_DRAFT_TTL_SECONDS = int(os.getenv("BOOKING_DRAFT_TTL_SECONDS", str(60 * 60 * 24 * 7)))
 
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5000")
+
 class DevelopmentConfig(Config):
     """Development configuration."""
     
