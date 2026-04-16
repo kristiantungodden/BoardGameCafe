@@ -21,10 +21,13 @@ services:
         condition: service_healthy
     environment:
       FLASK_ENV: development
+      DATABASE_URL: sqlite:////data/boardgame_cafe.db
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       REDIS_URL: redis://redis:6379/2
       REALTIME_EVENTS_CHANNEL: boardgame_cafe.events
+    volumes:
+      - boardgame-cafe-db:/data
     command: ["python", "boardgame_cafe/scripts/seed_demo_data.py"]
     restart: "no"
 
@@ -44,10 +47,13 @@ services:
       FLASK_ENV: development
       FLASK_HOST: 0.0.0.0
       FLASK_PORT: "5000"
+      DATABASE_URL: sqlite:////data/boardgame_cafe.db
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       REDIS_URL: redis://redis:6379/2
       REALTIME_EVENTS_CHANNEL: boardgame_cafe.events
+    volumes:
+      - boardgame-cafe-db:/data
     ports:
       - "5000:5000"
     command: ["python", "-m", "flask", "--app", "run.py", "run", "--debug", "--host=0.0.0.0", "--port=5000"]
@@ -67,8 +73,14 @@ services:
     environment:
       FLASK_ENV: development
       PYTHONPATH: /app/boardgame_cafe/src
+      DATABASE_URL: sqlite:////data/boardgame_cafe.db
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       REDIS_URL: redis://redis:6379/2
       REALTIME_EVENTS_CHANNEL: boardgame_cafe.events
+    volumes:
+      - boardgame-cafe-db:/data
     command: ["python", "-m", "celery", "-A", "celery_worker.celery_app", "worker", "-l", "info"]
+
+volumes:
+  boardgame-cafe-db:
