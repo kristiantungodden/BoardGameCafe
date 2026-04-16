@@ -22,7 +22,7 @@ def webhook():
         session = event["data"]["object"]
         payment_id = session["metadata"].get("payment_id")
 
-        payment = PaymentDB.query.get(payment_id)
+        payment = db.session.get(PaymentDB, payment_id)
         if payment:
             payment.status = "paid"
             db.session.commit()
