@@ -471,6 +471,7 @@
                 renderFloorPlan();
                 renderSelectedTableMeta();
                 renderBookingSummary();
+                scheduleAutoSave();
             });
         });
     }
@@ -542,6 +543,22 @@
         renderFloorSelector();
         renderFloorPlan();
         renderSelectedTableMeta();
+
+        // Apply any pending time slots from draft (after availability loads and populates dropdowns)
+        if (state._pendingStartSlot) {
+            const startSelect = document.getElementById("start-slot");
+            if (startSelect) {
+                startSelect.value = state._pendingStartSlot;
+            }
+            state._pendingStartSlot = null;
+        }
+        if (state._pendingEndSlot) {
+            const endSelect = document.getElementById("end-slot");
+            if (endSelect) {
+                endSelect.value = state._pendingEndSlot;
+            }
+            state._pendingEndSlot = null;
+        }
     }
 
     async function loadLookupData() {
@@ -593,6 +610,7 @@
                 const idx = Number(btn.getAttribute("data-remove-queued-game-index"));
                 state.pendingGames = state.pendingGames.filter((_, i) => i !== idx);
                 renderReservationGames();
+                scheduleAutoSave();
             });
         });
     }
@@ -745,6 +763,7 @@
         state.pendingGames.push({ requested_game_id: selectedGameId });
         renderReservationGames();
         setFeedback("Game added to booking.", "success");
+        scheduleAutoSave();
     }
 
     async function createReservation(event) {
@@ -803,6 +822,20 @@
             renderReservationGames();
             await refreshAvailability();
 
+            // Clear the draft from session since booking was successful
+            try {
+                await fetch("/api/reservations/draft-save", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken,
+                    },
+                    body: JSON.stringify({}),
+                });
+            } catch (err) {
+                console.warn("Could not clear draft:", err);
+            }
+
             if (body.payment) {
                 renderPayment(body.payment, "Payment created with booking.");
             }
@@ -830,6 +863,7 @@
                 `Booking #${body.id} created with ${body.games?.length || 0} game selections and payment.`,
                 "success"
             );
+            suppressExitDraftSave = true;
             window.location.href = `/reservations/confirmation/${body.id}`;
         } catch (error) {
             setFeedback(error.message, "error");
@@ -884,6 +918,144 @@
         `;
     }
 
+    // Draft persistence (session-based auto-save)
+    let draftSaveTimer = null;
+    let suppressExitDraftSave = false;
+    const DRAFT_SAVE_DEBOUNCE_MS = 1500;
+
+    async function saveDraftToSession(options = {}) {
+        const keepalive = Boolean(options.keepalive);
+
+        // Stop any pending save
+        if (draftSaveTimer) {
+            clearTimeout(draftSaveTimer);
+            draftSaveTimer = null;
+        }
+
+        const bookingDate = document.getElementById("booking-date")?.value;
+        const startSlot = document.getElementById("start-slot")?.value;
+        const endSlot = document.getElementById("end-slot")?.value;
+
+        const draft = {
+            table_id: state.selectedTableIds.length > 0 ? state.selectedTableIds[0] : null,
+            table_ids: [...state.selectedTableIds],
+            party_size: Number(document.getElementById("party-size")?.value || 0),
+            start_ts: (bookingDate && startSlot) ? composeDateTime(bookingDate, startSlot) : null,
+            end_ts: (bookingDate && endSlot) ? composeDateTime(bookingDate, endSlot) : null,
+            notes: document.getElementById("reservation-notes")?.value || null,
+            games: [...state.pendingGames],
+        };
+
+        try {
+            const response = await fetch("/api/reservations/draft-save", {
+                method: "POST",
+                keepalive,
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken,
+                },
+                body: JSON.stringify(draft),
+            });
+
+            if (!response.ok) {
+                const body = await readResponseBody(response);
+                console.warn("Draft save failed:", body.error || "Unknown error");
+            }
+        } catch (error) {
+            console.warn("Draft save error:", error);
+        }
+    }
+
+    function scheduleAutoSave() {
+        // Clear any pending auto-save
+        if (draftSaveTimer) {
+            clearTimeout(draftSaveTimer);
+        }
+
+        // Schedule a new auto-save after debounce period
+        draftSaveTimer = setTimeout(() => {
+            saveDraftToSession();
+            draftSaveTimer = null;
+        }, DRAFT_SAVE_DEBOUNCE_MS);
+    }
+
+    function flushDraftOnExit() {
+        if (suppressExitDraftSave) {
+            return;
+        }
+        saveDraftToSession({ keepalive: true });
+    }
+
+    async function loadDraftFromSession() {
+        try {
+            const response = await fetch("/api/reservations/draft");
+            const body = await readResponseBody(response);
+
+            if (!response.ok) {
+                return; // No draft or error reading draft, just continue with empty form
+            }
+
+            // Load form fields from draft
+            if (body.party_size) {
+                const partyInput = document.getElementById("party-size");
+                if (partyInput) {
+                    partyInput.value = body.party_size;
+                }
+            }
+
+            if (body.notes) {
+                const notesInput = document.getElementById("reservation-notes");
+                if (notesInput) {
+                    notesInput.value = body.notes;
+                }
+            }
+
+            // Load table selections
+            if (body.table_ids && Array.isArray(body.table_ids)) {
+                state.selectedTableIds = [...body.table_ids];
+            }
+
+            // Load pending games
+            if (body.games && Array.isArray(body.games)) {
+                state.pendingGames = [...body.games];
+            }
+
+            // Load date/time directly from stored strings to avoid timezone drift.
+            if (body.start_ts) {
+                const [bookingDate, startTimeRaw] = String(body.start_ts).split("T");
+                const startTime = (startTimeRaw || "").slice(0, 5);
+                
+                const dateInput = document.getElementById("booking-date");
+                if (dateInput) {
+                    dateInput.value = bookingDate;
+                }
+
+                const startSlotSelect = document.getElementById("start-slot");
+                if (startSlotSelect && startTime) {
+                    startSlotSelect.value = startTime;
+                }
+            }
+
+            if (body.end_ts) {
+                const [, endTimeRaw] = String(body.end_ts).split("T");
+                const endTime = (endTimeRaw || "").slice(0, 5);
+                const endSlotSelect = document.getElementById("end-slot");
+                if (endSlotSelect && endTime) {
+                    endSlotSelect.value = endTime;
+                }
+            }
+
+            await refreshAvailability();
+
+            // Re-render UI elements with loaded draft data
+            renderReservationGames();
+            renderBookingSummary();
+            renderSelectedTableMeta();
+        } catch (error) {
+            console.warn("Could not load draft:", error);
+        }
+    }
+
     function resetBookingForm() {
         const form = document.getElementById("reservation-form");
         if (form) {
@@ -899,6 +1071,7 @@
         state.selectedTableIds = [];
         renderReservationGames();
         refreshAvailability();
+        scheduleAutoSave();
     }
 
     populateTimeSlots();
@@ -910,15 +1083,38 @@
     document.getElementById("reservation-form")?.addEventListener("submit", createReservation);
     document.getElementById("add-game-button")?.addEventListener("click", queueGameForBooking);
     document.getElementById("reset-booking-form")?.addEventListener("click", resetBookingForm);
-    document.getElementById("party-size")?.addEventListener("input", refreshAvailability);
-    document.getElementById("booking-date")?.addEventListener("change", refreshAvailability);
-    document.getElementById("start-slot")?.addEventListener("change", refreshAvailability);
-    document.getElementById("end-slot")?.addEventListener("change", refreshAvailability);
+    
+    // Auto-save on form changes (with debouncing)
+    document.getElementById("party-size")?.addEventListener("input", (e) => {
+        refreshAvailability();
+        scheduleAutoSave();
+    });
+    document.getElementById("booking-date")?.addEventListener("change", (e) => {
+        refreshAvailability();
+        scheduleAutoSave();
+    });
+    document.getElementById("start-slot")?.addEventListener("change", (e) => {
+        refreshAvailability();
+        scheduleAutoSave();
+    });
+    document.getElementById("end-slot")?.addEventListener("change", (e) => {
+        refreshAvailability();
+        scheduleAutoSave();
+    });
+    document.getElementById("reservation-notes")?.addEventListener("input", scheduleAutoSave);
+    
     document.getElementById("floor-selector")?.addEventListener("change", (event) => {
         state.selectedFloor = Number(event.target.value || 0) || null;
         renderFloorPlan();
+        scheduleAutoSave();
     });
     document.getElementById("requested-game-id")?.addEventListener("change", renderSelectedGameAvailability);
+    window.addEventListener("pagehide", flushDraftOnExit);
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            flushDraftOnExit();
+        }
+    });
 
     renderReservationGames();
     renderBookingSummary();
@@ -927,5 +1123,6 @@
     renderFloorPlan();
     loadLookupData();
     refreshAvailability();
+    loadDraftFromSession();
 </script>
 {% endblock %}

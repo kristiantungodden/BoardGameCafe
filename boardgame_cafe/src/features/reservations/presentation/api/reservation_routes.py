@@ -24,7 +24,9 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     SeatReservationUseCase,
 )
 from shared.domain.exceptions import DomainError
+from shared.domain.events import ReservationCreated
 from shared.infrastructure import csrf
+from shared.infrastructure.draft_store import clear_booking_draft, get_booking_draft, save_booking_draft
 from shared.infrastructure.qr_codes import (
     decode_reservation_qr_token,
     generate_qr_svg,
@@ -234,12 +236,41 @@ def create_reservation():
     response["games"] = [_serialize_reservation_game(item) for item in reservation_games]
     response["payment"] = PaymentSchema.dump(payment)
 
+    event_bus = getattr(current_app, "event_bus", None)
+    if event_bus is not None:
+        event_bus.publish(
+            ReservationCreated(
+                reservation_id=reservation.id,
+                user_id=current_user.id,
+                user_email=getattr(current_user, "email", None),
+                reservation_details=(
+                    f"Reservation #{reservation.id}: "
+                    f"{reservation.start_ts.isoformat()} to {reservation.end_ts.isoformat()}, "
+                    f"party_size={reservation.party_size}, tables={response['table_ids']}"
+                ),
+            )
+        )
     get_or_create_reservation_qr_token(
         current_app.config["SECRET_KEY"],
         user_id=current_user.id,
         reservation_id=reservation.id,
     )
 
+
+    event_bus = getattr(current_app, "event_bus", None)
+    if event_bus is not None:
+        event_bus.publish(
+            ReservationCreated(
+                reservation_id=reservation.id,
+                user_id=current_user.id,
+                user_email=getattr(current_user, "email", None),
+                reservation_details=(
+                    f"Reservation #{reservation.id}: "
+                    f"{reservation.start_ts.isoformat()} to {reservation.end_ts.isoformat()}, "
+                    f"party_size={reservation.party_size}, tables={response['table_ids']}"
+                ),
+            )
+        )
     return response, 201
 
 
@@ -404,4 +435,70 @@ def check_in_with_token(token: str):
 
     flash(f"Reservation #{reservation_id} checked in successfully.", "success")
     return redirect(_checkin_redirect_target(reservation_id))
+
+
+@bp.get("/draft")
+def get_reservation_draft():
+    """
+    Get the current reservation draft from the server-side draft store.
+    Returns the draft data or an empty object if no draft exists.
+    """
+    if not current_user.is_authenticated:
+        return {"error": "Authentication required"}, 401
+
+    draft = get_booking_draft(current_user.id)
+    return draft, 200
+
+
+@bp.post("/draft-save")
+def save_reservation_draft():
+    """
+    Save or update the current reservation draft in the server-side draft store.
+    The draft is stored temporarily and expires automatically.
+    Supports partial updates by merging provided fields into existing draft data.
+    """
+    if not current_user.is_authenticated:
+        return {"error": "Authentication required"}, 401
+
+    try:
+        raw = request.get_json()
+    except BadRequest:
+        return {"error": "Invalid JSON body"}, 400
+
+    if raw is None:
+        raw = {}
+
+    # Empty payload means explicit clear request.
+    if raw == {}:
+        clear_booking_draft(current_user.id)
+        return {"saved": True, "draft": {}}, 200
+
+    # Accept partial payloads because the user may still be filling the form.
+    try:
+        existing_draft = get_booking_draft(current_user.id)
+
+        # Extract only supported fields present in this update payload.
+        draft_update = {}
+        if "party_size" in raw:
+            draft_update["party_size"] = raw["party_size"]
+        if "start_ts" in raw:
+            draft_update["start_ts"] = raw["start_ts"]
+        if "end_ts" in raw:
+            draft_update["end_ts"] = raw["end_ts"]
+        if "table_id" in raw:
+            draft_update["table_id"] = raw["table_id"]
+        if "table_ids" in raw:
+            draft_update["table_ids"] = raw["table_ids"]
+        if "notes" in raw:
+            draft_update["notes"] = raw["notes"]
+        if "games" in raw:
+            draft_update["games"] = raw["games"]
+
+        draft_data = {**existing_draft, **draft_update}
+
+        save_booking_draft(current_user.id, draft_data)
+
+        return {"saved": True, "draft": draft_data}, 200
+    except Exception as exc:
+        return {"error": str(exc)}, 400
 

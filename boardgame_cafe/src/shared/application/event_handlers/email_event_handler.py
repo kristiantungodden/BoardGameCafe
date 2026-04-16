@@ -12,11 +12,11 @@ def send_reservation_confirmation_email(event: ReservationCreated, email_service
 
 
 def register_email_event_handlers(event_bus, email_service: EmailServiceInterface):
-    event_bus.subscribe(
-        UserRegistered,
-        lambda event: send_welcome_email(event, email_service),
-    )
-    event_bus.subscribe(
+    # Async handlers via Celery for pub/sub style event processing.
+    event_bus.subscribe_task(UserRegistered, "shared.tasks.send_welcome_email")
+    event_bus.subscribe_task(
         ReservationCreated,
-        lambda event: send_reservation_confirmation_email(event, email_service),
+        "shared.tasks.send_reservation_confirmation_email",
     )
+    event_bus.subscribe_task(UserRegistered, "shared.tasks.publish_realtime_event")
+    event_bus.subscribe_task(ReservationCreated, "shared.tasks.publish_realtime_event")

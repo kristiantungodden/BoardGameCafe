@@ -1,4 +1,4 @@
-from flask import Flask, app, render_template, flash, redirect, url_for, request, jsonify
+from flask import Flask, render_template, flash, redirect, url_for, request, jsonify, stream_with_context
 from flask_login import current_user, login_required, logout_user
 from flask_wtf.csrf import CSRFError
 import os
@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import stripe
 
 from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
+from shared.infrastructure import init_booking_draft_store
+from shared.infrastructure.message_bus.realtime import stream_realtime_events
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.application.event_handlers.email_event_handler import register_email_event_handlers
 
@@ -57,6 +59,7 @@ def create_app(config_name: str = None):
     csrf.init_app(app)
     mail.init_app(app)
     login_manager.init_app(app)
+    init_booking_draft_store(app)
     login_manager.login_view = "login_page"
     login_manager.login_message = "Please sign in to continue."
 
@@ -247,6 +250,20 @@ def create_app(config_name: str = None):
         logout_user()
         flash("Logged out.", "success")
         return redirect(url_for("home"))
+
+    @app.route("/api/events/stream", methods=["GET"])
+    @login_required
+    def realtime_event_stream():
+        try:
+            response = Response(
+                stream_with_context(stream_realtime_events()),
+                mimetype="text/event-stream",
+            )
+        except RuntimeError as exc:
+            return {"error": str(exc)}, 503
+        response.headers["Cache-Control"] = "no-cache"
+        response.headers["X-Accel-Buffering"] = "no"
+        return response
 
     # Create database tables
     with app.app_context():
