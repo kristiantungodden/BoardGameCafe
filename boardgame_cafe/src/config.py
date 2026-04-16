@@ -59,6 +59,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
     MAIL_SUPPRESS_SEND = True
+    STRIPE_SECRET_KEY = "sk_test_dummy"
     REDIS_URL = None
     CELERY_BROKER_URL = "memory://"
     CELERY_RESULT_BACKEND = "cache+memory://"
