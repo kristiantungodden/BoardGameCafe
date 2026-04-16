@@ -11,7 +11,12 @@ def send_welcome_email(event_payload: dict) -> None:
     email = event_payload.get("data", {}).get("email")
     if not email:
         return
-    FlaskMailService(mail).send_welcome_email(email)
+    FlaskMailService(mail).send_email(
+        subject="Welcome to Dicer.no!",
+        sender=None,
+        recipients=[email],
+        body="Thank you for signing up at Dicer.no! \n\nWe are excited to have you as part of our community. Stay tuned for updates on events, new games, and special offers!"
+    )
 
 
 @celery.task(name="shared.tasks.send_reservation_confirmation_email")
@@ -21,7 +26,14 @@ def send_reservation_confirmation_email(event_payload: dict) -> None:
     details = data.get("reservation_details", "")
     if not recipient:
         return
-    FlaskMailService(mail).send_reservation_confirmation_email(recipient, details)
+    FlaskMailService(mail).send_email(
+        subject="Your Dicer.no Reservation Confirmation",
+        sender=None,
+        recipients=[recipient],
+        body=f"Thank you for your reservation at Dicer.no! \n\nHere are your reservation details:\n{details}\n\nWe look forward to seeing you soon!"
+    )
+
+# HER MÅ VÆRE NOE FOR RESET PASSORD SENERE.
 
 
 @celery.task(name="shared.tasks.publish_realtime_event")

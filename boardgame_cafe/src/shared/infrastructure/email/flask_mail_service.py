@@ -1,7 +1,9 @@
 from flask_mail import Message
 from flask import current_app
 
-class FlaskMailService:
+from shared.application.interface.email_service_interface import EmailServiceInterface
+
+class FlaskMailService(EmailServiceInterface):
     def __init__(self, mail):
         self.mail = mail
 
