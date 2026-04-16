@@ -17,7 +17,7 @@ class FlaskMailService:
     def send_welcome_email(self, recipient_email):
         subject = "Welcome to BoardGame Cafe!"
         sender = self._default_sender()
-        body = "Thank you for signing up at BoardGame Cafe!"
+        body = "Thank you for signing up at BoardGame Cafe! \n\nWe are excited to have you as part of our community. Stay tuned for updates on events, new games, and special offers!"
         self.send_email(subject, sender, [recipient_email], body)
     
     #reserservation_details må inneholde info om dato, tid, antall personer, osv.
