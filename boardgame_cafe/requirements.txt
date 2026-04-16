@@ -47,3 +47,5 @@ isort==5.13.2
 # Utilities
 python-dotenv==1.0.0
 qrcode==7.4.2
+stripe
+cachelib==0.13.0

@@ -6,6 +6,7 @@ import requests
 
 from features.payments.application.interfaces.payment_provider_interface import (
     PaymentProviderInterface,
+    StartPaymentResult,
 )
 from features.payments.domain.models.payment import Payment, PaymentStatus
 from features.payments.infrastructure.vipps.vipps_config import VippsConfig
@@ -62,12 +63,16 @@ class VippsAdapter(PaymentProviderInterface):
     def _is_simulated(self) -> bool:
         return not (self.config.client_id and self.config.client_secret and self.config.subscription_key)
 
-    def start_payment(self, payment: Payment) -> str:
+    def start_payment(self, payment: Payment) -> StartPaymentResult:
         booking_id = payment.booking_id
         if self._is_simulated():
             ref = f"vipps:{uuid4()}"
             logger.info("Simulated start_payment => %s", ref)
-            return f"http://localhost:5000/mock-vipps/pay?ref={ref}&amount={payment.amount_cents}"
+            return StartPaymentResult(
+                provider_ref=ref,
+                redirect_url=f"http://localhost:5000/mock-vipps/pay?ref={ref}&amount={payment.amount_cents}",
+                provider_name="vipps",
+            )
         
 
         order_id = f"bgc-{booking_id}-{payment.id or uuid4()}"
@@ -85,7 +90,11 @@ class VippsAdapter(PaymentProviderInterface):
             },
         }
         data = self.client.initiate_payment(payload)
-        return data.get("orderId") or data.get("order_id")
+        return StartPaymentResult(
+            provider_ref=data.get("orderId") or data.get("order_id"),
+            redirect_url=data.get("url"),
+            provider_name="vipps",
+        )
 
     def fetch_status(self, provider_ref: str) -> PaymentStatus:
         if provider_ref.startswith("vipps:") and self._is_simulated():

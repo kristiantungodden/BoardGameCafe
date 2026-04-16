@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from types import SimpleNamespace
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from features.payments.application.use_cases.payment_use_cases import (
     calculate_amount_cents,
@@ -16,6 +16,7 @@ from features.payments.application.interfaces.payment_provider_interface import 
     PaymentProviderInterface,
 )
 from features.payments.domain.models.payment import PaymentStatus
+from features.payments.infrastructure.vipps import VippsAdapter
 from features.payments.presentation.schemas.payment_schema import PaymentSchema
 
 payment_bp = Blueprint("payments", __name__, url_prefix="/api/payments")
@@ -32,6 +33,17 @@ def configure_payment_provider(provider: PaymentProviderInterface) -> None:
     """Configure a payment provider adapter (e.g. Vipps)."""
     global _payment_provider
     _payment_provider = provider
+
+
+def _resolve_provider_for_payment(payment) -> PaymentProviderInterface | None:
+    """Use Vipps adapter for Vipps-tagged payments, otherwise use configured default provider."""
+    provider_name = (getattr(payment, "provider", "") or "").lower()
+    provider_ref = getattr(payment, "provider_ref", "") or ""
+    if provider_name == "vipps" or provider_ref.startswith("vipps:"):
+        if isinstance(_payment_provider, VippsAdapter):
+            return _payment_provider
+        return VippsAdapter()
+    return _payment_provider
 
 
 @payment_bp.post("/calculate")
@@ -101,15 +113,32 @@ def start_payment_route(payment_id: int):
 
     try:
         payment = get_payment_by_id(payment_id, _payment_repository)
+        provider = _resolve_provider_for_payment(payment)
+        if provider is None:
+            return jsonify({"error": "Payment provider is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
         # Ask provider to start the payment and get provider reference
-        provider_ref = _payment_provider.start_payment(payment)
-        payment.provider = "vipps"
-        payment.provider_ref = provider_ref
+        result = provider.start_payment(payment)
+
+        payment.provider = result.provider_name
+        payment.provider_ref = result.provider_ref
         payment.status = PaymentStatus.PENDING
+
         saved = _payment_repository.update(payment)
-        return jsonify(PaymentSchema.dump(saved)), HTTPStatus.OK
+
+        return jsonify({
+            # Backward-compatible top-level fields used by existing Vipps tests.
+            "provider": saved.provider,
+            "provider_ref": saved.provider_ref,
+            "status": saved.status.value if hasattr(saved.status, "value") else str(saved.status),
+            "payment": PaymentSchema.dump(saved),
+            "redirect_url": result.redirect_url,
+        }), HTTPStatus.OK
+    
     except ValueError as exc:
         return jsonify({"error": str(exc)}), HTTPStatus.BAD_REQUEST
+    except Exception as exc:
+        current_app.logger.exception("Failed to start payment %s", payment_id)
+        return jsonify({"error": f"Failed to start payment: {exc}"}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 # Check provider status for a stored payment and update local record
@@ -122,7 +151,10 @@ def check_payment_status_route(payment_id: int):
 
     try:
         payment = get_payment_by_id(payment_id, _payment_repository)
-        status = _payment_provider.fetch_status(payment.provider_ref)
+        provider = _resolve_provider_for_payment(payment)
+        if provider is None:
+            return jsonify({"error": "Payment provider is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
+        status = provider.fetch_status(payment.provider_ref)
         # Map provider status to domain PaymentStatus where appropriate
         if status == PaymentStatus.PAID:
             payment.status = PaymentStatus.PAID
@@ -147,8 +179,11 @@ def capture_payment_route(payment_id: int):
 
     try:
         payment = get_payment_by_id(payment_id, _payment_repository)
+        provider = _resolve_provider_for_payment(payment)
+        if provider is None:
+            return jsonify({"error": "Payment provider is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
         idempotency_key = request.headers.get("X-Request-Id")
-        success = _payment_provider.capture(payment.provider_ref, payment.amount_cents, idempotency_key=idempotency_key)
+        success = provider.capture(payment.provider_ref, payment.amount_cents, idempotency_key=idempotency_key)
         if success:
             payment.status = PaymentStatus.PAID
             saved = _payment_repository.update(payment)
@@ -168,8 +203,11 @@ def cancel_payment_route(payment_id: int):
 
     try:
         payment = get_payment_by_id(payment_id, _payment_repository)
+        provider = _resolve_provider_for_payment(payment)
+        if provider is None:
+            return jsonify({"error": "Payment provider is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
         idempotency_key = request.headers.get("X-Request-Id")
-        success = _payment_provider.cancel(payment.provider_ref, should_release_remaining_funds=True, idempotency_key=idempotency_key)
+        success = provider.cancel(payment.provider_ref, should_release_remaining_funds=True, idempotency_key=idempotency_key)
         if success:
             payment.status = PaymentStatus.FAILED
             saved = _payment_repository.update(payment)

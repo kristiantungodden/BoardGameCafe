@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}BoardGameCafe | {{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="page-header">{{ title }}</h1>
+<p class="page-intro">{{ message }}</p>
+
+<section class="panel reservation-box">
+    <h3>Payment Details</h3>
+    <div class="mini-list">
+        <div class="mini-list-row"><span>Status</span><strong>{{ status }}</strong></div>
+        <div class="mini-list-row"><span>Payment ID</span><strong>{{ payment_id or "n/a" }}</strong></div>
+        <div class="mini-list-row"><span>Booking ID</span><strong>{{ booking_id or "n/a" }}</strong></div>
+    </div>
+</section>
+
+<div class="action-row">
+    <a class="button" href="/my-page">Go to My Page</a>
+    <a class="button button-secondary" href="/booking">Back to Booking</a>
+</div>
+{% endblock %}

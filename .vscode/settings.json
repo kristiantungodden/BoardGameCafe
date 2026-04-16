@@ -1,5 +1,7 @@
 {
     "dotnet.defaultSolution": "BordgameCafe.slnx",
+    "python.terminal.useEnvFile": true,
+    "python.envFile": "${workspaceFolder}/boardgame_cafe/.env",
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
     "python.testing.pytestEnabled": true,
     "python.testing.unittestEnabled": false,
