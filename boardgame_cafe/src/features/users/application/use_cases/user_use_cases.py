@@ -26,6 +26,13 @@ class UpdateUserCommand:
 
 
 @dataclass
+class UpdateOwnProfileCommand:
+    user_id: int
+    name: Optional[str] = None
+    phone: Optional[str] = None
+
+
+@dataclass
 class ChangePasswordCommand:
     user_id: int
     new_password_hash: str
@@ -79,6 +86,25 @@ class UpdateUserUseCase:
             target_user.role = original_role
             raise
 
+        return self.user_repo.save(target_user)
+
+
+class UpdateOwnProfileUseCase:
+    """Use case for updating the signed-in user's profile."""
+
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
+    def execute(self, cmd: UpdateOwnProfileCommand, requesting_user: User) -> User:
+        """Update the current user's profile details."""
+        target_user = self.user_repo.get_by_id(cmd.user_id)
+        if not target_user:
+            raise ValidationError("User not found")
+
+        if requesting_user.id != target_user.id:
+            raise ValidationError("Users can only update their own profile")
+
+        target_user.update_profile(name=cmd.name, phone=cmd.phone)
         return self.user_repo.save(target_user)
 
 

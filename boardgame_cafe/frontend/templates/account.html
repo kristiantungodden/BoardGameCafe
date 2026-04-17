@@ -1,35 +1,129 @@
 {% extends "base.html" %}
 
-{% block title %}Dicer | My Account{% endblock %}
+{% block title %}Dicer | Profile{% endblock %}
 
 {% block content %}
-<h1 class="page-header">My Account</h1>
-<p class="page-intro">You are currently signed in.</p>
+<section class="profile-shell">
+	<div class="profile-hero">
+		<div class="profile-avatar" aria-hidden="true">{{ user.name[:1]|upper }}</div>
+		<div class="profile-hero-copy">
+			<p class="hero-kicker">Account profile</p>
+			<h1 class="page-header profile-title">{{ user.name }}</h1>
+			<p class="page-intro">A clean place to review your account and open edit mode only when needed.</p>
+		</div>
+		{% if user.role != "customer" %}
+			<div class="profile-badge">{{ user.role|title }} access</div>
+		{% endif %}
+	</div>
 
-<div class="panel-grid">
-	<div class="panel">
-		<h3>Name</h3>
-		<p>{{ user.name }}</p>
-	</div>
-	<div class="panel">
-		<h3>Email</h3>
-		<p>{{ user.email }}</p>
-	</div>
-	<div class="panel">
-		<h3>Role</h3>
-		<p>{{ user.role }}</p>
-	</div>
-	<div class="panel">
-		<h3>Phone</h3>
-		<p>{{ user.phone or "Not set" }}</p>
-	</div>
-</div>
+	<section class="profile-card" data-profile-card data-editing="false">
+		<div class="profile-card-head">
+			<div>
+				<p class="section-kicker">Personal details</p>
+				<h2 class="section-title">Profile</h2>
+			</div>
+			<button class="button button-secondary" type="button" id="profile-edit-toggle">Edit profile</button>
+		</div>
 
-<div class="action-row" style="margin-top: 1rem;">
-	<a class="button button-secondary" href="/">Back Home</a>
-	<form method="post" action="/logout" class="inline-form">
-		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-		<button class="button" type="submit">Logout</button>
-	</form>
-</div>
+		<div class="profile-view" id="profile-view">
+			<div class="profile-view-grid">
+				<div class="profile-view-item">
+					<span class="profile-summary-label">Email</span>
+					<span class="profile-meta-value">{{ user.email }}</span>
+				</div>
+				<div class="profile-view-item">
+					<span class="profile-summary-label">Phone</span>
+					<span class="profile-meta-value">{{ user.phone or "No phone number added" }}</span>
+				</div>
+				{% if user.role != "customer" %}
+					<div class="profile-view-item profile-view-item-wide">
+						<span class="profile-summary-label">Role</span>
+						<span class="profile-meta-value">{{ user.role|title }}</span>
+					</div>
+				{% endif %}
+			</div>
+		</div>
+
+		<form method="post" action="/me" class="profile-form profile-form-hidden" id="profile-form" hidden>
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+			<div class="profile-grid">
+				<label class="form-stack">
+					<span class="form-label">Name</span>
+					<input class="form-input profile-input" type="text" name="name" value="{{ user.name }}" maxlength="100" required readonly data-original-value="{{ user.name }}">
+				</label>
+
+				<label class="form-stack">
+					<span class="form-label">Phone</span>
+					<input class="form-input profile-input" type="tel" name="phone" value="{{ user.phone or '' }}" maxlength="20" placeholder="Add a phone number" readonly data-original-value="{{ user.phone or '' }}">
+				</label>
+			</div>
+
+			<div class="profile-actions profile-actions-edit" id="profile-actions" hidden>
+				<button class="button" type="submit">Save changes</button>
+				<button class="button button-subtle" type="button" id="profile-cancel">Cancel</button>
+			</div>
+		</form>
+
+		<div class="profile-actions profile-actions-view" id="profile-actions-view">
+			<a class="button button-secondary" href="/my-page">View bookings</a>
+			<form method="post" action="/logout" class="inline-form profile-logout-form">
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+				<button class="button button-subtle" type="submit">Logout</button>
+			</form>
+		</div>
+	</section>
+
+	<script>
+		const profileCard = document.querySelector("[data-profile-card]");
+		const editToggle = document.getElementById("profile-edit-toggle");
+		const cancelButton = document.getElementById("profile-cancel");
+		const viewPanel = document.getElementById("profile-view");
+		const viewActions = document.getElementById("profile-actions-view");
+		const editActions = document.getElementById("profile-actions");
+		const profileForm = document.getElementById("profile-form");
+		const actionRow = document.getElementById("profile-actions");
+		const editableInputs = profileCard ? profileCard.querySelectorAll(".profile-input") : [];
+
+		function setEditingState(isEditing) {
+			if (!profileCard || !editToggle || !profileForm || !viewPanel || !viewActions || !editActions) {
+				return;
+			}
+
+			profileCard.dataset.editing = isEditing ? "true" : "false";
+			profileForm.hidden = !isEditing;
+			viewPanel.hidden = isEditing;
+			viewActions.hidden = isEditing;
+			editActions.hidden = !isEditing;
+			editToggle.textContent = isEditing ? "Viewing profile" : "Edit profile";
+			editToggle.classList.toggle("button-secondary", !isEditing);
+			editToggle.classList.toggle("button-subtle", isEditing);
+
+			editableInputs.forEach((input) => {
+				input.readOnly = !isEditing;
+				input.classList.toggle("profile-input-editing", isEditing);
+			});
+		}
+
+		function resetValues() {
+			editableInputs.forEach((input) => {
+				input.value = input.dataset.originalValue || "";
+			});
+		}
+
+		editToggle?.addEventListener("click", () => {
+			setEditingState(profileCard?.dataset.editing !== "true");
+			if (profileCard?.dataset.editing === "true") {
+				editableInputs[0]?.focus();
+			}
+		});
+
+		cancelButton?.addEventListener("click", () => {
+			resetValues();
+			setEditingState(false);
+		});
+
+		setEditingState(false);
+	</script>
+</section>
 {% endblock %}

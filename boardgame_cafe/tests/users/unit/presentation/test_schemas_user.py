@@ -101,17 +101,17 @@ class TestUserUpdate:
         user_update = UserUpdate.model_validate(payload)
         assert len(user_update.name) == 100
 
-    def test_user_update_rejects_empty_phone(self):
-        """Empty phone string should raise ValidationError."""
+    def test_user_update_accepts_empty_phone_as_none(self):
+        """Empty phone string should be normalized to None."""
         payload = {"phone": ""}
-        with pytest.raises(ValidationError):
-            UserUpdate.model_validate(payload)
+        user_update = UserUpdate.model_validate(payload)
+        assert user_update.phone is None
 
-    def test_user_update_rejects_whitespace_only_phone(self):
-        """Whitespace-only phone should be stripped and rejected."""
+    def test_user_update_accepts_whitespace_only_phone_as_none(self):
+        """Whitespace-only phone should be normalized to None."""
         payload = {"phone": "   "}
-        with pytest.raises(ValidationError):
-            UserUpdate.model_validate(payload)
+        user_update = UserUpdate.model_validate(payload)
+        assert user_update.phone is None
 
     def test_user_update_strips_phone_whitespace(self):
         """Phone with leading/trailing whitespace should be stripped."""

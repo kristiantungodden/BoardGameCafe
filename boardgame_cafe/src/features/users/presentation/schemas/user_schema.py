@@ -35,6 +35,14 @@ class UserUpdate(BaseModel):
     phone: Optional[PhoneStr] = None
     role: Optional[str] = Field(default=None, pattern=r"^(customer|staff|admin)$")
 
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_empty_phone(cls, value):
+        # Allow HTML form submissions to clear optional phone values.
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        return value
+
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

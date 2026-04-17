@@ -8,9 +8,11 @@ from shared.domain.exceptions import ValidationError
 from features.users.application.use_cases.user_use_cases import (
     CreateUserUseCase,
     UpdateUserUseCase,
+    UpdateOwnProfileUseCase,
     ChangePasswordUseCase,
     CreateUserCommand,
     UpdateUserCommand,
+    UpdateOwnProfileCommand,
     ChangePasswordCommand,
 )
 
@@ -193,6 +195,61 @@ class TestUpdateUserUseCase:
             self.use_case.execute(cmd, requesting_user)
 
         assert target_user.role == Role.CUSTOMER
+        self.mock_repo.save.assert_not_called()
+
+
+class TestUpdateOwnProfileUseCase:
+    """Test UpdateOwnProfileUseCase."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.mock_repo = Mock()
+        self.use_case = UpdateOwnProfileUseCase(self.mock_repo)
+
+    def test_update_own_profile_success(self):
+        """Test successful self-service profile update."""
+        requesting_user = User("User", "user@test.com", "hash", Role.CUSTOMER, id=1)
+        target_user = User("Old Name", "user@test.com", "hash", Role.CUSTOMER, phone="123", id=1)
+
+        self.mock_repo.get_by_id.return_value = target_user
+        self.mock_repo.save.return_value = target_user
+
+        cmd = UpdateOwnProfileCommand(user_id=1, name="New Name", phone="456")
+
+        result = self.use_case.execute(cmd, requesting_user)
+
+        assert result.name == "New Name"
+        assert result.phone == "456"
+        self.mock_repo.save.assert_called_once_with(target_user)
+
+    def test_update_own_profile_rejects_other_user(self):
+        """Users should not be able to update someone else's profile."""
+        requesting_user = User("User", "user@test.com", "hash", Role.CUSTOMER, id=1)
+        target_user = User("Other", "other@test.com", "hash", Role.CUSTOMER, id=2)
+
+        self.mock_repo.get_by_id.return_value = target_user
+
+        cmd = UpdateOwnProfileCommand(user_id=2, name="Hacker Name")
+
+        with pytest.raises(ValidationError, match="Users can only update their own profile"):
+            self.use_case.execute(cmd, requesting_user)
+
+        self.mock_repo.save.assert_not_called()
+
+    def test_update_own_profile_validation_error_does_not_persist(self):
+        """Invalid profile updates should not be persisted."""
+        requesting_user = User("User", "user@test.com", "hash", Role.CUSTOMER, id=1)
+        target_user = User("Old Name", "user@test.com", "hash", Role.CUSTOMER, phone="123", id=1)
+
+        self.mock_repo.get_by_id.return_value = target_user
+
+        cmd = UpdateOwnProfileCommand(user_id=1, name="")
+
+        with pytest.raises(ValidationError, match="Name cannot be empty"):
+            self.use_case.execute(cmd, requesting_user)
+
+        assert target_user.name == "Old Name"
+        assert target_user.phone == "123"
         self.mock_repo.save.assert_not_called()
 
 

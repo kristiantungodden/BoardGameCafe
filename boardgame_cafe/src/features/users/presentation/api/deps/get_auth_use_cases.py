@@ -10,6 +10,7 @@ from features.users.application.interfaces import (
     UserRepositoryInterface,
 )
 from features.users.application.use_cases.auth_use_cases import LoginUseCase, RegisterUseCase
+from features.users.application.use_cases.user_use_cases import UpdateOwnProfileUseCase
 from features.users.domain.models.user import Role, User
 from features.users.infrastructure import UserDB, hash_password, verify_password
 from shared.infrastructure import db
@@ -103,3 +104,8 @@ def get_register_use_case() -> RegisterUseCase:
     users = SqlAlchemyUserRepository()
     hasher = WerkZeugPasswordHasher()
     return RegisterUseCase(users, hasher)
+
+
+def get_update_profile_use_case() -> UpdateOwnProfileUseCase:
+    users = SqlAlchemyUserRepository()
+    return UpdateOwnProfileUseCase(users)
