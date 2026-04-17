@@ -70,3 +70,13 @@ class ListIncidentsForGameCopyUseCase:
  
     def execute(self, game_copy_id: int) -> Sequence[Incident]:
         return self.incident_repo.list_for_game_copy(game_copy_id)
+
+
+class DeleteIncidentUseCase:
+    """Delete an incident by id."""
+
+    def __init__(self, incident_repo: IncidentRepositoryInterface):
+        self.incident_repo = incident_repo
+
+    def execute(self, incident_id: int) -> bool:
+        return self.incident_repo.delete(incident_id)

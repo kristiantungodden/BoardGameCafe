@@ -32,6 +32,14 @@
 <p class="page-intro">This dashboard links to API-driven workflows. Use the API endpoints under <code>/api/steward</code> for actions.</p>
 <section class="card" id="steward-data">
 	<h2>Live Data</h2>
+	<div style="margin-bottom:8px;">
+		<label for="live-date">Show day: </label>
+		<input type="date" id="live-date" />
+	</div>
+	<div id="reservation-sidepanel" style="float:right; width:320px; border-left:1px solid #ddd; padding-left:12px;">
+		<h3>Reservation Details</h3>
+		<div id="reservation-panel-content">Select a reservation to view/edit.</div>
+	</div>
 	<div>
 		<h3>Pending / Confirmed</h3>
 		<div id="pending-list">(loading...)</div>
@@ -47,6 +55,13 @@
 	<div>
 		<h3>Incidents</h3>
 		<div id="incident-list">(loading...)</div>
+	</div>
+	<div style="clear:both"></div>
+	<div style="margin-top:16px;">
+		<h3>Floorplan</h3>
+		<label for="floor-select">Floor: </label>
+		<select id="floor-select"></select>
+		<div id="floorplan" style="margin-top:8px; border:1px solid #ddd; padding:8px; min-height:120px;"></div>
 	</div>
 </section>
 

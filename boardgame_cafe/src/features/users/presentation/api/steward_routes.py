@@ -24,6 +24,7 @@ from features.reservations.application.use_cases.waitlist_use_cases import (
     AddToWaitlistUseCase,
     RemoveFromWaitlistUseCase,
 )
+from shared.infrastructure.message_bus.realtime import publish_realtime_event
 from shared.domain.exceptions import DomainError
 from features.users.presentation.api.deps.get_steward_use_cases import (
     get_complete_reservation_use_case,
@@ -35,9 +36,11 @@ from features.users.presentation.api.deps.get_steward_use_cases import (
     get_list_seated_reservations_use_case,
     get_no_show_reservation_use_case,
     get_report_incident_use_case,
+    get_delete_incident_use_case,
     get_seat_reservation_use_case,
     get_swap_game_copy_use_case,
     get_update_game_copy_status_use_case,
+    get_update_reservation_use_case,
     get_list_waitlist_use_case,
     get_add_waitlist_use_case,
     get_remove_waitlist_use_case,
@@ -119,8 +122,17 @@ def list_active_reservations():
     if err:
         return err
 
+    # Optional date filter (YYYY-MM-DD)
+    date_str = request.args.get('date')
     use_case: ListActiveReservationsUseCase = get_list_active_reservations_use_case()
     items = use_case.execute()
+    if date_str:
+        try:
+            from datetime import datetime
+            d = datetime.fromisoformat(date_str).date()
+            items = [r for r in items if getattr(r, 'start_ts', None) and r.start_ts.date() == d]
+        except Exception:
+            pass
     return [_serialize_reservation(r) for r in items], 200
 
 
@@ -131,8 +143,16 @@ def list_confirmed_reservations():
     if err:
         return err
 
+    date_str = request.args.get('date')
     use_case: ListConfirmedReservationsUseCase = get_list_confirmed_reservations_use_case()
     items = use_case.execute()
+    if date_str:
+        try:
+            from datetime import datetime
+            d = datetime.fromisoformat(date_str).date()
+            items = [r for r in items if getattr(r, 'start_ts', None) and r.start_ts.date() == d]
+        except Exception:
+            pass
     return [_serialize_reservation(r) for r in items], 200
 
 
@@ -143,8 +163,16 @@ def list_seated_reservations():
     if err:
         return err
 
+    date_str = request.args.get('date')
     use_case: ListSeatedReservationsUseCase = get_list_seated_reservations_use_case()
     items = use_case.execute()
+    if date_str:
+        try:
+            from datetime import datetime
+            d = datetime.fromisoformat(date_str).date()
+            items = [r for r in items if getattr(r, 'start_ts', None) and r.start_ts.date() == d]
+        except Exception:
+            pass
     return [_serialize_reservation(r) for r in items], 200
 
 
@@ -193,6 +221,26 @@ def no_show_reservation(reservation_id: int):
 
     use_case: MarkReservationNoShowUseCase = get_no_show_reservation_use_case()
     return _run_status_transition(use_case, reservation_id)
+
+
+@bp.patch('/reservations/<int:reservation_id>')
+@login_required
+def update_reservation(reservation_id: int):
+    err = _require_staff()
+    if err:
+        return err
+
+    data = request.get_json() or {}
+    use_case = get_update_reservation_use_case()
+    try:
+        reservation = use_case.execute(reservation_id, data)
+    except (DomainError, ValueError) as exc:
+        return {"error": str(exc)}, 400
+
+    if reservation is None:
+        return {"error": "Reservation not found"}, 404
+
+    return _serialize_reservation(reservation), 200
 
 
 # -----------------------------------------------------------------------
@@ -254,6 +302,13 @@ def update_game_copy_status(copy_id: int):
     except (DomainError, ValueError) as exc:
         return {"error": str(exc)}, 400
 
+    # Publish realtime event so dashboards update live
+    try:
+        publish_realtime_event({"event_type": "game_copy.updated", "data": _serialize_game_copy(game_copy)})
+    except Exception:
+        # best-effort: don't fail the request if realtime publish isn't available
+        pass
+
     return _serialize_game_copy(game_copy), 200
 
 
@@ -286,6 +341,12 @@ def report_incident(copy_id: int):
     except (DomainError, ValueError) as exc:
         return {"error": str(exc)}, 400
 
+    # Publish realtime event for new incident (best-effort)
+    try:
+        publish_realtime_event({"event_type": "incident.created", "data": _serialize_incident(incident)})
+    except Exception:
+        pass
+
     return _serialize_incident(incident), 201
 
 
@@ -308,9 +369,35 @@ def list_all_incidents():
     if err:
         return err
 
+    date_str = request.args.get('date')
     use_case: ListIncidentsUseCase = get_list_incidents_use_case()
     incidents = use_case.execute()
+    if date_str:
+        try:
+            from datetime import datetime
+            d = datetime.fromisoformat(date_str).date()
+            incidents = [i for i in incidents if getattr(i, 'created_at', None) and i.created_at.date() == d]
+        except Exception:
+            pass
     return [_serialize_incident(i) for i in incidents], 200
+
+
+@bp.delete("/incidents/<int:incident_id>")
+@login_required
+def delete_incident(incident_id: int):
+    err = _require_staff()
+    if err:
+        return err
+
+    use_case = get_delete_incident_use_case()
+    ok = use_case.execute(incident_id)
+    if not ok:
+        return {"error": "Not found"}, 404
+    try:
+        publish_realtime_event({"event_type": "incident.deleted", "data": {"id": incident_id}})
+    except Exception:
+        pass
+    return {}, 204
 
 
 @bp.get("/waitlist")
