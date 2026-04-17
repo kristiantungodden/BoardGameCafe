@@ -1,3 +1,28 @@
+from features.users.infrastructure import UserDB, hash_password
+from shared.infrastructure import db
+
+
+def _login_as_admin(client, app):
+    with app.app_context():
+        existing = UserDB.query.filter_by(email="games-response-admin@example.com").first()
+        if existing is None:
+            db.session.add(
+                UserDB(
+                    role="admin",
+                    name="Games Response Admin",
+                    email="games-response-admin@example.com",
+                    password_hash=hash_password("password123"),
+                )
+            )
+            db.session.commit()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={"email": "games-response-admin@example.com", "password": "password123"},
+    )
+    assert login_response.status_code == 200
+
+
 def test_get_games_returns_tags_in_response(client):
     response = client.post(
         "/api/games/",
@@ -21,7 +46,9 @@ def test_get_games_returns_tags_in_response(client):
         assert "tags" in game
 
 
-def test_get_and_update_game_expose_attached_tags(client):
+def test_get_and_update_game_expose_attached_tags(client, app):
+    _login_as_admin(client, app)
+
     create_game = client.post(
         "/api/games/",
         json={

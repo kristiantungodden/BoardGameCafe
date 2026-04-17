@@ -1,3 +1,31 @@
+from features.users.infrastructure import UserDB, hash_password
+from shared.infrastructure import db
+
+
+def _ensure_admin_user(app, email: str = "games-query-admin@example.com") -> str:
+    with app.app_context():
+        existing = UserDB.query.filter_by(email=email).first()
+        if existing is None:
+            db.session.add(
+                UserDB(
+                    role="admin",
+                    name="Games Query Admin",
+                    email=email,
+                    password_hash=hash_password("password123"),
+                )
+            )
+            db.session.commit()
+    return email
+
+
+def _login(client, email: str) -> None:
+    response = client.post(
+        "/api/auth/login",
+        json={"email": email, "password": "password123"},
+    )
+    assert response.status_code == 200
+
+
 def test_get_games_with_pagination(client):
     for i in range(15):
         client.post(
@@ -292,7 +320,9 @@ def test_get_games_out_of_range_page_returns_empty_list(client):
     assert data["games"] == []
 
 
-def test_get_games_prefers_tag_over_tags_when_both_provided(client):
+def test_get_games_prefers_tag_over_tags_when_both_provided(client, app):
+    _login(client, _ensure_admin_user(app))
+
     catan = client.post(
         "/api/games/",
         json={

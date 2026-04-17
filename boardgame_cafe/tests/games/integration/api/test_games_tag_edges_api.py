@@ -1,3 +1,31 @@
+from features.users.infrastructure import UserDB, hash_password
+from shared.infrastructure import db
+
+
+def _ensure_admin_user(app, email: str = "games-tag-edges-admin@example.com") -> str:
+    with app.app_context():
+        existing = UserDB.query.filter_by(email=email).first()
+        if existing is None:
+            db.session.add(
+                UserDB(
+                    role="admin",
+                    name="Games Tag Edges Admin",
+                    email=email,
+                    password_hash=hash_password("password123"),
+                )
+            )
+            db.session.commit()
+    return email
+
+
+def _login(client, email: str) -> None:
+    response = client.post(
+        "/api/auth/login",
+        json={"email": email, "password": "password123"},
+    )
+    assert response.status_code == 200
+
+
 def _create_game(client, title: str = "Catan") -> int:
     response = client.post(
         "/api/games/",
@@ -19,7 +47,9 @@ def _create_tag(client, name: str = "strategy") -> int:
     return response.get_json()["id"]
 
 
-def test_paginated_games_include_tags(client):
+def test_paginated_games_include_tags(client, app):
+    _login(client, _ensure_admin_user(app))
+
     game_id = _create_game(client, "Azul")
     tag_id = _create_tag(client, "Abstract")
 
@@ -39,7 +69,9 @@ def test_paginated_games_include_tags(client):
     assert any(tag["id"] == tag_id for tag in azul["tags"])
 
 
-def test_tag_and_tags_query_params_match(client):
+def test_tag_and_tags_query_params_match(client, app):
+    _login(client, _ensure_admin_user(app))
+
     game_id = _create_game(client, "Wingspan")
     tag_id = _create_tag(client, "Nature")
 
@@ -61,7 +93,9 @@ def test_tag_and_tags_query_params_match(client):
     assert ids_tag == ids_tags
 
 
-def test_removed_tag_not_present_in_game_response(client):
+def test_removed_tag_not_present_in_game_response(client, app):
+    _login(client, _ensure_admin_user(app))
+
     game_id = _create_game(client, "Terraforming Mars")
     tag_id = _create_tag(client, "Engine")
 

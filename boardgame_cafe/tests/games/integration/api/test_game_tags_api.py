@@ -1,4 +1,62 @@
-def test_create_and_list_tags(client):
+import pytest
+
+from features.users.infrastructure import UserDB, hash_password
+from shared.infrastructure import db
+
+
+@pytest.fixture
+def admin_user(app):
+    email = "game-tags-admin@example.com"
+    with app.app_context():
+        user = UserDB(
+            role="admin",
+            name="Admin",
+            email=email,
+            password_hash=hash_password("password123"),
+        )
+        db.session.add(user)
+        db.session.commit()
+    return email
+
+
+@pytest.fixture
+def customer_user(app):
+    email = "game-tags-customer@example.com"
+    with app.app_context():
+        user = UserDB(
+            role="customer",
+            name="Customer",
+            email=email,
+            password_hash=hash_password("password123"),
+        )
+        db.session.add(user)
+        db.session.commit()
+    return email
+
+
+def _login(client, email: str):
+    response = client.post(
+        "/api/auth/login",
+        json={"email": email, "password": "password123"},
+    )
+    assert response.status_code == 200
+
+
+def test_create_tag_requires_admin_authentication(client):
+    response = client.post("/api/games/tags", json={"name": "Strategy"})
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "Authentication required"
+
+
+def test_create_tag_forbidden_for_non_admin(client, customer_user):
+    _login(client, customer_user)
+    response = client.post("/api/games/tags", json={"name": "Strategy"})
+    assert response.status_code == 403
+    assert response.get_json()["error"] == "Admin access required"
+
+
+def test_admin_can_create_and_list_tags(client, admin_user):
+    _login(client, admin_user)
     create_response = client.post("/api/games/tags", json={"name": "Strategy"})
     assert create_response.status_code == 201
     created = create_response.get_json()
@@ -11,7 +69,8 @@ def test_create_and_list_tags(client):
     assert any(tag["name"] == "strategy" for tag in tags)
 
 
-def test_create_duplicate_tag_rejected(client):
+def test_create_duplicate_tag_rejected(client, admin_user):
+    _login(client, admin_user)
     first = client.post("/api/games/tags", json={"name": "Family"})
     assert first.status_code == 201
 
@@ -20,7 +79,29 @@ def test_create_duplicate_tag_rejected(client):
     assert second.get_json()["error"] == "Tag already exists"
 
 
-def test_attach_and_list_tag_for_game(client):
+def test_attach_tag_requires_admin(client):
+    game_response = client.post(
+        "/api/games/",
+        json={
+            "title": "Azul",
+            "min_players": 2,
+            "max_players": 4,
+            "playtime_min": 45,
+            "complexity": 2.0,
+        },
+    )
+    game_id = game_response.get_json()["id"]
+
+    response = client.post(
+        f"/api/games/{game_id}/tags",
+        json={"tag_id": 1},
+    )
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "Authentication required"
+
+
+def test_attach_and_list_tag_for_game(client, admin_user):
+    _login(client, admin_user)
     game_response = client.post(
         "/api/games/",
         json={
@@ -51,7 +132,8 @@ def test_attach_and_list_tag_for_game(client):
     assert any(tag["id"] == tag_id for tag in tags)
 
 
-def test_attach_duplicate_tag_to_game_rejected(client):
+def test_attach_duplicate_tag_to_game_rejected(client, admin_user):
+    _login(client, admin_user)
     game_response = client.post(
         "/api/games/",
         json={
@@ -75,7 +157,8 @@ def test_attach_duplicate_tag_to_game_rejected(client):
     assert second_link.get_json()["error"] == "Tag is already linked to this game"
 
 
-def test_remove_tag_from_game(client):
+def test_remove_tag_from_game(client, admin_user):
+    _login(client, admin_user)
     game_response = client.post(
         "/api/games/",
         json={

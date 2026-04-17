@@ -9,6 +9,8 @@ from features.bookings.application.use_cases.booking_lifecycle_use_cases import 
 from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
+from features.games.infrastructure.database.game_tag_db import GameTagDB
+from features.games.infrastructure.database.game_tag_link_db import GameTagLinkDB
 from features.payments.infrastructure.database.payments_db import PaymentDB
 from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
@@ -44,7 +46,22 @@ DEMO_USERS = [
         "phone": None,
         "password": "Stewardpw",
     },
+    {
+        "role": "admin",
+        "name": "admin",
+        "email": "admin@example.com",
+        "phone": None,
+        "password": "Adminpw123",
+    },
 ]
+
+
+DEMO_GAME_TAGS = {
+    "strategy": ["Ticket to Ride", "Catan", "7 Wonders", "Risk", "Chess"],
+    "family": ["Yatzy", "Monopoly", "UNO", "Scrabble", "Trivial Pursuit"],
+    "party": ["Secret Hitler", "UNO", "Ligretto"],
+    "quick-play": ["Yatzy", "Ligretto", "UNO", "Othello"],
+}
 
 
 def ensure_floor_column_for_tables() -> None:
@@ -277,6 +294,52 @@ def seed_game_copies() -> tuple[int, int]:
     return inserted, updated
 
 
+def seed_game_tags() -> tuple[int, int, int]:
+    inserted_tags = 0
+    inserted_links = 0
+
+    existing_tags = {
+        tag.name: tag
+        for tag in GameTagDB.query.order_by(GameTagDB.id.asc()).all()
+    }
+
+    for tag_name in DEMO_GAME_TAGS:
+        normalized = tag_name.strip().lower()
+        tag = existing_tags.get(normalized)
+        if tag is None:
+            tag = GameTagDB(name=normalized)
+            db.session.add(tag)
+            db.session.flush()
+            existing_tags[normalized] = tag
+            inserted_tags += 1
+
+    games_by_title = {game.title: game for game in GameDB.query.order_by(GameDB.id.asc()).all()}
+    existing_links = {
+        (link.game_id, link.game_tag_id)
+        for link in GameTagLinkDB.query.order_by(GameTagLinkDB.id.asc()).all()
+    }
+
+    for tag_name, game_titles in DEMO_GAME_TAGS.items():
+        tag = existing_tags.get(tag_name)
+        if tag is None:
+            continue
+
+        for game_title in game_titles:
+            game = games_by_title.get(game_title)
+            if game is None:
+                continue
+
+            link_key = (game.id, tag.id)
+            if link_key in existing_links:
+                continue
+
+            db.session.add(GameTagLinkDB(game_id=game.id, game_tag_id=tag.id))
+            existing_links.add(link_key)
+            inserted_links += 1
+
+    return inserted_tags, 0, inserted_links
+
+
 def seed_users() -> tuple[int, int]:
     inserted = 0
     updated = 0
@@ -459,6 +522,7 @@ def seed_demo_data() -> None:
         ensure_booking_link_columns()
         clear_database()
         g_inserted, g_updated, g_total = seed_games()
+        gt_inserted, gt_updated, gtl_inserted = seed_game_tags()
         t_inserted, t_updated = seed_tables()
         c_inserted, c_updated = seed_game_copies()
         u_inserted, u_updated = seed_users()
@@ -468,6 +532,9 @@ def seed_demo_data() -> None:
             (
                 g_inserted,
                 g_updated,
+                gt_inserted,
+                gt_updated,
+                gtl_inserted,
                 t_inserted,
                 t_updated,
                 c_inserted,
@@ -486,6 +553,7 @@ def seed_demo_data() -> None:
     print(
         "Demo data seeded: "
         f"games inserted={g_inserted}, updated={g_updated}, total={g_total}; "
+        f"game-tags inserted={gt_inserted}, updated={gt_updated}, links inserted={gtl_inserted}; "
         f"tables inserted={t_inserted}, updated={t_updated}; "
         f"copies inserted={c_inserted}, updated={c_updated}; "
         f"users inserted={u_inserted}, updated={u_updated}; "

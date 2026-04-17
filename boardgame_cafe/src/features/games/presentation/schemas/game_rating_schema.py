@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class GameRatingCreateRequest(BaseModel):
-    customer_id: int = Field(gt=0)
     game_id: int = Field(gt=0)
     stars: int = Field(ge=1, le=5)
     comment: str | None = None

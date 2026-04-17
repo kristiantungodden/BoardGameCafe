@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from flask_login import current_user
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import BadRequest
@@ -44,6 +45,9 @@ def _serialize_rating(rating: GameRating) -> dict:
 
 @bp.route("/", methods=["POST"])
 def create_rating():
+    if not current_user.is_authenticated:
+        return jsonify({"error": "Authentication required"}), 401
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -62,7 +66,7 @@ def create_rating():
     try:
         rating = create_game_rating_use_case.execute(
             CreateGameRatingCommand(
-                customer_id=payload.customer_id,
+                customer_id=current_user.id,
                 game_id=payload.game_id,
                 stars=payload.stars,
                 comment=payload.comment,

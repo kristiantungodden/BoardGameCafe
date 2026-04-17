@@ -5,7 +5,7 @@
 {% block content %}
 <h1 class="page-header">Games</h1>
 <p class="page-intro">
-    Explore our board game collection. Use filters to find games that match your preferences.
+    Explore our board game collection. Click a game card to view full details, copies, and ratings.
 </p>
 
 <div class="panel-grid">
@@ -15,13 +15,11 @@
         <div id="games-list" class="game-catalog-grid" aria-live="polite">
             <p class="game-state">Loading games...</p>
         </div>
-        <div id="pagination-controls" class="pagination-controls" style="margin-top: 20px; text-align: center;">
-            <!-- Pagination buttons will be inserted here -->
-        </div>
+        <div id="pagination-controls" class="pagination-controls" style="margin-top: 20px; text-align: center;"></div>
     </article>
     <article class="panel">
         <h3>Featured Tabletop Picks</h3>
-        <p>Use this area for weekly highlights and recommendations.</p>
+        <p>Minimal cards for quick browsing, rich details in the popup.</p>
     </article>
     <article class="panel">
         <h3>Search and Filters</h3>
@@ -30,17 +28,17 @@
                 <label for="search">Title Search:</label>
                 <input type="text" id="search" name="search" placeholder="Search by game title...">
             </div>
-            
+
             <div class="form-group">
                 <label for="min_players">Minimum Players:</label>
                 <input type="number" id="min_players" name="min_players" min="1" placeholder="Min: 1">
             </div>
-            
+
             <div class="form-group">
                 <label for="max_players">Maximum Players:</label>
                 <input type="number" id="max_players" name="max_players" min="1" placeholder="Max: 12">
             </div>
-            
+
             <div class="form-group">
                 <label for="complexity">Complexity:</label>
                 <select id="complexity" name="complexity">
@@ -56,12 +54,12 @@
                     <option value="5">5 (Very Complex)</option>
                 </select>
             </div>
-            
+
             <div class="form-group">
                 <label for="tag">Tag:</label>
                 <input type="text" id="tag" name="tag" placeholder="Search by tag (optional)">
             </div>
-            
+
             <div class="form-group">
                 <label for="page_size">Games per page:</label>
                 <select id="page_size" name="page_size">
@@ -71,7 +69,7 @@
                     <option value="50">50</option>
                 </select>
             </div>
-            
+
             <div class="form-actions">
                 <button type="submit" class="button">Apply Filters</button>
                 <button type="reset" class="button button-secondary">Clear Filters</button>
@@ -85,24 +83,55 @@
     <a class="button button-secondary" href="/">Back to Home</a>
 </div>
 
+<section class="game-details-overlay" id="game-details-overlay" hidden>
+    <div class="game-details-backdrop" id="game-details-backdrop"></div>
+    <article class="game-details-card" role="dialog" aria-modal="true" aria-labelledby="game-details-title">
+        <button class="button button-subtle game-details-close-floating" id="game-details-close" type="button" aria-label="Close game details">Close</button>
+        <div class="game-details-head">
+            <h2 id="game-details-title">Game</h2>
+        </div>
+        <div class="game-details-scroll">
+            <div class="game-details-grid" id="game-details-grid">
+                <div class="game-state">Select a game to view details.</div>
+            </div>
+
+            <section class="game-rating-block" aria-labelledby="game-rating-title">
+                <h3 id="game-rating-title">Ratings</h3>
+                <p class="game-rating-average" id="game-rating-average">Average: No ratings yet</p>
+                <div id="game-rating-form-slot"></div>
+                <ul class="game-rating-list" id="game-rating-list">
+                    <li class="game-state">No ratings yet.</li>
+                </ul>
+            </section>
+
+            <section class="game-copies-block" aria-labelledby="game-copies-title">
+                <h3 id="game-copies-title">Game Copies</h3>
+                <div id="game-copies-list">
+                    <p class="game-copy-state">No copies listed for this game.</p>
+                </div>
+            </section>
+        </div>
+    </article>
+</section>
+
 <style>
     .game-filter-form {
         display: flex;
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .form-group {
         display: flex;
         flex-direction: column;
     }
-    
+
     .form-group label {
         font-weight: 500;
         margin-bottom: 5px;
         font-size: 0.9rem;
     }
-    
+
     .form-group input,
     .form-group select {
         padding: 8px 10px;
@@ -111,20 +140,20 @@
         font-size: 0.95rem;
         font-family: inherit;
     }
-    
+
     .form-group input:focus,
     .form-group select:focus {
         outline: none;
         border-color: #4CAF50;
         box-shadow: 0 0 3px rgba(76, 175, 80, 0.3);
     }
-    
+
     .form-actions {
         display: flex;
         gap: 10px;
         margin-top: 10px;
     }
-    
+
     .form-actions button {
         flex: 1;
         padding: 10px 15px;
@@ -132,9 +161,8 @@
         border-radius: 4px;
         cursor: pointer;
         font-weight: 500;
-        transition: background-color 0.3s;
     }
-    
+
     .pagination-controls {
         display: flex;
         justify-content: center;
@@ -143,251 +171,61 @@
         padding: 15px 0;
         font-size: 0.95rem;
     }
-    
+
     .pagination-controls button {
         padding: 8px 12px;
         border: 1px solid #ddd;
         background: white;
         border-radius: 4px;
         cursor: pointer;
-        transition: background-color 0.3s;
     }
-    
+
     .pagination-controls button:hover:not(:disabled) {
         background-color: #f0f0f0;
     }
-    
+
     .pagination-controls button:disabled {
         opacity: 0.5;
         cursor: not-allowed;
     }
-    
+
     .pagination-info {
         padding: 0 10px;
         font-weight: 500;
     }
-</style>
 
-<script>
-    let currentPage = 1;
-    let currentPageSize = 10;
-    let currentFilters = {};
-    
-    async function loadGames(page = 1, pageSize = 10) {
-        const gamesList = document.getElementById("games-list");
-        const gamesInfo = document.getElementById("games-info");
-        if (!gamesList) return;
-
-        try {
-            // Build query string
-            const params = new URLSearchParams();
-            
-            // Add filter parameters if they exist
-            if (currentFilters.search) params.append("search", currentFilters.search);
-            if (currentFilters.min_players) params.append("min_players", currentFilters.min_players);
-            if (currentFilters.max_players) params.append("max_players", currentFilters.max_players);
-            if (currentFilters.complexity) params.append("complexity", currentFilters.complexity);
-            if (currentFilters.tag) params.append("tag", currentFilters.tag);
-            
-            // Add pagination if any filter is applied
-            const hasFilters = Object.values(currentFilters).some(v => v);
-            if (hasFilters || page !== 1 || pageSize !== 10) {
-                params.append("page", page);
-                params.append("page_size", pageSize);
-            }
-            
-            const url = `/api/games/?${params.toString()}`;
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error("Failed to load games");
-            }
-
-            const data = await response.json();
-            const copyResponse = await fetch("/api/game-copies/");
-            const gameCopies = copyResponse.ok ? await copyResponse.json() : [];
-            const copiesByGameId = gameCopies.reduce((acc, copy) => {
-                if (!acc[copy.game_id]) {
-                    acc[copy.game_id] = [];
-                }
-                acc[copy.game_id].push(copy);
-                return acc;
-            }, {});
-
-            gamesList.innerHTML = "";
-            
-            // Check if response is paginated or plain array
-            let games = Array.isArray(data) ? data : data.games;
-            let totalCount = Array.isArray(data) ? data.length : data.total_count;
-            let totalPages = Array.isArray(data) ? 1 : data.total_pages;
-            let pageNum = Array.isArray(data) ? 1 : data.page;
-            
-            // Update info text
-            if (hasFilters) {
-                gamesInfo.textContent = `Showing ${games.length} of ${totalCount} games`;
-            } else {
-                gamesInfo.textContent = `Showing all ${totalCount} games`;
-            }
-            
-            // Update pagination
-            updatePaginationControls(pageNum, pageSize, totalPages);
-            currentPage = pageNum;
-            currentPageSize = pageSize;
-
-            if (!games || games.length === 0) {
-                gamesList.innerHTML = '<p class="game-state">No games match your filters.</p>';
-                return;
-            }
-
-            for (const game of games) {
-                const item = document.createElement("article");
-                item.className = "game-card";
-
-                const title = game.title || "Untitled game";
-                const players = `${game.min_players}-${game.max_players} players`;
-                const playtime = `${game.playtime_min} min`;
-                const complexity = `Complexity: ${game.complexity}`;
-
-                const imageUrl = game.image_url || "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=700&q=80";
-                const safeDescription = game.description || "No description available.";
-                const copies = copiesByGameId[game.id] || [];
-                
-                // Build tags list if available
-                let tagsHtml = '';
-                if (game.tags && game.tags.length > 0) {
-                    tagsHtml = '<div class="game-tags">' + 
-                        game.tags.map(tag => `<span class="game-tag">${tag.name}</span>`).join('') + 
-                        '</div>';
-                }
-
-                let copiesHtml = '<p class="game-copy-state">No copies listed for this game.</p>';
-                if (copies.length > 0) {
-                    copiesHtml = '<div class="game-copy-list">' + copies.map(copy => `
-                        <div class="game-copy-item">
-                            <div class="game-copy-meta">
-                                <strong>${copy.copy_code}</strong>
-                                <span>Status: ${copy.status}</span>
-                                <span>Location: ${copy.location || "-"}</span>
-                            </div>
-                            <div class="game-copy-qr">
-                                <img src="/api/game-copies/${copy.id}/qr" alt="QR for ${copy.copy_code}" loading="lazy">
-                                <a href="/api/game-copies/${copy.id}" target="_blank" rel="noopener">Copy info</a>
-                            </div>
-                        </div>
-                    `).join('') + '</div>';
-                }
-
-                item.innerHTML = `
-                    <img class="game-card-image" src="${imageUrl}" alt="${title}" loading="lazy">
-                    <div class="game-card-body">
-                        <h4 class="game-card-title">${title}</h4>
-                        <p class="game-card-meta">${players} | ${playtime} | ${complexity}</p>
-                        ${tagsHtml}
-                        <p class="game-card-description">${safeDescription}</p>
-                        <div class="game-copy-section">
-                            <h5>Game Copies & QR</h5>
-                            ${copiesHtml}
-                        </div>
-                    </div>
-                `;
-
-                const img = item.querySelector("img");
-                if (img) {
-                    img.addEventListener("error", () => {
-                        img.src = "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=700&q=80";
-                    });
-                }
-
-                gamesList.appendChild(item);
-            }
-        } catch (error) {
-            console.error("Error loading games:", error);
-            gamesList.innerHTML = '<p class="game-state">Could not load games right now.</p>';
-        }
-    }
-    
-    function updatePaginationControls(page, pageSize, totalPages) {
-        const controls = document.getElementById("pagination-controls");
-        if (!controls) return;
-        
-        controls.innerHTML = "";
-        
-        // Hide pagination if only 1 page
-        if (totalPages <= 1) return;
-        
-        // Previous button
-        const prevBtn = document.createElement("button");
-        prevBtn.textContent = "← Previous";
-        prevBtn.disabled = page <= 1;
-        prevBtn.onclick = () => {
-            if (page > 1) loadGames(page - 1, pageSize);
-        };
-        controls.appendChild(prevBtn);
-        
-        // Page info
-        const pageInfo = document.createElement("span");
-        pageInfo.className = "pagination-info";
-        pageInfo.textContent = `Page ${page} of ${totalPages}`;
-        controls.appendChild(pageInfo);
-        
-        // Next button
-        const nextBtn = document.createElement("button");
-        nextBtn.textContent = "Next →";
-        nextBtn.disabled = page >= totalPages;
-        nextBtn.onclick = () => {
-            if (page < totalPages) loadGames(page + 1, pageSize);
-        };
-        controls.appendChild(nextBtn);
-    }
-    
-    // Set up filter form
-    const filterForm = document.getElementById("game-filter-form");
-    if (filterForm) {
-        filterForm.addEventListener("submit", (e) => {
-            e.preventDefault();
-            
-            // Collect filter values
-            currentFilters = {
-                search: document.getElementById("search").value.trim(),
-                min_players: document.getElementById("min_players").value,
-                max_players: document.getElementById("max_players").value,
-                complexity: document.getElementById("complexity").value,
-                tag: document.getElementById("tag").value.trim(),
-            };
-            
-            currentPageSize = parseInt(document.getElementById("page_size").value);
-            
-            // Remove empty filters
-            Object.keys(currentFilters).forEach(key => {
-                if (!currentFilters[key]) delete currentFilters[key];
-            });
-            
-            // Load first page with new filters
-            loadGames(1, currentPageSize);
-        });
-        
-        // Reset button behavior
-        filterForm.addEventListener("reset", (e) => {
-            // Reset form fields
-            setTimeout(() => {
-                currentFilters = {};
-                currentPageSize = 10;
-                loadGames(1, 10);
-            }, 0);
-        });
+    .game-card-cta {
+        all: unset;
+        display: block;
+        width: 100%;
+        cursor: pointer;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        line-height: 0;
     }
 
-    // Load games on page load
-    loadGames(1, 10);
-</script>
+    .game-card-cta .game-card-image {
+        width: 100%;
+    }
 
-<style>
+    .game-card-view-button {
+        margin-top: 8px;
+    }
+
+    .game-card-rating {
+        margin: 4px 0 0;
+        font-size: 0.86rem;
+        color: #355;
+    }
+
     .game-tags {
         display: flex;
         flex-wrap: wrap;
         gap: 5px;
-        margin: 10px 0;
+        margin: 8px 0;
     }
-    
+
     .game-tag {
         display: inline-block;
         background-color: #e3f2fd;
@@ -398,15 +236,116 @@
         font-weight: 500;
     }
 
-    .game-copy-section {
-        margin-top: 14px;
-        padding-top: 10px;
-        border-top: 1px solid #e8e8e8;
+    .game-details-overlay[hidden] {
+        display: none !important;
     }
 
-    .game-copy-section h5 {
-        margin: 0 0 8px;
+    .game-details-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .game-details-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.52);
+        backdrop-filter: blur(2px);
+    }
+
+    .game-details-card {
+        position: relative;
+        z-index: 2;
+        width: min(960px, 96vw);
+        max-height: 90vh;
+        border-radius: 14px;
+        border: 1px solid #dbe3d3;
+        background: #ffffff;
+        box-shadow: 0 20px 48px rgba(23, 40, 31, 0.22);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .game-details-head {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 12px;
+        padding-right: 120px;
+    }
+
+    .game-details-close-floating {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 6;
+    }
+
+    .game-details-scroll {
+        overflow: auto;
+        padding-right: 2px;
+    }
+
+    .game-details-grid {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .game-detail-item {
+        border: 1px solid #e6ece2;
+        border-radius: 8px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        background: #fcfdf9;
+    }
+
+    .game-detail-item span {
+        font-size: 0.8rem;
+        color: #4b6155;
+    }
+
+    .game-detail-item strong {
         font-size: 0.95rem;
+        color: #1a2a23;
+    }
+
+    .game-detail-item-wide {
+        grid-column: 1 / -1;
+    }
+
+    .game-detail-image-wrap {
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .game-detail-image {
+        width: 100%;
+        height: min(280px, 36vh);
+        object-fit: cover;
+    }
+
+    .game-rating-block,
+    .game-copies-block {
+        margin-top: 14px;
+        border: 1px solid #e6ece2;
+        border-radius: 8px;
+        padding: 12px;
+        background: #fafdf7;
+    }
+
+    .game-rating-block h3,
+    .game-copies-block h3 {
+        margin: 0 0 8px;
+        font-size: 1rem;
     }
 
     .game-copy-list {
@@ -422,6 +361,7 @@
         padding: 8px;
         border: 1px solid #ededed;
         border-radius: 6px;
+        background: #fff;
     }
 
     .game-copy-meta {
@@ -455,5 +395,528 @@
         color: #666;
         font-size: 0.85rem;
     }
+
+    .game-rating-average {
+        margin: 0 0 8px;
+        font-size: 0.88rem;
+        color: #345;
+    }
+
+    .game-rating-form {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .game-rating-form label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.85rem;
+    }
+
+    .game-rating-form select,
+    .game-rating-form textarea {
+        font-family: inherit;
+        font-size: 0.85rem;
+        border: 1px solid #d9d9d9;
+        border-radius: 6px;
+        padding: 6px 8px;
+    }
+
+    .game-rating-note,
+    .game-rating-feedback {
+        margin: 0;
+        font-size: 0.82rem;
+        color: #4b4b4b;
+    }
+
+    .game-rating-list {
+        margin: 10px 0 0;
+        padding-left: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .game-rating-list li {
+        font-size: 0.86rem;
+        color: #213128;
+    }
+
+    .game-rating-list li p {
+        margin: 4px 0 0;
+    }
+
+    .game-rating-list-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    @media (max-width: 860px) {
+        .game-details-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .game-detail-image {
+            height: 220px;
+        }
+    }
 </style>
+
+<script>
+    const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+    let currentPage = 1;
+    let currentPageSize = 10;
+    let currentFilters = {};
+    const gamesById = new Map();
+    const copiesByGameId = new Map();
+    const averagesByGameId = new Map();
+    let selectedGameId = null;
+
+    function escapeHtml(text) {
+        return String(text)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function renderStars(stars) {
+        const count = Number(stars) || 0;
+        const capped = Math.max(0, Math.min(5, count));
+        return "★".repeat(capped) + "☆".repeat(5 - capped);
+    }
+
+    function formatAverageLabel(avg) {
+        if (avg === null || avg === undefined) {
+            return "No ratings yet";
+        }
+        return `${Number(avg).toFixed(1)} / 5`;
+    }
+
+    function showGameDetailsOverlay(show) {
+        const overlay = document.getElementById("game-details-overlay");
+        if (!overlay) {
+            return;
+        }
+        overlay.hidden = !show;
+        document.body.classList.toggle("modal-open", show);
+    }
+
+    function closeGameDetails() {
+        showGameDetailsOverlay(false);
+        selectedGameId = null;
+    }
+
+    async function fetchAverageRatings(games) {
+        const averages = {};
+        await Promise.all(
+            games.map(async (game) => {
+                try {
+                    const response = await fetch(`/api/game-ratings/game/${game.id}/average`);
+                    if (!response.ok) {
+                        averages[game.id] = null;
+                        return;
+                    }
+                    const body = await response.json();
+                    averages[game.id] = body.average_rating;
+                } catch (_) {
+                    averages[game.id] = null;
+                }
+            })
+        );
+        return averages;
+    }
+
+    async function fetchRatingsForGame(gameId) {
+        try {
+            const response = await fetch(`/api/game-ratings/game/${gameId}`);
+            if (!response.ok) {
+                return [];
+            }
+            const body = await response.json();
+            return Array.isArray(body) ? body : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function renderRatingForm(gameId) {
+        if (!isAuthenticated) {
+            return '<p class="game-rating-note">Sign in to rate this game.</p>';
+        }
+
+        return `
+            <form class="game-rating-form" id="game-rating-form" data-game-id="${gameId}">
+                <label>
+                    Your rating
+                    <select name="stars" required>
+                        <option value="">Choose</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                    </select>
+                </label>
+                <label>
+                    Comment (optional)
+                    <textarea name="comment" rows="3" maxlength="500" placeholder="What did you think?"></textarea>
+                </label>
+                <button type="submit" class="button">Submit rating</button>
+                <p class="game-rating-feedback" aria-live="polite"></p>
+            </form>
+        `;
+    }
+
+    function renderCopies(copies) {
+        if (!copies.length) {
+            return '<p class="game-copy-state">No copies listed for this game.</p>';
+        }
+
+        return '<div class="game-copy-list">' + copies.map((copy) => `
+            <div class="game-copy-item">
+                <div class="game-copy-meta">
+                    <strong>${escapeHtml(copy.copy_code)}</strong>
+                    <span>Status: ${escapeHtml(copy.status)}</span>
+                    <span>Location: ${escapeHtml(copy.location || "-")}</span>
+                </div>
+                <div class="game-copy-qr">
+                    <img src="/api/game-copies/${copy.id}/qr" alt="QR for ${escapeHtml(copy.copy_code)}" loading="lazy">
+                    <a href="/api/game-copies/${copy.id}" target="_blank" rel="noopener">Copy info</a>
+                </div>
+            </div>
+        `).join("") + '</div>';
+    }
+
+    function renderRatingsList(ratings) {
+        if (!Array.isArray(ratings) || ratings.length === 0) {
+            return '<li class="game-state">No ratings yet.</li>';
+        }
+
+        return ratings
+            .slice(0, 8)
+            .map((rating) => {
+                const createdAt = rating.created_at
+                    ? new Date(rating.created_at).toLocaleString()
+                    : "Unknown time";
+                const comment = rating.comment ? `<p>${escapeHtml(rating.comment)}</p>` : "";
+
+                return `
+                    <li>
+                        <div class="game-rating-list-head">
+                            <strong>${escapeHtml(renderStars(rating.stars))}</strong>
+                            <span>${escapeHtml(createdAt)}</span>
+                        </div>
+                        ${comment}
+                    </li>
+                `;
+            })
+            .join("");
+    }
+
+    function bindGameCardClicks(container) {
+        container.querySelectorAll("[data-game-id]").forEach((node) => {
+            node.addEventListener("click", async () => {
+                const gameId = Number(node.getAttribute("data-game-id"));
+                if (!gameId) {
+                    return;
+                }
+                await openGameDetails(gameId);
+            });
+        });
+    }
+
+    async function openGameDetails(gameId) {
+        const game = gamesById.get(gameId);
+        if (!game) {
+            return;
+        }
+
+        selectedGameId = gameId;
+        showGameDetailsOverlay(true);
+
+        const titleEl = document.getElementById("game-details-title");
+        const detailsGrid = document.getElementById("game-details-grid");
+        const averageEl = document.getElementById("game-rating-average");
+        const formSlot = document.getElementById("game-rating-form-slot");
+        const ratingsList = document.getElementById("game-rating-list");
+        const copiesList = document.getElementById("game-copies-list");
+        if (!titleEl || !detailsGrid || !averageEl || !formSlot || !ratingsList || !copiesList) {
+            return;
+        }
+
+        const imageUrl = game.image_url || "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=700&q=80";
+        titleEl.textContent = game.title || "Game";
+
+        detailsGrid.innerHTML = `
+            <div class="game-detail-item game-detail-item-wide game-detail-image-wrap">
+                <img class="game-detail-image" src="${imageUrl}" alt="${escapeHtml(game.title || "Game")}" loading="lazy">
+            </div>
+            <div class="game-detail-item"><span>Players</span><strong>${escapeHtml(game.min_players)}-${escapeHtml(game.max_players)}</strong></div>
+            <div class="game-detail-item"><span>Playtime</span><strong>${escapeHtml(game.playtime_min)} min</strong></div>
+            <div class="game-detail-item"><span>Complexity</span><strong>${escapeHtml(game.complexity)}</strong></div>
+            <div class="game-detail-item game-detail-item-wide"><span>Description</span><strong>${escapeHtml(game.description || "No description available.")}</strong></div>
+            <div class="game-detail-item game-detail-item-wide"><span>Tags</span><strong>${(game.tags && game.tags.length) ? game.tags.map((t) => escapeHtml(t.name)).join(", ") : "No tags"}</strong></div>
+        `;
+
+        const img = detailsGrid.querySelector(".game-detail-image");
+        if (img) {
+            img.addEventListener("error", () => {
+                img.src = "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=700&q=80";
+            });
+        }
+
+        averageEl.textContent = `Average: ${formatAverageLabel(averagesByGameId.get(gameId))}`;
+        formSlot.innerHTML = renderRatingForm(gameId);
+        copiesList.innerHTML = renderCopies(copiesByGameId.get(gameId) || []);
+
+        ratingsList.innerHTML = '<li class="game-state">Loading ratings...</li>';
+        const ratings = await fetchRatingsForGame(gameId);
+        ratingsList.innerHTML = renderRatingsList(ratings);
+
+        const ratingForm = document.getElementById("game-rating-form");
+        if (ratingForm) {
+            ratingForm.addEventListener("submit", submitRating);
+        }
+    }
+
+    async function submitRating(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const gameId = Number(form.dataset.gameId);
+        const stars = Number(form.querySelector("select[name='stars']")?.value || 0);
+        const comment = form.querySelector("textarea[name='comment']")?.value?.trim() || null;
+        const feedback = form.querySelector(".game-rating-feedback");
+
+        if (!gameId || stars < 1 || stars > 5) {
+            if (feedback) {
+                feedback.textContent = "Select a valid star rating.";
+            }
+            return;
+        }
+
+        try {
+            const response = await fetch("/api/game-ratings/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken,
+                    "X-CSRF-Token": csrfToken,
+                },
+                body: JSON.stringify({ game_id: gameId, stars, comment }),
+            });
+
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (feedback) {
+                    feedback.textContent = body.error || "Could not submit rating.";
+                }
+                return;
+            }
+
+            if (feedback) {
+                feedback.textContent = "Rating saved.";
+            }
+            await loadGames(currentPage, currentPageSize);
+            await openGameDetails(gameId);
+        } catch (_) {
+            if (feedback) {
+                feedback.textContent = "Could not submit rating.";
+            }
+        }
+    }
+
+    async function loadGames(page = 1, pageSize = 10) {
+        const gamesList = document.getElementById("games-list");
+        const gamesInfo = document.getElementById("games-info");
+        if (!gamesList) return;
+
+        try {
+            const params = new URLSearchParams();
+            if (currentFilters.search) params.append("search", currentFilters.search);
+            if (currentFilters.min_players) params.append("min_players", currentFilters.min_players);
+            if (currentFilters.max_players) params.append("max_players", currentFilters.max_players);
+            if (currentFilters.complexity) params.append("complexity", currentFilters.complexity);
+            if (currentFilters.tag) params.append("tag", currentFilters.tag);
+
+            const hasFilters = Object.values(currentFilters).some((v) => v);
+            if (hasFilters || page !== 1 || pageSize !== 10) {
+                params.append("page", page);
+                params.append("page_size", pageSize);
+            }
+
+            const url = `/api/games/?${params.toString()}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error("Failed to load games");
+            }
+
+            const data = await response.json();
+            const copyResponse = await fetch("/api/game-copies/");
+            const gameCopies = copyResponse.ok ? await copyResponse.json() : [];
+
+            copiesByGameId.clear();
+            for (const copy of gameCopies) {
+                const list = copiesByGameId.get(copy.game_id) || [];
+                list.push(copy);
+                copiesByGameId.set(copy.game_id, list);
+            }
+
+            gamesList.innerHTML = "";
+
+            const games = Array.isArray(data) ? data : data.games;
+            const totalCount = Array.isArray(data) ? data.length : data.total_count;
+            const totalPages = Array.isArray(data) ? 1 : data.total_pages;
+            const pageNum = Array.isArray(data) ? 1 : data.page;
+            const ratingAverages = await fetchAverageRatings(games || []);
+
+            averagesByGameId.clear();
+            Object.entries(ratingAverages).forEach(([gameId, value]) => {
+                averagesByGameId.set(Number(gameId), value);
+            });
+            gamesById.clear();
+            (games || []).forEach((game) => {
+                gamesById.set(Number(game.id), game);
+            });
+
+            if (hasFilters) {
+                gamesInfo.textContent = `Showing ${games.length} of ${totalCount} games`;
+            } else {
+                gamesInfo.textContent = `Showing all ${totalCount} games`;
+            }
+
+            updatePaginationControls(pageNum, pageSize, totalPages);
+            currentPage = pageNum;
+            currentPageSize = pageSize;
+
+            if (!games || games.length === 0) {
+                gamesList.innerHTML = '<p class="game-state">No games match your filters.</p>';
+                return;
+            }
+
+            for (const game of games) {
+                const item = document.createElement("article");
+                item.className = "game-card";
+
+                const title = game.title || "Untitled game";
+                const players = `${game.min_players}-${game.max_players} players`;
+                const playtime = `${game.playtime_min} min`;
+                const complexity = `Complexity: ${game.complexity}`;
+                const imageUrl = game.image_url || "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=700&q=80";
+                const safeDescription = game.description || "No description available.";
+                const avgRating = ratingAverages[game.id];
+                const avgLabel = avgRating === null || avgRating === undefined
+                    ? "No ratings yet"
+                    : `${Number(avgRating).toFixed(1)} / 5`;
+
+                let tagsHtml = "";
+                if (game.tags && game.tags.length > 0) {
+                    tagsHtml = '<div class="game-tags">'
+                        + game.tags.map((tag) => `<span class="game-tag">${escapeHtml(tag.name)}</span>`).join("")
+                        + "</div>";
+                }
+
+                item.innerHTML = `
+                    <button class="game-card-cta" type="button" data-game-id="${game.id}" aria-label="Open details for ${escapeHtml(title)}">
+                        <img class="game-card-image" src="${imageUrl}" alt="${escapeHtml(title)}" loading="lazy">
+                    </button>
+                    <div class="game-card-body">
+                        <h4 class="game-card-title">${escapeHtml(title)}</h4>
+                        <p class="game-card-meta">${escapeHtml(players)} | ${escapeHtml(playtime)} | ${escapeHtml(complexity)}</p>
+                        ${tagsHtml}
+                        <p class="game-card-description">${escapeHtml(safeDescription)}</p>
+                        <p class="game-card-rating">Average: ${escapeHtml(avgLabel)}</p>
+                        <button class="button button-secondary game-card-view-button" type="button" data-game-id="${game.id}">View details</button>
+                    </div>
+                `;
+
+                const img = item.querySelector("img");
+                if (img) {
+                    img.addEventListener("error", () => {
+                        img.src = "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=700&q=80";
+                    });
+                }
+
+                gamesList.appendChild(item);
+            }
+
+            bindGameCardClicks(gamesList);
+        } catch (error) {
+            console.error("Error loading games:", error);
+            gamesList.innerHTML = '<p class="game-state">Could not load games right now.</p>';
+        }
+    }
+
+    function updatePaginationControls(page, pageSize, totalPages) {
+        const controls = document.getElementById("pagination-controls");
+        if (!controls) return;
+
+        controls.innerHTML = "";
+        if (totalPages <= 1) return;
+
+        const prevBtn = document.createElement("button");
+        prevBtn.textContent = "← Previous";
+        prevBtn.disabled = page <= 1;
+        prevBtn.onclick = () => {
+            if (page > 1) loadGames(page - 1, pageSize);
+        };
+        controls.appendChild(prevBtn);
+
+        const pageInfo = document.createElement("span");
+        pageInfo.className = "pagination-info";
+        pageInfo.textContent = `Page ${page} of ${totalPages}`;
+        controls.appendChild(pageInfo);
+
+        const nextBtn = document.createElement("button");
+        nextBtn.textContent = "Next →";
+        nextBtn.disabled = page >= totalPages;
+        nextBtn.onclick = () => {
+            if (page < totalPages) loadGames(page + 1, pageSize);
+        };
+        controls.appendChild(nextBtn);
+    }
+
+    const filterForm = document.getElementById("game-filter-form");
+    if (filterForm) {
+        filterForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            currentFilters = {
+                search: document.getElementById("search").value.trim(),
+                min_players: document.getElementById("min_players").value,
+                max_players: document.getElementById("max_players").value,
+                complexity: document.getElementById("complexity").value,
+                tag: document.getElementById("tag").value.trim(),
+            };
+
+            currentPageSize = parseInt(document.getElementById("page_size").value, 10);
+            Object.keys(currentFilters).forEach((key) => {
+                if (!currentFilters[key]) delete currentFilters[key];
+            });
+            loadGames(1, currentPageSize);
+        });
+
+        filterForm.addEventListener("reset", () => {
+            setTimeout(() => {
+                currentFilters = {};
+                currentPageSize = 10;
+                loadGames(1, 10);
+            }, 0);
+        });
+    }
+
+    document.getElementById("game-details-close")?.addEventListener("click", closeGameDetails);
+    document.getElementById("game-details-backdrop")?.addEventListener("click", closeGameDetails);
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && selectedGameId !== null) {
+            closeGameDetails();
+        }
+    });
+
+    loadGames(1, 10);
+</script>
 {% endblock %}

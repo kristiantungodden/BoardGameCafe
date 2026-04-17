@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from flask import Blueprint, request, jsonify
+from flask_login import current_user
 from pydantic import ValidationError as PydanticValidationError
 from werkzeug.exceptions import BadRequest
 
@@ -38,6 +39,14 @@ list_game_tags_use_case = ListGameTagsUseCase(tag_repository)
 attach_game_tag_use_case = AttachGameTagUseCase(tag_repository)
 remove_game_tag_use_case = RemoveGameTagUseCase(tag_repository)
 list_game_tags_for_game_use_case = ListGameTagsForGameUseCase(tag_repository)
+
+
+def _require_admin():
+    if not getattr(current_user, "is_authenticated", False):
+        return jsonify({"error": "Authentication required"}), 401
+    if getattr(current_user, "role", None) != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+    return None
 
 
 def _serialize_game(game: Game) -> dict:
@@ -226,6 +235,10 @@ def delete_game(game_id: int):
 
 @bp.route("/tags", methods=["POST"])
 def create_tag():
+    err = _require_admin()
+    if err:
+        return err
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -252,6 +265,10 @@ def list_tags():
 
 @bp.route("/<int:game_id>/tags", methods=["POST"])
 def attach_tag_to_game(game_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -284,6 +301,10 @@ def list_tags_for_game(game_id: int):
 
 @bp.route("/<int:game_id>/tags/<int:tag_id>", methods=["DELETE"])
 def remove_tag_from_game(game_id: int, tag_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
     removed = remove_game_tag_use_case.execute(game_id, tag_id)
     if not removed:
         return jsonify({"error": "Game tag link not found"}), 404
