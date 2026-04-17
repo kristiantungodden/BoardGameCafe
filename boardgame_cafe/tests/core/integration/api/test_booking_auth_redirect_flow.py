@@ -54,9 +54,16 @@ def test_auth_redirect_to_booking_then_confirmation_and_my_bookings(client, test
     assert confirmation_response.status_code == 200
     assert "Booking Confirmed" in confirmation_response.get_data(as_text=True)
 
-    my_bookings_response = client.get("/my-page", follow_redirects=True)
+    my_bookings_response = client.get("/my-bookings", follow_redirects=True)
     assert my_bookings_response.status_code == 200
-    assert "My Bookings" in my_bookings_response.get_data(as_text=True)
+    body = my_bookings_response.get_data(as_text=True)
+    assert "My Bookings" in body
+    assert "Upcoming bookings" in body
+    assert "Past bookings" in body
+    assert "booking-details-overlay" in body
+    assert 'id="booking-details-overlay" hidden' in body
+    assert "View details" in body
+    assert "Booking reference" in body
 
     list_response = client.get("/api/reservations")
     assert list_response.status_code == 200

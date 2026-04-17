@@ -72,8 +72,8 @@ def _can_view_reservation(user, reservation) -> bool:
 
 
 def _checkin_redirect_target(reservation_id: int) -> str:
-    if "my_page" in current_app.view_functions:
-        return url_for("my_page")
+    if "my_bookings_page" in current_app.view_functions:
+        return url_for("my_bookings_page")
     return url_for("reservations.get_reservation", reservation_id=reservation_id)
 
 

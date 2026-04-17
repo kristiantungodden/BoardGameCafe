@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+
+{% block title %}Dicer | My Bookings{% endblock %}
+
+{% block content %}
+<section class="bookings-shell">
+    <div class="bookings-hero">
+        <div>
+            <p class="hero-kicker">Your reservations</p>
+            <h1 class="page-header bookings-title">My Bookings</h1>
+            <p class="page-intro">See upcoming reservations at a glance and quickly review past visits.</p>
+        </div>
+        <div class="bookings-hero-actions">
+            <a class="button" href="/booking">Create Booking</a>
+            <button class="button button-secondary" id="refresh-my-bookings" type="button">Refresh</button>
+        </div>
+    </div>
+
+    <div id="my-bookings-feedback" class="flash-stack" aria-live="polite"></div>
+
+    <section class="bookings-section-card" aria-labelledby="upcoming-bookings-heading">
+        <div class="bookings-section-head">
+            <h2 id="upcoming-bookings-heading">Upcoming bookings</h2>
+            <span class="bookings-counter" id="upcoming-count">0</span>
+        </div>
+        <div class="table-wrap">
+            <table class="table-clean" id="upcoming-bookings-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Table</th>
+                        <th>Party</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="6" class="game-state">No upcoming bookings.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="bookings-section-card" aria-labelledby="past-bookings-heading">
+        <div class="bookings-section-head">
+            <h2 id="past-bookings-heading">Past bookings</h2>
+            <span class="bookings-counter" id="past-count">0</span>
+        </div>
+        <div class="table-wrap">
+            <table class="table-clean" id="past-bookings-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Table</th>
+                        <th>Party</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="6" class="game-state">No past bookings yet.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="booking-details-overlay" id="booking-details-overlay" hidden>
+        <div class="booking-details-backdrop" id="booking-details-backdrop"></div>
+        <article class="booking-details-card" role="dialog" aria-modal="true" aria-labelledby="booking-details-title">
+            <div class="booking-details-head">
+                <h2 id="booking-details-title">Booking details</h2>
+                <button class="button button-subtle" id="booking-details-close" type="button">Close</button>
+            </div>
+            <p class="page-intro compact" id="booking-details-subtitle">Reservation information and status history.</p>
+
+            <div class="booking-details-grid" id="booking-details-grid">
+                <div class="game-state">Loading booking details...</div>
+            </div>
+
+            <section class="booking-history-block" aria-labelledby="booking-history-title">
+                <h3 id="booking-history-title">Status history</h3>
+                <ul class="booking-history-list" id="booking-history-list">
+                    <li class="game-state">Loading history...</li>
+                </ul>
+            </section>
+        </article>
+    </section>
+</section>
+
+<script>
+    const csrfToken = "{{ csrf_token() }}";
+    const currentUserId = Number("{{ current_user.id if current_user.is_authenticated else 0 }}");
+    const tableNumberById = new Map();
+
+    function setFeedback(message, level = "error") {
+        const box = document.getElementById("my-bookings-feedback");
+        if (!box) {
+            return;
+        }
+        box.innerHTML = `<div class="flash flash-${level}">${message}</div>`;
+    }
+
+    async function readResponseBody(response) {
+        const rawText = await response.text();
+        if (!rawText) {
+            return {};
+        }
+
+        try {
+            return JSON.parse(rawText);
+        } catch (error) {
+            return { error: `Server returned non-JSON response (HTTP ${response.status}).` };
+        }
+    }
+
+    function formatDateRange(startTs, endTs) {
+        const start = new Date(startTs);
+        const end = new Date(endTs);
+
+        return {
+            date: start.toLocaleDateString(),
+            time: `${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+        };
+    }
+
+    function tableLabel(item) {
+        if (Array.isArray(item.table_ids) && item.table_ids.length) {
+            return item.table_ids
+                .map((tableId) => tableNumberById.get(Number(tableId)) || String(tableId))
+                .join(", ");
+        }
+
+        if (item.table_id !== null && item.table_id !== undefined) {
+            return tableNumberById.get(Number(item.table_id)) || String(item.table_id);
+        }
+
+        return "Not assigned";
+    }
+
+    function bookingReference(bookingId) {
+        const normalized = String(bookingId ?? "").trim();
+        return `BK-${normalized.padStart(6, "0")}`;
+    }
+
+    function escapeHtml(text) {
+        return String(text)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function detailsButton(bookingId) {
+        return `
+            <button
+                class="button button-subtle"
+                type="button"
+                data-details-id="${bookingId}"
+            >View details</button>
+        `;
+    }
+
+    function getCancelableControl(item) {
+        const start = new Date(item.start_ts);
+        const canCancelByPolicy = (start.getTime() - Date.now()) >= (24 * 60 * 60 * 1000);
+        const isCancelableStatus = item.status === "confirmed";
+        const canCancel = isCancelableStatus && canCancelByPolicy;
+
+        if (!isCancelableStatus) {
+            return detailsButton(item.id);
+        }
+
+        if (!canCancel) {
+            return `${detailsButton(item.id)}<span class="inline-meta">Cancel closes 24h before start</span>`;
+        }
+
+        return `
+            ${detailsButton(item.id)}
+            <button
+                class="button button-secondary"
+                type="button"
+                data-cancel-id="${item.id}"
+            >Cancel</button>
+        `;
+    }
+
+    function renderUpcoming(items) {
+        const tbody = document.querySelector("#upcoming-bookings-table tbody");
+        const counter = document.getElementById("upcoming-count");
+        if (!tbody || !counter) {
+            return;
+        }
+
+        counter.textContent = String(items.length);
+
+        if (!items.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="game-state">No upcoming bookings.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = items
+            .map((item) => {
+                const slot = formatDateRange(item.start_ts, item.end_ts);
+                return `
+                    <tr>
+                        <td>${slot.date}</td>
+                        <td>${slot.time}</td>
+                        <td>${tableLabel(item)}</td>
+                        <td>${item.party_size}</td>
+                        <td><span class="status-pill status-${item.status}">${item.status}</span></td>
+                        <td>${getCancelableControl(item)}</td>
+                    </tr>
+                `;
+            })
+            .join("");
+
+        tbody.querySelectorAll("[data-cancel-id]").forEach((btn) => {
+            btn.addEventListener("click", async (event) => {
+                const bookingId = Number(event.currentTarget.getAttribute("data-cancel-id"));
+                await cancelBooking(bookingId);
+            });
+        });
+
+        tbody.querySelectorAll("[data-details-id]").forEach((btn) => {
+            btn.addEventListener("click", async (event) => {
+                const bookingId = Number(event.currentTarget.getAttribute("data-details-id"));
+                await openBookingDetails(bookingId);
+            });
+        });
+    }
+
+    function renderPast(items) {
+        const tbody = document.querySelector("#past-bookings-table tbody");
+        const counter = document.getElementById("past-count");
+        if (!tbody || !counter) {
+            return;
+        }
+
+        counter.textContent = String(items.length);
+
+        if (!items.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="game-state">No past bookings yet.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = items
+            .map((item) => {
+                const slot = formatDateRange(item.start_ts, item.end_ts);
+                return `
+                    <tr>
+                        <td>${slot.date}</td>
+                        <td>${slot.time}</td>
+                        <td>${tableLabel(item)}</td>
+                        <td>${item.party_size}</td>
+                        <td><span class="status-pill status-${item.status}">${item.status}</span></td>
+                        <td>${detailsButton(item.id)}</td>
+                    </tr>
+                `;
+            })
+            .join("");
+
+        tbody.querySelectorAll("[data-details-id]").forEach((btn) => {
+            btn.addEventListener("click", async (event) => {
+                const bookingId = Number(event.currentTarget.getAttribute("data-details-id"));
+                await openBookingDetails(bookingId);
+            });
+        });
+    }
+
+    function renderBookingDetails(details, historyItems) {
+        const detailsGrid = document.getElementById("booking-details-grid");
+        const historyList = document.getElementById("booking-history-list");
+        const subtitle = document.getElementById("booking-details-subtitle");
+        if (!detailsGrid || !historyList || !subtitle) {
+            return;
+        }
+
+        const start = new Date(details.start_ts);
+        const end = new Date(details.end_ts);
+        subtitle.textContent = `Booking reference ${bookingReference(details.id)}`;
+
+        detailsGrid.innerHTML = `
+            <div class="booking-detail-item"><span>Booking reference</span><strong>${escapeHtml(bookingReference(details.id))}</strong></div>
+            <div class="booking-detail-item"><span>Date</span><strong>${escapeHtml(start.toLocaleDateString())}</strong></div>
+            <div class="booking-detail-item"><span>Time</span><strong>${escapeHtml(start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))} - ${escapeHtml(end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</strong></div>
+            <div class="booking-detail-item"><span>Table</span><strong>${escapeHtml(tableLabel(details))}</strong></div>
+            <div class="booking-detail-item"><span>Party size</span><strong>${escapeHtml(details.party_size)}</strong></div>
+            <div class="booking-detail-item"><span>Status</span><strong>${escapeHtml(details.status)}</strong></div>
+            <div class="booking-detail-item booking-detail-item-wide"><span>Notes</span><strong>${escapeHtml(details.notes || "No notes")}</strong></div>
+        `;
+
+        if (!Array.isArray(historyItems) || historyItems.length === 0) {
+            historyList.innerHTML = `<li class="game-state">No status history recorded yet.</li>`;
+            return;
+        }
+
+        historyList.innerHTML = historyItems
+            .map((entry) => {
+                const created = entry.created_at
+                    ? new Date(entry.created_at).toLocaleString()
+                    : "Unknown time";
+                const fromStatus = entry.from_status || "start";
+                const reason = entry.reason ? ` (${escapeHtml(entry.reason)})` : "";
+                return `<li><strong>${escapeHtml(created)}</strong>: ${escapeHtml(fromStatus)} -> ${escapeHtml(entry.to_status)}${reason}</li>`;
+            })
+            .join("");
+    }
+
+    function showBookingDetailsOverlay(show) {
+        const overlay = document.getElementById("booking-details-overlay");
+        if (!overlay) {
+            return;
+        }
+
+        overlay.hidden = !show;
+        document.body.classList.toggle("modal-open", show);
+    }
+
+    async function openBookingDetails(bookingId) {
+        showBookingDetailsOverlay(true);
+
+        const detailsGrid = document.getElementById("booking-details-grid");
+        const historyList = document.getElementById("booking-history-list");
+        if (detailsGrid) {
+            detailsGrid.innerHTML = '<div class="game-state">Loading booking details...</div>';
+        }
+        if (historyList) {
+            historyList.innerHTML = '<li class="game-state">Loading history...</li>';
+        }
+
+        try {
+            const [detailsResponse, historyResponse] = await Promise.all([
+                fetch(`/api/reservations/${bookingId}`),
+                fetch(`/api/reservations/${bookingId}/history`),
+            ]);
+
+            const detailsBody = await readResponseBody(detailsResponse);
+            const historyBody = await readResponseBody(historyResponse);
+
+            if (!detailsResponse.ok) {
+                throw new Error(detailsBody.error || "Failed to load booking details");
+            }
+
+            if (!historyResponse.ok) {
+                throw new Error(historyBody.error || "Failed to load booking history");
+            }
+
+            renderBookingDetails(detailsBody, historyBody.history || []);
+        } catch (error) {
+            setFeedback(error.message || "Could not load booking details.");
+            showBookingDetailsOverlay(false);
+        }
+    }
+
+    function closeBookingDetails() {
+        showBookingDetailsOverlay(false);
+    }
+
+    function splitBookings(items) {
+        const now = Date.now();
+
+        const upcoming = [];
+        const past = [];
+
+        items.forEach((item) => {
+            const end = new Date(item.end_ts).getTime();
+            if (Number.isNaN(end) || end >= now) {
+                upcoming.push(item);
+            } else {
+                past.push(item);
+            }
+        });
+
+        upcoming.sort((a, b) => new Date(a.start_ts).getTime() - new Date(b.start_ts).getTime());
+        past.sort((a, b) => new Date(b.start_ts).getTime() - new Date(a.start_ts).getTime());
+
+        return { upcoming, past };
+    }
+
+    function renderMyBookings(rows) {
+        const items = currentUserId
+            ? rows.filter((item) => item.customer_id === currentUserId)
+            : rows;
+
+        const grouped = splitBookings(items);
+        renderUpcoming(grouped.upcoming);
+        renderPast(grouped.past);
+    }
+
+    async function cancelBooking(bookingId) {
+        if (!window.confirm("Cancel this booking?")) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/reservations/${bookingId}/cancel`, {
+                method: "PATCH",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                },
+            });
+            const body = await readResponseBody(response);
+            if (!response.ok) {
+                throw new Error(body.error || "Failed to cancel booking");
+            }
+            setFeedback("Booking cancelled.", "success");
+            await loadMyBookings();
+        } catch (error) {
+            setFeedback(error.message || "Could not cancel booking.");
+        }
+    }
+
+    async function loadMyBookings() {
+        try {
+            const [reservationsResponse, lookupResponse] = await Promise.all([
+                fetch("/api/reservations"),
+                fetch("/api/reservations/lookup"),
+            ]);
+
+            const reservationsBody = await readResponseBody(reservationsResponse);
+            const lookupBody = await readResponseBody(lookupResponse);
+
+            if (!reservationsResponse.ok) {
+                throw new Error(reservationsBody.error || "Failed to load reservations");
+            }
+
+            if (lookupResponse.ok && Array.isArray(lookupBody.tables)) {
+                tableNumberById.clear();
+                lookupBody.tables.forEach((table) => {
+                    if (table && table.id !== undefined && table.table_nr !== undefined) {
+                        tableNumberById.set(Number(table.id), `Table ${table.table_nr}`);
+                    }
+                });
+            }
+
+            renderMyBookings(reservationsBody);
+        } catch (error) {
+            setFeedback("Could not load your bookings.");
+        }
+    }
+
+    document.getElementById("refresh-my-bookings")?.addEventListener("click", loadMyBookings);
+    document.getElementById("booking-details-close")?.addEventListener("click", closeBookingDetails);
+    document.getElementById("booking-details-backdrop")?.addEventListener("click", closeBookingDetails);
+    window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeBookingDetails();
+        }
+    });
+
+    loadMyBookings();
+</script>
+{% endblock %}

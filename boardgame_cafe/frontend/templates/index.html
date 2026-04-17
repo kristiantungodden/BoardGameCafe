@@ -18,7 +18,7 @@
 
 		<div class="landing-auth-row">
 			{% if current_user.is_authenticated %}
-			<a class="button button-subtle" href="{{ url_for('my_page') }}">My Bookings</a>
+			<a class="button button-subtle" href="{{ url_for('my_bookings_page') }}">My Bookings</a>
 			<form method="post" action="/logout" class="inline-form">
 				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 				<button class="button button-subtle" type="submit">Logout</button>

@@ -177,10 +177,10 @@ def create_app(config_name: str = None):
     def booking_page():
         return render_template("booking.html")
 
-    @app.route("/my-page", methods=["GET"])
+    @app.route("/my-bookings", methods=["GET"])
     @login_required
-    def my_page():
-        return render_template("my_page.html")
+    def my_bookings_page():
+        return render_template("my_bookings.html")
 
     @app.route("/reservations/confirmation/<int:reservation_id>", methods=["GET"])
     @login_required

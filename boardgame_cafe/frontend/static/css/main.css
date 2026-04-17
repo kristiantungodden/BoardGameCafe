@@ -425,6 +425,172 @@ footer {
     color: var(--muted);
 }
 
+.bookings-shell {
+    display: grid;
+    gap: 1rem;
+}
+
+.bookings-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1rem;
+    border-radius: 18px;
+    border: 1px solid #dbe5f6;
+    background:
+        radial-gradient(circle at 0% 0%, rgba(29, 107, 255, 0.14), transparent 45%),
+        radial-gradient(circle at 100% 100%, rgba(0, 184, 148, 0.14), transparent 45%),
+        linear-gradient(165deg, #ffffff 0%, #f5f9ff 100%);
+    box-shadow: 0 12px 28px rgba(28, 35, 48, 0.08);
+}
+
+.bookings-title {
+    margin-bottom: 0.4rem;
+}
+
+.bookings-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.bookings-section-card {
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #dbe5f6;
+    border-radius: 18px;
+    padding: 0.95rem;
+    box-shadow: 0 10px 22px rgba(28, 35, 48, 0.06);
+}
+
+.bookings-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.65rem;
+}
+
+.bookings-section-head h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.bookings-counter {
+    min-width: 2rem;
+    text-align: center;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #214995;
+    background: #e8f3ff;
+    border: 1px solid #cdddf4;
+}
+
+.booking-details-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+}
+
+.booking-details-overlay[hidden] {
+    display: none !important;
+}
+
+.booking-details-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 24, 42, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.booking-details-card {
+    position: relative;
+    width: min(820px, 95vw);
+    max-height: min(84vh, 760px);
+    overflow: auto;
+    border-radius: 18px;
+    border: 1px solid #dbe5f6;
+    background: #fff;
+    box-shadow: 0 24px 46px rgba(15, 24, 42, 0.35);
+    padding: 1rem;
+    animation: fade-rise 180ms ease;
+}
+
+.booking-details-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.booking-details-head h2 {
+    margin: 0;
+}
+
+.booking-details-grid {
+    margin-top: 0.65rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+}
+
+.booking-detail-item {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.72rem 0.8rem;
+    border-radius: 12px;
+    border: 1px solid #e2ebf8;
+    background: #f7faff;
+}
+
+.booking-detail-item span {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 800;
+    color: var(--muted);
+}
+
+.booking-detail-item strong {
+    color: var(--ink);
+    word-break: break-word;
+}
+
+.booking-detail-item-wide {
+    grid-column: 1 / -1;
+}
+
+.booking-history-block {
+    margin-top: 0.85rem;
+    border: 1px solid #e2ebf8;
+    border-radius: 12px;
+    padding: 0.75rem 0.85rem;
+    background: #fbfdff;
+}
+
+.booking-history-block h3 {
+    margin: 0 0 0.45rem;
+    font-size: 0.98rem;
+}
+
+.booking-history-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: grid;
+    gap: 0.35rem;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
 .profile-shell {
     display: grid;
     gap: 1rem;
@@ -866,15 +1032,17 @@ footer {
 
 .table-wrap {
     overflow-x: auto;
+    border: 1px solid #d9e3f4;
+    border-radius: 12px;
+    background: #fff;
 }
 
 .table-clean {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     background: #fff;
-    border: 1px solid #d9e3f4;
-    border-radius: 10px;
-    overflow: hidden;
+    border: none;
 }
 
 .table-clean th,
@@ -888,6 +1056,18 @@ footer {
 .table-clean th {
     background: #f0f5ff;
     font-size: 0.9rem;
+}
+
+.table-clean thead th:first-child {
+    border-top-left-radius: 11px;
+}
+
+.table-clean thead th:last-child {
+    border-top-right-radius: 11px;
+}
+
+.table-clean tbody tr:last-child td {
+    border-bottom: none;
 }
 
 .status-pill {
@@ -933,6 +1113,10 @@ footer {
         justify-content: flex-start;
     }
 
+    .bookings-hero {
+        align-items: flex-start;
+    }
+
     .table-clean th,
     .table-clean td {
         min-width: 120px;
@@ -945,7 +1129,8 @@ footer {
     .landing-shell,
     .value-grid,
     .profile-grid,
-    .profile-view-grid {
+    .profile-view-grid,
+    .booking-details-grid {
         grid-template-columns: 1fr;
     }
 }
