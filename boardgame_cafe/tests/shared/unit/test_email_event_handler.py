@@ -2,7 +2,11 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from shared.domain.events import UserRegistered, ReservationCreated
+from shared.domain.events import (
+    ReservationCreated,
+    ReservationPaymentCompleted,
+    UserRegistered,
+)
 from shared.infrastructure.email.event_bus import EventBus
 
 
@@ -48,8 +52,8 @@ class TestEmailEventHandlerRegistration:
         assert payload["data"]["user_id"] == 123
         assert payload["data"]["email"] == "newuser@example.com"
 
-    def test_register_reservation_created_task_subscription(self, monkeypatch):
-        """ReservationCreated events should map to send_reservation_confirmation_email."""
+    def test_register_reservation_payment_completed_task_subscription(self, monkeypatch):
+        """ReservationPaymentCompleted events should map to send_reservation_confirmation_email."""
         fake_celery = FakeCelery()
         monkeypatch.setattr(
             "shared.infrastructure.email.event_bus.celery", fake_celery
@@ -59,11 +63,11 @@ class TestEmailEventHandlerRegistration:
 
         # Register subscription
         event_bus.subscribe_task(
-            ReservationCreated, "shared.tasks.send_reservation_confirmation_email"
+            ReservationPaymentCompleted, "shared.tasks.send_reservation_confirmation_email"
         )
 
         # Publish event
-        event = ReservationCreated(
+        event = ReservationPaymentCompleted(
             reservation_id=456,
             user_id=123,
             user_email="user@example.com",
@@ -81,7 +85,7 @@ class TestEmailEventHandlerRegistration:
         
         # Verify payload structure
         payload = call["kwargs"]["event_payload"]
-        assert payload["event_type"] == "ReservationCreated"
+        assert payload["event_type"] == "ReservationPaymentCompleted"
         assert payload["data"]["reservation_id"] == 456
         assert payload["data"]["user_id"] == 123
         assert payload["data"]["user_email"] == "user@example.com"
