@@ -286,7 +286,12 @@ def register_blueprints(app: Flask):
     repo = PaymentRepository()
     configure_payment_routes(repo)
     vipps = VippsAdapter()
-    configure_payment_provider(StripeAdapter(app.config["STRIPE_SECRET_KEY"], app.config["APP_BASE_URL"]))
+    stripe_key = (app.config.get("STRIPE_SECRET_KEY") or "").strip()
+    if stripe_key:
+        configure_payment_provider(StripeAdapter(stripe_key, app.config["APP_BASE_URL"]))
+    else:
+        app.logger.warning("STRIPE_SECRET_KEY is missing; using VippsAdapter as payment provider fallback")
+        configure_payment_provider(vipps)
     app.register_blueprint(vipps_callbacks)
 
     app.register_blueprint(auth_routes.bp)
