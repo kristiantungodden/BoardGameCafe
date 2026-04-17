@@ -84,7 +84,10 @@ class TestEndToEndEventFlow:
             reservation_id=456,
             user_id=123,
             user_email="user@example.com",
-            reservation_details="Board game reservation for 4 people at 19:00"
+            table_numbers=[4],
+            start_ts="2026-04-17T19:00:00",
+            end_ts="2026-04-17T21:00:00",
+            party_size=4,
         )
         event_bus.publish(event)
 
@@ -96,7 +99,10 @@ class TestEndToEndEventFlow:
                       if c["task_name"] == "shared.tasks.send_reservation_confirmation_email"][0]
         email_payload = email_call["kwargs"]["event_payload"]
         assert email_payload["data"]["user_email"] == "user@example.com"
-        assert email_payload["data"]["reservation_details"] == "Board game reservation for 4 people at 19:00"
+        assert email_payload["data"]["table_numbers"] == [4]
+        assert email_payload["data"]["start_ts"] == "2026-04-17T19:00:00"
+        assert email_payload["data"]["end_ts"] == "2026-04-17T21:00:00"
+        assert email_payload["data"]["party_size"] == 4
 
         # Verify realtime task payload
         realtime_call = [c for c in fake_celery.calls
@@ -199,7 +205,7 @@ class TestEventBusWithDifferentEventTypes:
         event_bus.publish(UserRegistered(user_id=1, email="user1@example.com"))
         event_bus.publish(ReservationCreated(
             reservation_id=1, user_id=1, user_email="user1@example.com",
-            reservation_details="Reservation 1"
+            table_numbers=[1], start_ts="2026-04-17T18:00:00", end_ts="2026-04-17T20:00:00", party_size=2
         ))
         event_bus.publish(UserRegistered(user_id=2, email="user2@example.com"))
 

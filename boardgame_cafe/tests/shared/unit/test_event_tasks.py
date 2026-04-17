@@ -1,6 +1,6 @@
 """Tests for Celery task implementations."""
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from shared.infrastructure.message_bus.event_tasks import (
     send_welcome_email,
     send_reservation_confirmation_email,
@@ -29,8 +29,11 @@ class TestSendWelcomeEmailTask:
         send_welcome_email(event_payload)
 
         mock_mail_service.assert_called_once()
-        mock_service_instance.send_welcome_email.assert_called_once_with(
-            "newuser@example.com"
+        mock_service_instance.send_email.assert_called_once_with(
+            subject="Welcome to Dicer.no!",
+            sender=None,
+            recipients=["newuser@example.com"],
+            body="Thank you for signing up at Dicer.no! \n\nWe are excited to have you as part of our community. Stay tuned for updates on events, new games, and special offers!",
         )
 
     @patch("shared.infrastructure.message_bus.event_tasks.FlaskMailService")
@@ -51,7 +54,7 @@ class TestSendWelcomeEmailTask:
         send_welcome_email(event_payload)
 
         # Should not call send method
-        mock_service_instance.send_welcome_email.assert_not_called()
+        mock_service_instance.send_email.assert_not_called()
 
     @patch("shared.infrastructure.message_bus.event_tasks.FlaskMailService")
     def test_send_welcome_email_handles_missing_data_field(self, mock_mail_service):
@@ -67,7 +70,7 @@ class TestSendWelcomeEmailTask:
 
         send_welcome_email(event_payload)
 
-        mock_service_instance.send_welcome_email.assert_not_called()
+        mock_service_instance.send_email.assert_not_called()
 
     @patch("shared.infrastructure.message_bus.event_tasks.FlaskMailService")
     def test_send_welcome_email_handles_none_email(self, mock_mail_service):
@@ -83,13 +86,13 @@ class TestSendWelcomeEmailTask:
         }
 
         send_welcome_email(event_payload)
-        mock_service_instance.send_welcome_email.assert_not_called()
+        mock_service_instance.send_email.assert_not_called()
 
         # Reset and test with empty string - should not call
         mock_service_instance.reset_mock()
         event_payload["data"]["email"] = ""
         send_welcome_email(event_payload)
-        mock_service_instance.send_welcome_email.assert_not_called()
+        mock_service_instance.send_email.assert_not_called()
 
 
 class TestSendReservationConfirmationEmailTask:
@@ -108,16 +111,27 @@ class TestSendReservationConfirmationEmailTask:
                 "reservation_id": 456,
                 "user_id": 123,
                 "user_email": "user@example.com",
-                "reservation_details": "Board game reservation for 4 people"
+                "table_numbers": [2],
+                "start_ts": "2026-04-17T17:00:00",
+                "end_ts": "2026-04-17T19:00:00",
+                "party_size": 4,
             }
         }
 
         send_reservation_confirmation_email(event_payload)
 
         mock_mail_service.assert_called_once()
-        mock_service_instance.send_reservation_confirmation_email.assert_called_once_with(
-            "user@example.com",
-            "Board game reservation for 4 people"
+        mock_service_instance.send_email.assert_called_once_with(
+            subject="Your Dicer.no Reservation Confirmation",
+            sender=None,
+            recipients=["user@example.com"],
+            body=(
+                "Thank you for your reservation at Dicer.no! \n\n"
+                "Here are your reservation details:\n"
+                "table_numbers=[2], start_ts=2026-04-17T17:00:00, "
+                "end_ts=2026-04-17T19:00:00, party_size=4"
+                "\n\nWe look forward to seeing you soon!"
+            ),
         )
 
     @patch("shared.infrastructure.message_bus.event_tasks.FlaskMailService")
@@ -133,17 +147,20 @@ class TestSendReservationConfirmationEmailTask:
                 "reservation_id": 456,
                 "user_id": 123,
                 # missing user_email
-                "reservation_details": "Board game reservation"
+                "table_numbers": [2],
+                "start_ts": "2026-04-17T17:00:00",
+                "end_ts": "2026-04-17T19:00:00",
+                "party_size": 4,
             }
         }
 
         send_reservation_confirmation_email(event_payload)
 
-        mock_service_instance.send_reservation_confirmation_email.assert_not_called()
+        mock_service_instance.send_email.assert_not_called()
 
     @patch("shared.infrastructure.message_bus.event_tasks.FlaskMailService")
     def test_send_reservation_confirmation_handles_missing_details(self, mock_mail_service):
-        """Task should use empty string if details are missing."""
+        """Task should still send email if structured detail fields are missing."""
         mock_service_instance = Mock()
         mock_mail_service.return_value = mock_service_instance
 
@@ -154,22 +171,19 @@ class TestSendReservationConfirmationEmailTask:
                 "reservation_id": 456,
                 "user_id": 123,
                 "user_email": "user@example.com"
-                # missing reservation_details
+                # missing structured detail fields
             }
         }
 
         send_reservation_confirmation_email(event_payload)
 
-        mock_service_instance.send_reservation_confirmation_email.assert_called_once_with(
-            "user@example.com",
-            ""
-        )
+        mock_service_instance.send_email.assert_called_once()
 
     @patch("shared.infrastructure.message_bus.event_tasks.FlaskMailService")
     def test_send_reservation_confirmation_does_not_require_other_fields(
         self, mock_mail_service
     ):
-        """Task should work with only user_email and details."""
+        """Task should work with only user_email."""
         mock_service_instance = Mock()
         mock_mail_service.return_value = mock_service_instance
 
@@ -179,13 +193,12 @@ class TestSendReservationConfirmationEmailTask:
             "event_module": "shared.domain.events.reservation_created",
             "data": {
                 "user_email": "user@example.com",
-                "reservation_details": "Reservation"
             }
         }
 
         send_reservation_confirmation_email(event_payload)
 
-        mock_service_instance.send_reservation_confirmation_email.assert_called_once()
+        mock_service_instance.send_email.assert_called_once()
 
 
 class TestPublishRealtimeEventTask:
@@ -224,7 +237,10 @@ class TestPublishRealtimeEventTask:
                 "reservation_id": 456,
                 "user_id": 123,
                 "user_email": "user@example.com",
-                "reservation_details": "Board game reservation for 4 people"
+                "table_numbers": [2],
+                "start_ts": "2026-04-17T17:00:00",
+                "end_ts": "2026-04-17T19:00:00",
+                "party_size": 4,
             }
         }
 
@@ -264,7 +280,10 @@ class TestTasksErrorHandling:
             "event_module": "shared.domain.events.reservation_created",
             "data": {
                 "user_email": "user@example.com",
-                "reservation_details": "Reservation"
+                "table_numbers": [2],
+                "start_ts": "2026-04-17T17:00:00",
+                "end_ts": "2026-04-17T19:00:00",
+                "party_size": 4,
             }
         }
 

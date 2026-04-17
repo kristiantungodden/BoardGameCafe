@@ -23,9 +23,16 @@ def send_welcome_email(event_payload: dict) -> None:
 def send_reservation_confirmation_email(event_payload: dict) -> None:
     data = event_payload.get("data", {})
     recipient = data.get("user_email")
-    details = data.get("reservation_details", "")
+    table_numbers = data.get("table_numbers", [])
+    start_ts = data.get("start_ts", "")
+    end_ts = data.get("end_ts", "")
+    party_size = data.get("party_size", "")
     if not recipient:
         return
+    details = (
+        f"table_numbers={table_numbers}, start_ts={start_ts}, "
+        f"end_ts={end_ts}, party_size={party_size}"
+    )
     FlaskMailService(mail).send_email(
         subject="Your Dicer.no Reservation Confirmation",
         sender=None,

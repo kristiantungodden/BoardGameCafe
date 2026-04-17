@@ -243,11 +243,10 @@ def create_reservation():
                 reservation_id=reservation.id,
                 user_id=current_user.id,
                 user_email=getattr(current_user, "email", None),
-                reservation_details=(
-                    f"Reservation #{reservation.id}: "
-                    f"{reservation.start_ts.isoformat()} to {reservation.end_ts.isoformat()}, "
-                    f"party_size={reservation.party_size}, tables={response['table_ids']}"
-                ),
+                table_numbers=response["table_ids"],
+                start_ts=reservation.start_ts.isoformat(),
+                end_ts=reservation.end_ts.isoformat(),
+                party_size=reservation.party_size,
             )
         )
     get_or_create_reservation_qr_token(
@@ -255,22 +254,6 @@ def create_reservation():
         user_id=current_user.id,
         reservation_id=reservation.id,
     )
-
-
-    event_bus = getattr(current_app, "event_bus", None)
-    if event_bus is not None:
-        event_bus.publish(
-            ReservationCreated(
-                reservation_id=reservation.id,
-                user_id=current_user.id,
-                user_email=getattr(current_user, "email", None),
-                reservation_details=(
-                    f"Reservation #{reservation.id}: "
-                    f"{reservation.start_ts.isoformat()} to {reservation.end_ts.isoformat()}, "
-                    f"party_size={reservation.party_size}, tables={response['table_ids']}"
-                ),
-            )
-        )
     return response, 201
 
 
