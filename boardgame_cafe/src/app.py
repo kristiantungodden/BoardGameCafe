@@ -11,6 +11,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
 from shared.infrastructure import init_booking_draft_store
+from shared.infrastructure.email.reservation_payment_publisher import publish_reservation_payment_completed
 from shared.infrastructure.message_bus.realtime import stream_realtime_events
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.application.event_handlers.email_event_handler import register_email_event_handlers
@@ -126,9 +127,11 @@ def create_app(config_name: str = None):
             except Exception:
                 app.logger.exception("Could not verify Stripe checkout session: %s", session_id)
 
-        if payment and is_paid:
+        was_paid = bool(payment and payment.status == "paid")
+        if payment and is_paid and not was_paid:
             payment.status = "paid"
             db.session.commit()
+            publish_reservation_payment_completed(payment.booking_id)
 
         return render_template(
             "payment_result.html",
