@@ -22,13 +22,15 @@ from features.reservations.application.use_cases.reservation_game_use_cases impo
     SwapGameCopyUseCase,
 )
 from features.reservations.application.use_cases.reservation_use_cases import (
-    CompleteReservationUseCase,
     ListActiveReservationsUseCase,
     ListConfirmedReservationsUseCase,
     ListSeatedReservationsUseCase,
-    MarkReservationNoShowUseCase,
-    SeatReservationUseCase,
     UpdateReservationUseCase,
+)
+from features.bookings.application.use_cases.booking_lifecycle_use_cases import (
+    CompleteBookingUseCase,
+    MarkBookingNoShowUseCase,
+    SeatBookingUseCase,
 )
 from features.reservations.infrastructure.repositories.game_reservation_repository import (
     SqlAlchemyGameReservationRepository,
@@ -43,6 +45,9 @@ from features.reservations.application.use_cases.waitlist_use_cases import (
 )
 from features.reservations.infrastructure.repositories.reservation_repository import (
     SqlAlchemyReservationRepository,
+)
+from features.bookings.infrastructure.repositories.booking_status_history_repository import (
+    SqlAlchemyBookingStatusHistoryRepository,
 )
 
 
@@ -68,6 +73,10 @@ def get_waitlist_repo():
     return SqlAlchemyWaitlistRepository()
 
 
+def get_status_history_repo():
+    return SqlAlchemyBookingStatusHistoryRepository()
+
+
 # --- Workflow 2: View reservations ---
 
 def get_list_confirmed_reservations_use_case() -> ListConfirmedReservationsUseCase:
@@ -84,16 +93,16 @@ def get_list_active_reservations_use_case() -> ListActiveReservationsUseCase:
 
 # --- Workflow 3: Seat parties / update status ---
 
-def get_seat_reservation_use_case() -> SeatReservationUseCase:
-    return SeatReservationUseCase(get_reservation_repo())
+def get_seat_reservation_use_case() -> SeatBookingUseCase:
+    return SeatBookingUseCase(get_reservation_repo(), get_status_history_repo())
 
 
-def get_complete_reservation_use_case() -> CompleteReservationUseCase:
-    return CompleteReservationUseCase(get_reservation_repo())
+def get_complete_reservation_use_case() -> CompleteBookingUseCase:
+    return CompleteBookingUseCase(get_reservation_repo(), get_status_history_repo())
 
 
-def get_no_show_reservation_use_case() -> MarkReservationNoShowUseCase:
-    return MarkReservationNoShowUseCase(get_reservation_repo())
+def get_no_show_reservation_use_case() -> MarkBookingNoShowUseCase:
+    return MarkBookingNoShowUseCase(get_reservation_repo(), get_status_history_repo())
 
 
 # --- Workflow 4: Assign / swap games ---

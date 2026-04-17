@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from shared.infrastructure import db
 from features.bookings.infrastructure.database.booking_db import BookingDB
+from features.bookings.infrastructure.database.booking_status_history_db import BookingStatusHistoryDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 
 
@@ -43,6 +44,18 @@ def test_steward_list_and_seat_flow(client, app, test_data):
     assert seat_data["id"] == reservation_id
     assert seat_data["status"] == "seated"
 
+    with app.app_context():
+        seated_entry = (
+            db.session.query(BookingStatusHistoryDB)
+            .filter(BookingStatusHistoryDB.booking_id == reservation_id)
+            .filter(BookingStatusHistoryDB.to_status == "seated")
+            .order_by(BookingStatusHistoryDB.id.desc())
+            .first()
+        )
+        assert seated_entry is not None
+        assert seated_entry.actor_user_id is not None
+        assert seated_entry.actor_role == "staff"
+
     # Confirm it's listed in seated reservations
     seated_resp = client.get("/api/steward/reservations/seated")
     assert seated_resp.status_code == 200
@@ -83,6 +96,18 @@ def test_steward_complete_flow(client, app, test_data):
     assert data["id"] == reservation_id
     assert data["status"] == "completed"
 
+    with app.app_context():
+        completed_entry = (
+            db.session.query(BookingStatusHistoryDB)
+            .filter(BookingStatusHistoryDB.booking_id == reservation_id)
+            .filter(BookingStatusHistoryDB.to_status == "completed")
+            .order_by(BookingStatusHistoryDB.id.desc())
+            .first()
+        )
+        assert completed_entry is not None
+        assert completed_entry.actor_user_id is not None
+        assert completed_entry.actor_role == "staff"
+
 
 def test_steward_no_show_flow(client, app, test_data):
     # Create a booking and table reservation, then mark no-show
@@ -114,6 +139,18 @@ def test_steward_no_show_flow(client, app, test_data):
     data = no_show.get_json()
     assert data["id"] == reservation_id
     assert data["status"] == "no_show"
+
+    with app.app_context():
+        no_show_entry = (
+            db.session.query(BookingStatusHistoryDB)
+            .filter(BookingStatusHistoryDB.booking_id == reservation_id)
+            .filter(BookingStatusHistoryDB.to_status == "no_show")
+            .order_by(BookingStatusHistoryDB.id.desc())
+            .first()
+        )
+        assert no_show_entry is not None
+        assert no_show_entry.actor_user_id is not None
+        assert no_show_entry.actor_role == "staff"
 
 
 def test_steward_swap_and_game_copy_status_and_incident_flow(client, app, test_data):

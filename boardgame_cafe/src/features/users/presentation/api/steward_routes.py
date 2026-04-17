@@ -3,12 +3,14 @@ from flask_login import current_user, login_required
 
 from features.reservations.application.use_cases.reservation_game_use_cases import SwapGameCopyUseCase
 from features.reservations.application.use_cases.reservation_use_cases import (
-    CompleteReservationUseCase,
     ListActiveReservationsUseCase,
     ListConfirmedReservationsUseCase,
     ListSeatedReservationsUseCase,
-    MarkReservationNoShowUseCase,
-    SeatReservationUseCase,
+)
+from features.bookings.application.use_cases.booking_lifecycle_use_cases import (
+    CompleteBookingUseCase,
+    MarkBookingNoShowUseCase,
+    SeatBookingUseCase,
 )
 from features.games.application.use_cases.game_copy_use_cases import (
     ListGameCopiesUseCase,
@@ -182,7 +184,19 @@ def list_seated_reservations():
 
 def _run_status_transition(use_case, reservation_id: int):
     try:
-        reservation = use_case.execute(reservation_id)
+        actor_role = getattr(current_user, "role", None)
+        if hasattr(actor_role, "value"):
+            actor_role = actor_role.value
+        if actor_role is None and getattr(current_user, "is_staff", False):
+            actor_role = "staff"
+        if actor_role is None and getattr(current_user, "is_authenticated", False):
+            actor_role = "customer"
+
+        reservation = use_case.execute(
+            reservation_id,
+            actor_user_id=getattr(current_user, "id", None),
+            actor_role=actor_role,
+        )
     except DomainError as exc:
         return {"error": str(exc)}, 400
     if reservation is None:
@@ -197,7 +211,7 @@ def seat_reservation(reservation_id: int):
     if err:
         return err
 
-    use_case: SeatReservationUseCase = get_seat_reservation_use_case()
+    use_case: SeatBookingUseCase = get_seat_reservation_use_case()
     return _run_status_transition(use_case, reservation_id)
 
 
@@ -208,7 +222,7 @@ def complete_reservation(reservation_id: int):
     if err:
         return err
 
-    use_case: CompleteReservationUseCase = get_complete_reservation_use_case()
+    use_case: CompleteBookingUseCase = get_complete_reservation_use_case()
     return _run_status_transition(use_case, reservation_id)
 
 
@@ -219,7 +233,7 @@ def no_show_reservation(reservation_id: int):
     if err:
         return err
 
-    use_case: MarkReservationNoShowUseCase = get_no_show_reservation_use_case()
+    use_case: MarkBookingNoShowUseCase = get_no_show_reservation_use_case()
     return _run_status_transition(use_case, reservation_id)
 
 
