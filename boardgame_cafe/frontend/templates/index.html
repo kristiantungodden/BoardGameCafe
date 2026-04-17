@@ -1,48 +1,94 @@
 {% extends "base.html" %}
 
-{% block title %}BoardGameCafe | Home{% endblock %}
+{% block title %}Dicer | Home{% endblock %}
 
 {% block content %}
-<h1 class="hero-title">Welcome to BoardGameCafe</h1>
-<p class="hero-copy">
-	Find a table, reserve games, and complete payment for your booking in one flow.
+<section class="landing-shell" aria-label="Welcome">
+	<div class="landing-hero">
+		<p class="hero-kicker">Your local Boardgame Cafe.</p>
+		<h1 class="landing-title">A board game night worth booking ahead.</h1>
+		<p class="landing-copy">
+			Reserve your table, lock in your games, and breeze through payment in one clean flow.
+		</p>
+
+		<div class="landing-actions">
+			<a class="button" href="/booking">Book a Session</a>
+			<a class="button button-secondary" href="/games">Explore Games</a>
+		</div>
+
+		<div class="landing-auth-row">
+			{% if current_user.is_authenticated %}
+			<a class="button button-subtle" href="{{ url_for('my_page') }}">My Bookings</a>
+			<form method="post" action="/logout" class="inline-form">
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+				<button class="button button-subtle" type="submit">Logout</button>
+			</form>
+			{% endif %}
+		</div>
+	</div>
+</section>
+
+
+<section class="home-preview" aria-label="Game preview">
+	<div class="home-preview-head">
+		<h2 class="section-title">Game Preview</h2>
+		<a class="button button-secondary" href="/games">See Full Library</a>
+	</div>
+	<p class="page-intro compact">
+		A quick look at games currently available at Dicer.
+	</p>
+	<div id="home-games-preview" class="game-catalog-grid" aria-live="polite">
+		<p class="game-state">Loading featured games...</p>
+	</div>
+</section>
+
+<p class="landing-footnote">
+	Planning with friends? Send them the games link first, then book together.
 </p>
 
+<script>
+	async function loadHomeGamesPreview() {
+		const preview = document.getElementById("home-games-preview");
+		if (!preview) return;
 
-<div class="action-row">
-	<a class="button" href="/booking">Book a Session</a>
-	<a class="button button-secondary" href="/games">See Our Game Library</a>
-</div>
+		try {
+			const response = await fetch("/api/games/?page=1&page_size=4");
+			if (!response.ok) throw new Error("Failed to fetch games");
 
-<div class="action-row" style="margin-top: 1rem;">
-	<a class="button" href="/register">Create Account</a>
-	<a class="button button-secondary" href="/login">Sign In</a>
-	{% if current_user.is_authenticated %}
-	<a class="button button-secondary" href="{{ url_for('my_page') }}">My Bookings</a>
-	<form method="post" action="/logout" class="inline-form">
-		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-		<button class="button button-secondary" type="submit">Logout</button>
-	</form>
-	{% endif %}
-</div>
+			const payload = await response.json();
+			const games = Array.isArray(payload) ? payload.slice(0, 4) : (payload.games || []);
 
-<p class="quick-links">
-	Need raw endpoints? Visit <a href="/api/games/">Games API</a> or <a href="/api/reservations">Reservations API</a>.
-</p>
+			if (!games.length) {
+				preview.innerHTML = '<p class="game-state">No games available right now.</p>';
+				return;
+			}
 
-<h2 class="section-title">Next Steps</h2>
-<ul class="next-steps-list">
-	<li>Choose date and timeslot, then select one or more available tables.</li>
-	<li>Add games to your booking (up to two game reservations per selected table).</li>
-	<li>Complete booking and continue to the confirmation page.</li>
-</ul>
+			preview.innerHTML = "";
+			for (const game of games) {
+				const title = game.title || "Untitled game";
+				const imageUrl = game.image_url || "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=700&q=80";
+				const players = `${game.min_players || "?"}-${game.max_players || "?"} players`;
+				const playtime = game.playtime_min ? `${game.playtime_min} min` : "Playtime not set";
+				const description = game.description || "No description available.";
 
-<hr>
+				const card = document.createElement("article");
+				card.className = "game-card home-game-card";
+				card.innerHTML = `
+					<img class="game-card-image" src="${imageUrl}" alt="${title}" loading="lazy">
+					<div class="game-card-body">
+						<h3 class="game-card-title">${title}</h3>
+						<p class="game-card-meta">${players} · ${playtime}</p>
+						<p class="game-card-description">${description}</p>
+					</div>
+				`;
+				preview.appendChild(card);
+			}
+		} catch (error) {
+			preview.innerHTML = '<p class="game-state">Unable to load game preview right now.</p>';
+		}
+	}
 
-<h2 class="section-title">Auth Flows</h2>
-<p class="hero-copy">
-	Booking pages require sign in. If you open booking while signed out, you will be redirected to sign in and can
-	create an account from there.
-</p>
+	loadHomeGamesPreview();
+</script>
 
 {% endblock %}
