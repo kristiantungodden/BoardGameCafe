@@ -21,3 +21,8 @@ class IncidentRepositoryInterface(ABC):
     @abstractmethod
     def list_for_game_copy(self, game_copy_id: int) -> Sequence[Incident]:
         raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, incident_id: int) -> bool:
+        """Delete an incident by id. Returns True if deleted, False if not found."""
+        raise NotImplementedError

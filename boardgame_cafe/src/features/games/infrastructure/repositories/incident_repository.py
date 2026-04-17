@@ -51,3 +51,14 @@ class SqlAlchemyIncidentRepository(IncidentRepositoryInterface):
             .all()
         )
         return [row.to_domain() for row in rows]
+
+    def delete(self, incident_id: int) -> bool:
+        row = self.session.get(IncidentDB, incident_id)
+        if row is None:
+            return False
+        self.session.delete(row)
+        if self.auto_commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+        return True

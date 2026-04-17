@@ -182,5 +182,33 @@ class ListActiveReservationsUseCase:
             r for r in self.repo.list_all()
             if r.status in ("confirmed", "seated")
         ]
+
+
+class UpdateReservationUseCase:
+    """Update reservation fields."""
+
+    def __init__(self, repo: ReservationRepositoryInterface):
+        self.repo = repo
+
+    def execute(self, reservation_id: int, data: dict) -> Optional[Booking]:
+        reservation = self.repo.get_by_id(reservation_id)
+        if reservation is None:
+            return None
+
+        # Update allowed fields if present
+        from datetime import datetime
+
+        if 'start_ts' in data and data['start_ts']:
+            reservation.start_ts = datetime.fromisoformat(data['start_ts'])
+        if 'end_ts' in data and data['end_ts']:
+            reservation.end_ts = datetime.fromisoformat(data['end_ts'])
+        if 'party_size' in data and data['party_size'] is not None:
+            reservation.party_size = int(data['party_size'])
+        if 'notes' in data:
+            reservation.notes = data.get('notes')
+        if 'table_id' in data and data['table_id'] is not None:
+            reservation.table_id = int(data['table_id'])
+
+        return self.repo.update(reservation)
  
 

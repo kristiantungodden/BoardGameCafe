@@ -8,6 +8,7 @@ from features.games.application.use_cases.incident_use_cases import (
     ListIncidentsForGameCopyUseCase,
     ListIncidentsUseCase,
     ReportIncidentUseCase,
+    DeleteIncidentUseCase,
 )
 from features.games.infrastructure.repositories.game_copy_repository import GameCopyRepositoryImpl
 from features.games.infrastructure.repositories.incident_repository import SqlAlchemyIncidentRepository
@@ -27,6 +28,7 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     ListSeatedReservationsUseCase,
     MarkReservationNoShowUseCase,
     SeatReservationUseCase,
+    UpdateReservationUseCase,
 )
 from features.reservations.infrastructure.repositories.game_reservation_repository import (
     SqlAlchemyGameReservationRepository,
@@ -103,6 +105,10 @@ def get_swap_game_copy_use_case() -> SwapGameCopyUseCase:
     )
 
 
+def get_update_reservation_use_case() -> UpdateReservationUseCase:
+    return UpdateReservationUseCase(get_reservation_repo())
+
+
 # --- Workflow 5: Check out / check in game copies ---
 
 def get_update_game_copy_status_use_case() -> UpdateGameCopyStatusUseCase:
@@ -128,6 +134,10 @@ def get_list_incidents_use_case() -> ListIncidentsUseCase:
 
 def get_list_incidents_for_game_copy_use_case() -> ListIncidentsForGameCopyUseCase:
     return ListIncidentsForGameCopyUseCase(get_incident_repo())
+
+
+def get_delete_incident_use_case() -> DeleteIncidentUseCase:
+    return DeleteIncidentUseCase(get_incident_repo())
 
 
 def get_list_waitlist_use_case() -> ListWaitlistUseCase:
