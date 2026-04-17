@@ -25,7 +25,10 @@ def test_event_bus_dispatches_subscribed_task(monkeypatch):
             reservation_id=10,
             user_id=7,
             user_email="user@example.com",
-            reservation_details="Reservation #10",
+            table_numbers=[2],
+            start_ts="2026-04-17T17:00:00",
+            end_ts="2026-04-17T19:00:00",
+            party_size=4,
         )
     )
 

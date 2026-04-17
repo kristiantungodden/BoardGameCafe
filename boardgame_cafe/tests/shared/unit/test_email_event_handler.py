@@ -67,7 +67,10 @@ class TestEmailEventHandlerRegistration:
             reservation_id=456,
             user_id=123,
             user_email="user@example.com",
-            reservation_details="Board game reservation for 4 people"
+            table_numbers=[2],
+            start_ts="2026-04-17T17:00:00",
+            end_ts="2026-04-17T19:00:00",
+            party_size=4,
         )
         event_bus.publish(event)
 
@@ -82,7 +85,10 @@ class TestEmailEventHandlerRegistration:
         assert payload["data"]["reservation_id"] == 456
         assert payload["data"]["user_id"] == 123
         assert payload["data"]["user_email"] == "user@example.com"
-        assert payload["data"]["reservation_details"] == "Board game reservation for 4 people"
+        assert payload["data"]["table_numbers"] == [2]
+        assert payload["data"]["start_ts"] == "2026-04-17T17:00:00"
+        assert payload["data"]["end_ts"] == "2026-04-17T19:00:00"
+        assert payload["data"]["party_size"] == 4
 
     def test_register_realtime_event_task_subscription(self, monkeypatch):
         """Events should also trigger realtime event publishing task."""
@@ -128,7 +134,7 @@ class TestEmailEventHandlerRegistration:
         event_bus.publish(UserRegistered(user_id=1, email="user@example.com"))
         event_bus.publish(ReservationCreated(
             reservation_id=1, user_id=1, user_email="user@example.com",
-            reservation_details="details"
+            table_numbers=[1], start_ts="2026-04-17T18:00:00", end_ts="2026-04-17T20:00:00", party_size=2
         ))
 
         # Verify both generated task calls
@@ -219,7 +225,10 @@ class TestEventPayloadStructure:
             reservation_id=456,
             user_id=123,
             user_email="user@example.com",
-            reservation_details="Test reservation"
+            table_numbers=[3],
+            start_ts="2026-04-18T15:00:00",
+            end_ts="2026-04-18T17:00:00",
+            party_size=5,
         )
         event_bus.publish(event)
 
@@ -227,7 +236,10 @@ class TestEventPayloadStructure:
         assert data["reservation_id"] == 456
         assert data["user_id"] == 123
         assert data["user_email"] == "user@example.com"
-        assert data["reservation_details"] == "Test reservation"
+        assert data["table_numbers"] == [3]
+        assert data["start_ts"] == "2026-04-18T15:00:00"
+        assert data["end_ts"] == "2026-04-18T17:00:00"
+        assert data["party_size"] == 5
 
     def test_payload_is_json_serializable(self, monkeypatch):
         """Event payload should be JSON serializable."""

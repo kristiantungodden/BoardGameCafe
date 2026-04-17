@@ -69,7 +69,7 @@ class TestEventBusSyncHandlers:
         event_bus.publish(UserRegistered(user_id=1, email="test@example.com"))
         event_bus.publish(ReservationCreated(
             reservation_id=1, user_id=1, user_email="test@example.com",
-            reservation_details="details"
+            table_numbers=[2], start_ts="2026-04-17T17:00:00", end_ts="2026-04-17T19:00:00", party_size=4
         ))
 
         assert len(user_calls) == 1
