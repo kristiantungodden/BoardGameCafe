@@ -17,6 +17,84 @@ async function fetchJson(path, opts={}){
 
 function el(tag, text){ const d=document.createElement(tag); if(text!==undefined) d.textContent=text; return d }
 
+const RECENT_REALTIME_EVENTS = new Map();
+
+function shouldHandleRealtimeEvent(eventKey){
+    const now = Date.now();
+    const lastSeen = RECENT_REALTIME_EVENTS.get(eventKey);
+    if (lastSeen && (now - lastSeen) < 2000) {
+        return false;
+    }
+    RECENT_REALTIME_EVENTS.set(eventKey, now);
+
+    // Keep memory bounded.
+    if (RECENT_REALTIME_EVENTS.size > 100) {
+        const expiryThreshold = now - 15000;
+        for (const [key, ts] of RECENT_REALTIME_EVENTS.entries()) {
+            if (ts < expiryThreshold) {
+                RECENT_REALTIME_EVENTS.delete(key);
+            }
+        }
+    }
+
+    return true;
+}
+
+function normalizeRealtimeEventType(payload){
+    const raw = String((payload && (payload.event_type || payload.event)) || '').trim();
+    if (!raw) return null;
+
+    // Convert CamelCase event names (ReservationCreated) into dotted lowercase (reservation.created).
+    if (raw.includes('.')) return raw.toLowerCase();
+    return raw
+        .replace(/([a-z0-9])([A-Z])/g, '$1.$2')
+        .replace(/_/g, '.')
+        .toLowerCase();
+}
+
+function getRealtimeNoticeContainer(){
+    let container = document.getElementById('steward-realtime-notices');
+    if (container) return container;
+
+    const host = document.getElementById('steward-data');
+    if (!host) return null;
+
+    container = document.createElement('div');
+    container.id = 'steward-realtime-notices';
+    container.setAttribute('aria-live', 'polite');
+    container.style.display = 'grid';
+    container.style.gap = '8px';
+    container.style.marginBottom = '12px';
+    host.prepend(container);
+    return container;
+}
+
+function showRealtimeNotice(message, tone='info'){
+    const container = getRealtimeNoticeContainer();
+    if (!container) return;
+
+    const notice = document.createElement('div');
+    notice.textContent = message;
+    notice.style.padding = '10px 12px';
+    notice.style.borderRadius = '8px';
+    notice.style.border = '1px solid #cbd5e1';
+    notice.style.background = tone === 'success' ? '#ecfdf5' : '#f8fafc';
+    notice.style.color = '#111827';
+    notice.style.fontSize = '14px';
+    notice.style.fontWeight = '500';
+    container.prepend(notice);
+
+    while (container.children.length > 5) {
+        container.removeChild(container.lastChild);
+    }
+
+    setTimeout(() => {
+        if (notice.parentNode === container) {
+            container.removeChild(notice);
+        }
+    }, 12000);
+}
+
 async function loadPending(){
     try{
         const date = (document.getElementById('live-date') || {}).value;
@@ -230,9 +308,36 @@ window.addEventListener('DOMContentLoaded', ()=>{
         es.addEventListener('domain_event', (e) => {
             try {
                 const payload = JSON.parse(e.data);
-                const et = payload.event_type || payload.event || null;
+                const et = normalizeRealtimeEventType(payload);
                 if (!et) return;
-                if (et.startsWith('game_copy') || et.startsWith('incident') || et.startsWith('reservation') || et.startsWith('waitlist')) {
+
+                if (et === 'reservation.payment.completed') {
+                    const data = payload.data || {};
+                    const reservationId = data.reservation_id || 'unknown';
+                    const eventKey = `reservation.payment.completed:${reservationId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    const tables = Array.isArray(data.table_numbers) && data.table_numbers.length
+                        ? ` (tables ${data.table_numbers.join(', ')})`
+                        : '';
+                    showRealtimeNotice(`Payment received for booking #${reservationId}${tables}.`, 'success');
+                    reloadAll();
+                    return;
+                }
+
+                if (et === 'reservation.cancelled') {
+                    const data = payload.data || {};
+                    const reservationId = data.reservation_id || 'unknown';
+                    const eventKey = `reservation.cancelled:${reservationId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    const cancelledBy = data.cancelled_by_role ? ` by ${data.cancelled_by_role}` : '';
+                    showRealtimeNotice(`Booking #${reservationId} was cancelled${cancelledBy}.`, 'info');
+                    reloadAll();
+                    return;
+                }
+
+                if (et.startsWith('game.copy') || et.startsWith('game_copy') || et.startsWith('incident') || et.startsWith('reservation') || et.startsWith('waitlist')) {
                     // For simplicity, reload the lists that may be affected
                     reloadAll();
                 }

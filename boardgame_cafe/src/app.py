@@ -14,6 +14,9 @@ from shared.infrastructure import init_booking_draft_store
 from shared.infrastructure.message_bus.realtime import stream_realtime_events
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.application.event_handlers.email_event_handler import register_email_event_handlers
+from shared.application.event_handlers.realtime_event_handler import (
+    register_realtime_event_handlers,
+)
 
 from features.games.presentation.api import games_routes, game_copy_routes, game_rating_routes
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
@@ -84,6 +87,7 @@ def create_app(config_name: str = None):
     event_bus = EventBus()
     email_service = FlaskMailService(mail)
     register_email_event_handlers(event_bus, email_service)
+    register_realtime_event_handlers(event_bus)
     app.event_bus = event_bus
 
     # Register blueprints

@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Flask
 import features.reservations.presentation.api.reservation_routes as reservations_module
 from features.bookings.domain.models.booking import Booking
+from shared.domain.events import ReservationCancelled
 from shared.domain.exceptions import InvalidStatusTransition
 
 
@@ -248,6 +249,34 @@ def test_patch_reservation_cancel_updates_status(monkeypatch):
 
     assert response.status_code == 200
     assert response.get_json()["status"] == "cancelled"
+
+
+def test_patch_reservation_cancel_publishes_domain_event(monkeypatch):
+    monkeypatch.setattr(
+        reservations_module,
+        "get_cancel_reservation_use_case",
+        lambda: FakeTransitionUseCase("cancelled"),
+    )
+
+    class FakeEventBus:
+        def __init__(self):
+            self.events = []
+
+        def publish(self, event):
+            self.events.append(event)
+
+    app = make_app()
+    app.event_bus = FakeEventBus()
+    client = app.test_client()
+
+    response = client.patch("/api/reservations/1/cancel")
+
+    assert response.status_code == 200
+    assert len(app.event_bus.events) == 1
+    event = app.event_bus.events[0]
+    assert isinstance(event, ReservationCancelled)
+    assert event.reservation_id == 1
+    assert event.cancelled_by_role == "unknown"
 
 
 def test_patch_reservation_seat_not_found(monkeypatch):

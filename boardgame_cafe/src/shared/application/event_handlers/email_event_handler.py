@@ -2,7 +2,6 @@
 
 from shared.application.interface import EmailServiceInterface
 from shared.domain.events import (
-    ReservationCreated,
     ReservationPaymentCompleted,
     UserRegistered,
 )
@@ -16,4 +15,7 @@ def register_email_event_handlers(event_bus, _email_service: EmailServiceInterfa
         "shared.tasks.send_reservation_confirmation_email",
     )
     event_bus.subscribe_task(UserRegistered, "shared.tasks.publish_realtime_event")
-    event_bus.subscribe_task(ReservationCreated, "shared.tasks.publish_realtime_event")
+    event_bus.subscribe_task(
+        ReservationPaymentCompleted,
+        "shared.tasks.publish_realtime_event",
+    )
