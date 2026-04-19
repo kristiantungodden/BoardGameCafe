@@ -4,6 +4,9 @@ from features.games.application.use_cases.game_copy_use_cases import (
     ListGameCopiesUseCase,
     UpdateGameCopyStatusUseCase,
 )
+from features.games.application.use_cases.game_copy_browse_use_cases import (
+    BrowseGameCopiesUseCase,
+)
 from features.games.application.use_cases.incident_use_cases import (
     ListIncidentsForGameCopyUseCase,
     ListIncidentsUseCase,
@@ -11,6 +14,7 @@ from features.games.application.use_cases.incident_use_cases import (
     DeleteIncidentUseCase,
 )
 from features.games.infrastructure.repositories.game_copy_repository import GameCopyRepositoryImpl
+from features.games.infrastructure.repositories.game_repository import GameRepository
 from features.games.infrastructure.repositories.incident_repository import SqlAlchemyIncidentRepository
 from features.reservations.application.interfaces.game_reservation_repository_interface import (
     GameReservationRepositoryInterface,
@@ -26,6 +30,9 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     ListConfirmedReservationsUseCase,
     ListSeatedReservationsUseCase,
     UpdateReservationUseCase,
+)
+from features.reservations.application.use_cases.steward_reservation_browse_use_cases import (
+    BrowseStewardReservationsUseCase,
 )
 from features.bookings.application.use_cases.booking_lifecycle_use_cases import (
     CompleteBookingUseCase,
@@ -49,6 +56,7 @@ from features.reservations.infrastructure.repositories.reservation_repository im
 from features.bookings.infrastructure.repositories.booking_status_history_repository import (
     SqlAlchemyBookingStatusHistoryRepository,
 )
+from features.users.infrastructure.repositories.user_repository import SqlAlchemyUserRepository
 
 
 # --- Repository factories ---
@@ -91,6 +99,13 @@ def get_list_active_reservations_use_case() -> ListActiveReservationsUseCase:
     return ListActiveReservationsUseCase(get_reservation_repo())
 
 
+def get_browse_steward_reservations_use_case() -> BrowseStewardReservationsUseCase:
+    return BrowseStewardReservationsUseCase(
+        reservation_repo=get_reservation_repo(),
+        user_repo=SqlAlchemyUserRepository(),
+    )
+
+
 # --- Workflow 3: Seat parties / update status ---
 
 def get_seat_reservation_use_case() -> SeatBookingUseCase:
@@ -126,6 +141,13 @@ def get_update_game_copy_status_use_case() -> UpdateGameCopyStatusUseCase:
 
 def get_list_game_copies_use_case() -> ListGameCopiesUseCase:
     return ListGameCopiesUseCase(get_game_copy_repo())
+
+
+def get_browse_game_copies_use_case() -> BrowseGameCopiesUseCase:
+    return BrowseGameCopiesUseCase(
+        game_copy_repo=get_game_copy_repo(),
+        game_repo=GameRepository(),
+    )
 
 
 # --- Workflow 6: Incidents ---

@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 from flask_login import current_user, login_required
 
 from features.reservations.application.use_cases.reservation_game_use_cases import SwapGameCopyUseCase
@@ -6,6 +6,10 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     ListActiveReservationsUseCase,
     ListConfirmedReservationsUseCase,
     ListSeatedReservationsUseCase,
+)
+from features.reservations.application.use_cases.steward_reservation_browse_use_cases import (
+    BrowseStewardReservationsQuery,
+    BrowseStewardReservationsUseCase,
 )
 from features.bookings.application.use_cases.booking_lifecycle_use_cases import (
     CompleteBookingUseCase,
@@ -15,6 +19,10 @@ from features.bookings.application.use_cases.booking_lifecycle_use_cases import 
 from features.games.application.use_cases.game_copy_use_cases import (
     ListGameCopiesUseCase,
     UpdateGameCopyStatusUseCase,
+)
+from features.games.application.use_cases.game_copy_browse_use_cases import (
+    BrowseGameCopiesQuery,
+    BrowseGameCopiesUseCase,
 )
 from features.games.application.use_cases.incident_use_cases import (
     ListIncidentsForGameCopyUseCase,
@@ -26,13 +34,17 @@ from features.reservations.application.use_cases.waitlist_use_cases import (
     AddToWaitlistUseCase,
     RemoveFromWaitlistUseCase,
 )
-from shared.infrastructure.message_bus.realtime import publish_realtime_event
+from shared.application.services.reservation_transition_event_publisher import (
+    publish_reservation_transition_event,
+)
 from shared.domain.exceptions import DomainError
 from features.users.presentation.api.deps.get_steward_use_cases import (
     get_complete_reservation_use_case,
     get_list_active_reservations_use_case,
+    get_browse_steward_reservations_use_case,
     get_list_confirmed_reservations_use_case,
     get_list_game_copies_use_case,
+    get_browse_game_copies_use_case,
     get_list_incidents_for_game_copy_use_case,
     get_list_incidents_use_case,
     get_list_seated_reservations_use_case,
@@ -63,9 +75,11 @@ def _serialize_reservation(reservation):
     return {
         "id": reservation.id,
         "customer_id": reservation.customer_id,
+        "customer_name": getattr(reservation, "customer_name", None),
+        "customer_email": getattr(reservation, "customer_email", None),
         "table_id": getattr(reservation, "table_id", None),
-        "start_ts": reservation.start_ts.isoformat(),
-        "end_ts": reservation.end_ts.isoformat(),
+        "start_ts": reservation.start_ts.isoformat() if hasattr(reservation.start_ts, "isoformat") else reservation.start_ts,
+        "end_ts": reservation.end_ts.isoformat() if hasattr(reservation.end_ts, "isoformat") else reservation.end_ts,
         "party_size": reservation.party_size,
         "status": reservation.status,
         "notes": reservation.notes,
@@ -76,6 +90,7 @@ def _serialize_game_copy(game_copy):
     return {
         "id": game_copy.id,
         "game_id": game_copy.game_id,
+        "game_title": getattr(game_copy, "game_title", None),
         "copy_code": game_copy.copy_code,
         "status": game_copy.status,
         "location": game_copy.location,
@@ -124,17 +139,23 @@ def list_active_reservations():
     if err:
         return err
 
-    # Optional date filter (YYYY-MM-DD)
-    date_str = request.args.get('date')
-    use_case: ListActiveReservationsUseCase = get_list_active_reservations_use_case()
-    items = use_case.execute()
+    date_str = request.args.get("date")
+    reservation_date = None
     if date_str:
         try:
             from datetime import datetime
-            d = datetime.fromisoformat(date_str).date()
-            items = [r for r in items if getattr(r, 'start_ts', None) and r.start_ts.date() == d]
+
+            reservation_date = datetime.fromisoformat(date_str).date()
         except Exception:
-            pass
+            reservation_date = None
+
+    use_case: BrowseStewardReservationsUseCase = get_browse_steward_reservations_use_case()
+    items = use_case.execute(
+        BrowseStewardReservationsQuery(
+            statuses=("confirmed",),
+            reservation_date=reservation_date,
+        )
+    )
     return [_serialize_reservation(r) for r in items], 200
 
 
@@ -145,16 +166,23 @@ def list_confirmed_reservations():
     if err:
         return err
 
-    date_str = request.args.get('date')
-    use_case: ListConfirmedReservationsUseCase = get_list_confirmed_reservations_use_case()
-    items = use_case.execute()
+    date_str = request.args.get("date")
+    reservation_date = None
     if date_str:
         try:
             from datetime import datetime
-            d = datetime.fromisoformat(date_str).date()
-            items = [r for r in items if getattr(r, 'start_ts', None) and r.start_ts.date() == d]
+
+            reservation_date = datetime.fromisoformat(date_str).date()
         except Exception:
-            pass
+            reservation_date = None
+
+    use_case: BrowseStewardReservationsUseCase = get_browse_steward_reservations_use_case()
+    items = use_case.execute(
+        BrowseStewardReservationsQuery(
+            statuses=("confirmed",),
+            reservation_date=reservation_date,
+        )
+    )
     return [_serialize_reservation(r) for r in items], 200
 
 
@@ -165,16 +193,23 @@ def list_seated_reservations():
     if err:
         return err
 
-    date_str = request.args.get('date')
-    use_case: ListSeatedReservationsUseCase = get_list_seated_reservations_use_case()
-    items = use_case.execute()
+    date_str = request.args.get("date")
+    reservation_date = None
     if date_str:
         try:
             from datetime import datetime
-            d = datetime.fromisoformat(date_str).date()
-            items = [r for r in items if getattr(r, 'start_ts', None) and r.start_ts.date() == d]
+
+            reservation_date = datetime.fromisoformat(date_str).date()
         except Exception:
-            pass
+            reservation_date = None
+
+    use_case: BrowseStewardReservationsUseCase = get_browse_steward_reservations_use_case()
+    items = use_case.execute(
+        BrowseStewardReservationsQuery(
+            statuses=("seated",),
+            reservation_date=reservation_date,
+        )
+    )
     return [_serialize_reservation(r) for r in items], 200
 
 
@@ -201,6 +236,13 @@ def _run_status_transition(use_case, reservation_id: int):
         return {"error": str(exc)}, 400
     if reservation is None:
         return {"error": "Reservation not found"}, 404
+
+    publish_reservation_transition_event(
+        event_bus=getattr(current_app, "event_bus", None),
+        reservation=reservation,
+        actor_user_id=getattr(current_user, "id", None),
+        actor_role=actor_role,
+    )
     return _serialize_reservation(reservation), 200
 
 
@@ -293,9 +335,15 @@ def list_game_copies():
     if err:
         return err
 
-    use_case: ListGameCopiesUseCase = get_list_game_copies_use_case()
-    copies = use_case.execute()
-    return [_serialize_game_copy(c) for c in copies], 200
+    game_id = request.args.get("game_id", type=int)
+    query_text = request.args.get("q") or ""
+
+    browse_use_case: BrowseGameCopiesUseCase = get_browse_game_copies_use_case()
+    items = browse_use_case.execute(
+        BrowseGameCopiesQuery(game_id=game_id, search_text=query_text)
+    )
+
+    return [_serialize_game_copy(item) for item in items], 200
 
 
 @bp.patch("/game-copies/<int:copy_id>/status")

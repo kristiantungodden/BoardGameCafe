@@ -3,66 +3,103 @@
 {% block title %}Steward Dashboard{% endblock %}
 
 {% block content %}
-<h1 class="page-header">Steward Dashboard</h1>
-<p class="page-intro">Quick actions for staff: view pending reservations, seat parties, manage game copies and incidents.</p>
+<section class="steward-dashboard" id="steward-data">
+	<header class="steward-hero">
+		<div>
+			<h1 class="page-header">Steward Dashboard</h1>
+			<p class="page-intro compact">Manage live floor operations, respond to incidents, and keep bookings moving.</p>
+		</div>
+		<div class="steward-hero-actions">
+			<a class="button" href="/steward/pending" id="link-pending">Pending Page</a>
+			<a class="button button-secondary" href="/steward/seated" id="link-seated">Seated Page</a>
+			<a class="button button-subtle" href="/steward/incidents" id="link-incidents">Incidents</a>
+		</div>
+	</header>
 
-<div class="panel-grid">
-	<div class="panel">
-		<h3>Reservations</h3>
-		<ul>
-			<li><a href="/steward/pending" id="link-pending">View Pending Reservations</a></li>
-			<li><a href="/steward/seated" id="link-seated">View Seated Reservations</a></li>
-		</ul>
-	</div>
-	<div class="panel">
-		<h3>Game Copies</h3>
-		<ul>
-			<li><a href="/games">Game Library</a></li>
-			<li><a href="/steward/game-copies" id="link-game-copies">Manage Game Copies</a></li>
-		</ul>
-	</div>
-	<div class="panel">
-		<h3>Incidents</h3>
-		<ul>
-			<li><a href="/steward/incidents" id="link-incidents">Recent Incidents</a></li>
-		</ul>
-	</div>
-</div>
+	<section class="steward-toolbar card">
+		<div class="steward-toolbar-left">
+			<label class="form-label" for="live-date">Operating Day</label>
+			<input class="form-input" type="date" id="live-date" />
+		</div>
+		<div class="steward-toolbar-right">
+			<button class="button button-subtle" type="button" id="steward-refresh">Refresh Now</button>
+			<span class="steward-connection" id="realtime-connection-status">Realtime: connecting...</span>
+		</div>
+	</section>
 
-<p class="page-intro">This dashboard links to API-driven workflows. Use the API endpoints under <code>/api/steward</code> for actions.</p>
-<section class="card" id="steward-data">
-	<h2>Live Data</h2>
-	<div style="margin-bottom:8px;">
-		<label for="live-date">Show day: </label>
-		<input type="date" id="live-date" />
-	</div>
-	<div id="reservation-sidepanel" style="float:right; width:320px; border-left:1px solid #ddd; padding-left:12px;">
-		<h3>Reservation Details</h3>
-		<div id="reservation-panel-content">Select a reservation to view/edit.</div>
-	</div>
-	<div>
-		<h3>Pending / Confirmed</h3>
-		<div id="pending-list">(loading...)</div>
-	</div>
-	<div>
-		<h3>Seated</h3>
-		<div id="seated-list">(loading...)</div>
-	</div>
-	<div>
-		<h3>Game Copies</h3>
-		<div id="game-copy-list">(loading...)</div>
-	</div>
-	<div>
-		<h3>Incidents</h3>
-		<div id="incident-list">(loading...)</div>
-	</div>
-	<div style="clear:both"></div>
-	<div style="margin-top:16px;">
-		<h3>Floorplan</h3>
-		<label for="floor-select">Floor: </label>
-		<select id="floor-select"></select>
-		<div id="floorplan" style="margin-top:8px; border:1px solid #ddd; padding:8px; min-height:120px;"></div>
-	</div>
+	<section class="steward-metrics" aria-label="Live summary">
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Pending / Confirmed</p>
+			<p class="steward-metric-value" id="metric-pending">0</p>
+		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Seated</p>
+			<p class="steward-metric-value" id="metric-seated">0</p>
+		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Open Incidents</p>
+			<p class="steward-metric-value" id="metric-incidents">0</p>
+		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Lost Copies</p>
+			<p class="steward-metric-value" id="metric-lost-copies">0</p>
+		</article>
+	</section>
+
+	<section class="steward-layout">
+		<div class="steward-main-grid">
+			<section class="card">
+				<div class="steward-floorplan-head">
+					<h3>Pending / Confirmed</h3>
+					<input class="form-input" id="pending-search" type="search" placeholder="Search pending" aria-label="Search pending reservations" />
+				</div>
+				<div id="pending-list" class="steward-scroll-list">(loading...)</div>
+			</section>
+			<section class="card">
+				<div class="steward-floorplan-head">
+					<h3>Seated</h3>
+					<input class="form-input" id="seated-search" type="search" placeholder="Search seated" aria-label="Search seated reservations" />
+				</div>
+				<div id="seated-list" class="steward-scroll-list">(loading...)</div>
+			</section>
+			<section class="card">
+				<div class="steward-floorplan-head">
+					<h3>Game Copies</h3>
+					<div class="steward-toolbar-right">
+						<select class="form-input" id="game-copy-game-filter" aria-label="Filter copies by game">
+							<option value="">All games</option>
+						</select>
+						<input class="form-input" id="game-copy-search" type="search" placeholder="Search copy code" aria-label="Search game copies" />
+					</div>
+				</div>
+				<div id="game-copy-list" class="steward-scroll-list">(loading...)</div>
+			</section>
+			<section class="card">
+				<h3>Incidents</h3>
+				<div id="incident-list">(loading...)</div>
+			</section>
+		</div>
+		<aside class="card steward-side-panel" id="reservation-sidepanel">
+			<h3>Reservation Details</h3>
+			<div id="reservation-panel-content">Select a reservation to view/edit.</div>
+			<hr>
+			<h4>Quick Links</h4>
+			<p><a class="button button-subtle" href="/steward/game-copies" id="link-game-copies">Manage Game Copies</a></p>
+			<p><a class="button button-subtle" href="/games">Open Game Library</a></p>
+		</aside>
+	</section>
+
+	<section class="card steward-floorplan-card">
+		<div class="steward-floorplan-head">
+			<h3>Floorplan</h3>
+			<div>
+				<label class="form-label" for="floor-select">Floor</label>
+				<select class="form-input" id="floor-select"></select>
+			</div>
+		</div>
+		<div id="floorplan"></div>
+	</section>
+	<p class="steward-last-update" id="metric-last-updated">Last updated: --</p>
 </section>
 
 <script src="/static/js/steward.js"></script>

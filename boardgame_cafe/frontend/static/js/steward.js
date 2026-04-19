@@ -17,6 +17,107 @@ async function fetchJson(path, opts={}){
 
 function el(tag, text){ const d=document.createElement(tag); if(text!==undefined) d.textContent=text; return d }
 
+const DASHBOARD_SUMMARY = {
+    pending: 0,
+    seated: 0,
+    incidents: 0,
+    lostCopies: 0,
+    lastUpdated: null,
+};
+
+function formatIsoDateTime(iso){
+    try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso || '');
+        return d.toLocaleString([], {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    } catch (_e) {
+        return String(iso || '');
+    }
+}
+
+function updateSummaryUI(){
+    const map = [
+        ['metric-pending', DASHBOARD_SUMMARY.pending],
+        ['metric-seated', DASHBOARD_SUMMARY.seated],
+        ['metric-incidents', DASHBOARD_SUMMARY.incidents],
+        ['metric-lost-copies', DASHBOARD_SUMMARY.lostCopies],
+    ];
+    map.forEach(([id, value]) => {
+        const node = document.getElementById(id);
+        if (node) node.textContent = String(value);
+    });
+
+    const updated = document.getElementById('metric-last-updated');
+    if (updated) {
+        const ts = DASHBOARD_SUMMARY.lastUpdated;
+        updated.textContent = ts ? `Last updated: ${ts.toLocaleTimeString()}` : 'Last updated: --';
+    }
+}
+
+function updateRealtimeConnectionStatus(text){
+    const node = document.getElementById('realtime-connection-status');
+    if (node) node.textContent = text;
+}
+
+function reservationMatchesSearch(reservation, searchText){
+    const q = String(searchText || '').trim().toLowerCase();
+    if (!q) return true;
+
+    const haystack = [
+        reservation.id,
+        reservation.customer_id,
+        reservation.customer_name,
+        reservation.customer_email,
+        reservation.status,
+        reservation.start_ts,
+        reservation.end_ts,
+        reservation.notes,
+    ]
+        .map((v) => String(v || '').toLowerCase())
+        .join(' ');
+
+    return haystack.includes(q);
+}
+
+function hydrateGameCopyGameFilter(copies){
+    const select = document.getElementById('game-copy-game-filter');
+    if (!select) return;
+
+    const current = select.value;
+    const games = new Map();
+    copies.forEach((copy) => {
+        const id = Number(copy.game_id);
+        if (!id) return;
+        const title = (copy.game_title || `Game #${id}`).trim();
+        if (!games.has(id)) games.set(id, title);
+    });
+
+    const sorted = Array.from(games.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+    select.innerHTML = '';
+
+    const allOpt = document.createElement('option');
+    allOpt.value = '';
+    allOpt.textContent = 'All games';
+    select.appendChild(allOpt);
+
+    sorted.forEach(([id, title]) => {
+        const opt = document.createElement('option');
+        opt.value = String(id);
+        opt.textContent = title;
+        select.appendChild(opt);
+    });
+
+    if (current && Array.from(select.options).some((opt) => opt.value === current)) {
+        select.value = current;
+    }
+}
+
 const RECENT_REALTIME_EVENTS = new Map();
 
 function shouldHandleRealtimeEvent(eventKey){
@@ -100,29 +201,68 @@ async function loadPending(){
         const date = (document.getElementById('live-date') || {}).value;
         const q = date ? `?date=${encodeURIComponent(date)}` : '';
         const data = await fetchJson('/api/steward/reservations' + q);
+        const searchText = String((document.getElementById('pending-search') || {}).value || '');
+        const filtered = data.filter((r) => reservationMatchesSearch(r, searchText));
         const container = document.getElementById('pending-list');
         container.innerHTML='';
-        if(!data.length) { container.textContent='No pending reservations.'; return }
-        const ul = document.createElement('ul');
-        data.forEach(r=>{
-            const li = document.createElement('li');
-            li.textContent = `#${r.id} customer:${r.customer_id} ${r.start_ts} - ${r.status}`;
-            // row is not clickable; use the Edit button to open the side panel
-            const seatBtn = document.createElement('button'); seatBtn.textContent='Seat';
+        DASHBOARD_SUMMARY.pending = data.length;
+        if(!filtered.length) { container.textContent='No pending reservations match this search.'; updateSummaryUI(); return }
+        const list = document.createElement('div');
+        list.className = 'steward-item-list';
+        filtered.forEach(r=>{
+            const item = document.createElement('article');
+            item.className = 'steward-item';
+
+            const head = document.createElement('div');
+            head.className = 'steward-item-head';
+
+            const title = document.createElement('p');
+            title.className = 'steward-item-title';
+            title.textContent = `Booking #${r.id}`;
+
+            const status = document.createElement('span');
+            status.className = `status-pill status-${String(r.status || '').replace('-', '_')}`;
+            status.textContent = String(r.status || 'unknown');
+
+            head.appendChild(title);
+            head.appendChild(status);
+            item.appendChild(head);
+
+            const meta = document.createElement('p');
+            meta.className = 'steward-item-meta';
+            meta.textContent = `Customer ${r.customer_id} · ${formatIsoDateTime(r.start_ts)} · Party ${r.party_size}`;
+            item.appendChild(meta);
+
+            const actions = document.createElement('div');
+            actions.className = 'steward-item-actions';
+
+            const seatBtn = document.createElement('button'); seatBtn.textContent='Seat'; seatBtn.className='button button-secondary';
             seatBtn.onclick = async ()=>{
                 await fetchJson(`/api/steward/reservations/${r.id}/seat`,{method:'PATCH'});
                 await reloadAll();
             }
             seatBtn.addEventListener('click', (e)=>e.stopPropagation());
-            li.appendChild(seatBtn);
+            actions.appendChild(seatBtn);
 
-            const editBtn = document.createElement('button'); editBtn.textContent='Edit';
+            const editBtn = document.createElement('button'); editBtn.textContent='Edit'; editBtn.className='button button-subtle';
             editBtn.onclick = (e) => { e.stopPropagation(); showReservationPanel(r); };
-            li.appendChild(editBtn);
+            actions.appendChild(editBtn);
 
-            ul.appendChild(li);
+            const cancelBtn = document.createElement('button'); cancelBtn.textContent='Cancel'; cancelBtn.className='button button-subtle';
+            cancelBtn.onclick = async (e) => {
+                e.stopPropagation();
+                if (!confirm(`Cancel booking #${r.id}?`)) return;
+                await fetchJson(`/api/reservations/${r.id}/cancel`, {method:'PATCH'});
+                await reloadAll();
+            };
+            actions.appendChild(cancelBtn);
+
+            item.appendChild(actions);
+
+            list.appendChild(item);
         });
-        container.appendChild(ul);
+        container.appendChild(list);
+        updateSummaryUI();
     }catch(e){ console.error(e); document.getElementById('pending-list').textContent='Error loading'; }
 }
 
@@ -131,27 +271,55 @@ async function loadSeated(){
         const date = (document.getElementById('live-date') || {}).value;
         const q = date ? `?date=${encodeURIComponent(date)}` : '';
         const data = await fetchJson('/api/steward/reservations/seated' + q);
+        const searchText = String((document.getElementById('seated-search') || {}).value || '');
+        const filtered = data.filter((r) => reservationMatchesSearch(r, searchText));
         const container = document.getElementById('seated-list');
         container.innerHTML='';
-        if(!data.length) { container.textContent='No seated reservations.'; return }
-        const ul = document.createElement('ul');
-        data.forEach(r=>{
-            const li = document.createElement('li');
-            li.textContent = `#${r.id} customer:${r.customer_id} ${r.start_ts} - ${r.status}`;
-            const compBtn = document.createElement('button'); compBtn.textContent='Complete';
+        DASHBOARD_SUMMARY.seated = data.length;
+        if(!filtered.length) { container.textContent='No seated reservations match this search.'; updateSummaryUI(); return }
+        const list = document.createElement('div');
+        list.className = 'steward-item-list';
+        filtered.forEach(r=>{
+            const item = document.createElement('article');
+            item.className = 'steward-item';
+
+            const head = document.createElement('div');
+            head.className = 'steward-item-head';
+            const title = document.createElement('p');
+            title.className = 'steward-item-title';
+            title.textContent = `Booking #${r.id}`;
+            const status = document.createElement('span');
+            status.className = `status-pill status-${String(r.status || '').replace('-', '_')}`;
+            status.textContent = String(r.status || 'unknown');
+            head.appendChild(title);
+            head.appendChild(status);
+            item.appendChild(head);
+
+            const meta = document.createElement('p');
+            meta.className = 'steward-item-meta';
+            meta.textContent = `Customer ${r.customer_id} · ${formatIsoDateTime(r.start_ts)} · Party ${r.party_size}`;
+            item.appendChild(meta);
+
+            const actions = document.createElement('div');
+            actions.className = 'steward-item-actions';
+
+            const compBtn = document.createElement('button'); compBtn.textContent='Complete'; compBtn.className='button button-secondary';
             compBtn.onclick = async ()=>{
                 await fetchJson(`/api/steward/reservations/${r.id}/complete`,{method:'PATCH'});
                 await reloadAll();
             }
             compBtn.addEventListener('click', (e)=>e.stopPropagation());
-            li.appendChild(compBtn);
+            actions.appendChild(compBtn);
 
-            const editBtn = document.createElement('button'); editBtn.textContent='Edit';
+            const editBtn = document.createElement('button'); editBtn.textContent='Edit'; editBtn.className='button button-subtle';
             editBtn.onclick = (e) => { e.stopPropagation(); showReservationPanel(r); };
-            li.appendChild(editBtn);
-            ul.appendChild(li);
+            actions.appendChild(editBtn);
+
+            item.appendChild(actions);
+            list.appendChild(item);
         });
-        container.appendChild(ul);
+        container.appendChild(list);
+        updateSummaryUI();
     }catch(e){ console.error(e); document.getElementById('seated-list').textContent='Error loading'; }
 }
 
@@ -159,14 +327,49 @@ async function loadGameCopies(){
     try{
         // Game copies are global (no date filter)
         const data = await fetchJson('/api/steward/game-copies');
+        hydrateGameCopyGameFilter(data);
+
+        const selectedGame = (document.getElementById('game-copy-game-filter') || {}).value || '';
+        const searchText = String((document.getElementById('game-copy-search') || {}).value || '').trim().toLowerCase();
+        const filtered = data.filter((copy) => {
+            if (selectedGame && String(copy.game_id) !== String(selectedGame)) return false;
+            if (!searchText) return true;
+            const title = String(copy.game_title || '').toLowerCase();
+            const code = String(copy.copy_code || '').toLowerCase();
+            return title.includes(searchText) || code.includes(searchText);
+        });
+
         const container = document.getElementById('game-copy-list');
         container.innerHTML='';
-        if(!data.length) { container.textContent='No game copies.'; return }
-        const ul = document.createElement('ul');
-        data.forEach(c=>{
-            const li = document.createElement('li');
-            li.textContent = `#${c.id} ${c.copy_code} status:${c.status}`;
+        DASHBOARD_SUMMARY.lostCopies = data.filter((c)=>c.status === 'lost').length;
+        if(!filtered.length) { container.textContent='No game copies match this filter.'; updateSummaryUI(); return }
+        const list = document.createElement('div');
+        list.className = 'steward-item-list';
+        filtered.forEach(c=>{
+            const item = document.createElement('article');
+            item.className = 'steward-item';
+
+            const head = document.createElement('div');
+            head.className = 'steward-item-head';
+
+            const title = document.createElement('p');
+            title.className = 'steward-item-title';
+            title.textContent = `${c.copy_code} (#${c.id})`;
+
+            const status = document.createElement('span');
+            status.className = `status-pill status-${String(c.status || '').replace('-', '_')}`;
+            status.textContent = String(c.status || 'unknown');
+            head.appendChild(title);
+            head.appendChild(status);
+            item.appendChild(head);
+
+            const meta = document.createElement('p');
+            meta.className = 'steward-item-meta';
+            meta.textContent = `${c.game_title || `Game #${c.game_id}`} · ${c.location || 'No location set'}`;
+            item.appendChild(meta);
+
             const statusBtn = document.createElement('button');
+            statusBtn.className = 'button button-subtle';
             if (c.status === 'lost') {
                 statusBtn.textContent = 'Remove Lost';
                 statusBtn.onclick = async () => {
@@ -181,10 +384,11 @@ async function loadGameCopies(){
                     await reloadAll();
                 }
             }
-            li.appendChild(statusBtn);
-            ul.appendChild(li);
+            item.appendChild(statusBtn);
+            list.appendChild(item);
         });
-        container.appendChild(ul);
+        container.appendChild(list);
+        updateSummaryUI();
     }catch(e){ console.error(e); document.getElementById('game-copy-list').textContent='Error loading'; }
 }
 
@@ -250,26 +454,42 @@ async function loadIncidents(){
         const data = await fetchJson('/api/steward/incidents' + q);
         const container = document.getElementById('incident-list');
         container.innerHTML='';
-        if(!data.length) { container.textContent='No incidents.'; return }
-        const ul = document.createElement('ul');
+        DASHBOARD_SUMMARY.incidents = data.length;
+        if(!data.length) { container.textContent='No incidents.'; updateSummaryUI(); return }
+        const list = document.createElement('div');
+        list.className = 'steward-item-list';
         data.forEach(i=>{
-            const li = document.createElement('li');
-            li.textContent = `#${i.id} copy:${i.game_copy_id} type:${i.incident_type} note:${i.note}`;
-            const delBtn = document.createElement('button'); delBtn.textContent='Delete';
+            const item = document.createElement('article');
+            item.className = 'steward-item';
+
+            const title = document.createElement('p');
+            title.className = 'steward-item-title';
+            title.textContent = `Incident #${i.id} · ${i.incident_type}`;
+            item.appendChild(title);
+
+            const meta = document.createElement('p');
+            meta.className = 'steward-item-meta';
+            meta.textContent = `Copy ${i.game_copy_id} · ${formatIsoDateTime(i.created_at)} · ${i.note || 'No note'}`;
+            item.appendChild(meta);
+
+            const delBtn = document.createElement('button'); delBtn.textContent='Delete'; delBtn.className='button button-subtle';
             delBtn.onclick = async ()=>{
                 if(!confirm('Delete incident #' + i.id + '?')) return;
                 await fetchJson(`/api/steward/incidents/${i.id}`,{method:'DELETE'});
                 await reloadAll();
             }
-            li.appendChild(delBtn);
-            ul.appendChild(li);
+            item.appendChild(delBtn);
+            list.appendChild(item);
         });
-        container.appendChild(ul);
+        container.appendChild(list);
+        updateSummaryUI();
     }catch(e){ console.error(e); document.getElementById('incident-list').textContent='Error loading'; }
 }
 
 async function reloadAll(){
     await Promise.all([loadPending(), loadSeated(), loadGameCopies(), loadIncidents(), loadFloorplan()]);
+    DASHBOARD_SUMMARY.lastUpdated = new Date();
+    updateSummaryUI();
 }
 
 window.addEventListener('DOMContentLoaded', ()=>{
@@ -289,6 +509,16 @@ window.addEventListener('DOMContentLoaded', ()=>{
     bindLink('link-seated', loadSeated);
     bindLink('link-game-copies', loadGameCopies);
     bindLink('link-incidents', loadIncidents);
+    const gameFilter = document.getElementById('game-copy-game-filter');
+    if (gameFilter) gameFilter.addEventListener('change', () => loadGameCopies());
+    const gameSearch = document.getElementById('game-copy-search');
+    if (gameSearch) gameSearch.addEventListener('input', () => loadGameCopies());
+    const refreshBtn = document.getElementById('steward-refresh');
+    if (refreshBtn) refreshBtn.addEventListener('click', () => reloadAll());
+    const pendingSearch = document.getElementById('pending-search');
+    if (pendingSearch) pendingSearch.addEventListener('input', () => loadPending());
+    const seatedSearch = document.getElementById('seated-search');
+    if (seatedSearch) seatedSearch.addEventListener('input', () => loadSeated());
     // initialize date picker to today
     const dateInput = document.getElementById('live-date');
     if (dateInput) {
@@ -305,6 +535,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     // subscribe to realtime domain events to update dashboard live
     try {
         const es = new EventSource('/api/events/stream');
+        updateRealtimeConnectionStatus('Realtime: connected');
         es.addEventListener('domain_event', (e) => {
             try {
                 const payload = JSON.parse(e.data);
@@ -337,6 +568,30 @@ window.addEventListener('DOMContentLoaded', ()=>{
                     return;
                 }
 
+                if (et === 'reservation.seated') {
+                    const data = payload.data || {};
+                    const reservationId = data.reservation_id || 'unknown';
+                    const eventKey = `reservation.seated:${reservationId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    const seatedBy = data.seated_by_role ? ` by ${data.seated_by_role}` : '';
+                    showRealtimeNotice(`Booking #${reservationId} was seated${seatedBy}.`, 'success');
+                    reloadAll();
+                    return;
+                }
+
+                if (et === 'reservation.completed') {
+                    const data = payload.data || {};
+                    const reservationId = data.reservation_id || 'unknown';
+                    const eventKey = `reservation.completed:${reservationId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    const completedBy = data.completed_by_role ? ` by ${data.completed_by_role}` : '';
+                    showRealtimeNotice(`Booking #${reservationId} was completed${completedBy}.`, 'info');
+                    reloadAll();
+                    return;
+                }
+
                 if (et.startsWith('game.copy') || et.startsWith('game_copy') || et.startsWith('incident') || et.startsWith('reservation') || et.startsWith('waitlist')) {
                     // For simplicity, reload the lists that may be affected
                     reloadAll();
@@ -345,8 +600,15 @@ window.addEventListener('DOMContentLoaded', ()=>{
                 console.error('Failed to handle domain_event', err);
             }
         });
-        es.addEventListener('ready', (e) => console.debug('realtime stream connected'));
+        es.addEventListener('ready', (_e) => {
+            updateRealtimeConnectionStatus('Realtime: connected');
+            console.debug('realtime stream connected');
+        });
+        es.addEventListener('error', (_e) => {
+            updateRealtimeConnectionStatus('Realtime: reconnecting...');
+        });
     } catch (err) {
+        updateRealtimeConnectionStatus('Realtime: unavailable');
         console.warn('Realtime events not available', err);
     }
     // Reservation side panel helpers
@@ -356,6 +618,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
         panel.innerHTML = '';
 
         const form = document.createElement('form');
+        form.className = 'steward-edit-form';
 
         const idLine = document.createElement('div'); idLine.textContent = `Reservation #${reservation.id}`;
         form.appendChild(idLine);
@@ -363,29 +626,37 @@ window.addEventListener('DOMContentLoaded', ()=>{
         const custLine = document.createElement('div'); custLine.textContent = `Customer: ${reservation.customer_id}`;
         form.appendChild(custLine);
 
-        const tableLabel = document.createElement('label'); tableLabel.textContent = 'Table ID: '; 
-        const tableInput = document.createElement('input'); tableInput.type='number'; tableInput.value = reservation.table_id || '';
-        form.appendChild(tableLabel); form.appendChild(tableInput); form.appendChild(document.createElement('br'));
+        const tableWrap = document.createElement('div'); tableWrap.className = 'steward-edit-grid';
+        const tableLabel = document.createElement('label'); tableLabel.className='form-label'; tableLabel.textContent = 'Table ID';
+        const tableInput = document.createElement('input'); tableInput.type='number'; tableInput.className='form-input'; tableInput.value = reservation.table_id || '';
+        tableWrap.appendChild(tableLabel); tableWrap.appendChild(tableInput); form.appendChild(tableWrap);
 
-        const startLabel = document.createElement('label'); startLabel.textContent = 'Start: ';
-        const startInput = document.createElement('input'); startInput.type='datetime-local';
+        const startWrap = document.createElement('div'); startWrap.className = 'steward-edit-grid';
+        const startLabel = document.createElement('label'); startLabel.className='form-label'; startLabel.textContent = 'Start';
+        const startInput = document.createElement('input'); startInput.type='datetime-local'; startInput.className='form-input';
         if (reservation.start_ts) startInput.value = toLocalInputValue(reservation.start_ts);
-        form.appendChild(startLabel); form.appendChild(startInput); form.appendChild(document.createElement('br'));
+        startWrap.appendChild(startLabel); startWrap.appendChild(startInput); form.appendChild(startWrap);
 
-        const endLabel = document.createElement('label'); endLabel.textContent = 'End: ';
-        const endInput = document.createElement('input'); endInput.type='datetime-local';
+        const endWrap = document.createElement('div'); endWrap.className = 'steward-edit-grid';
+        const endLabel = document.createElement('label'); endLabel.className='form-label'; endLabel.textContent = 'End';
+        const endInput = document.createElement('input'); endInput.type='datetime-local'; endInput.className='form-input';
         if (reservation.end_ts) endInput.value = toLocalInputValue(reservation.end_ts);
-        form.appendChild(endLabel); form.appendChild(endInput); form.appendChild(document.createElement('br'));
+        endWrap.appendChild(endLabel); endWrap.appendChild(endInput); form.appendChild(endWrap);
 
-        const partyLabel = document.createElement('label'); partyLabel.textContent = 'Party size: ';
-        const partyInput = document.createElement('input'); partyInput.type='number'; partyInput.value = reservation.party_size || 1;
-        form.appendChild(partyLabel); form.appendChild(partyInput); form.appendChild(document.createElement('br'));
+        const partyWrap = document.createElement('div'); partyWrap.className = 'steward-edit-grid';
+        const partyLabel = document.createElement('label'); partyLabel.className='form-label'; partyLabel.textContent = 'Party Size';
+        const partyInput = document.createElement('input'); partyInput.type='number'; partyInput.className='form-input'; partyInput.value = reservation.party_size || 1;
+        partyWrap.appendChild(partyLabel); partyWrap.appendChild(partyInput); form.appendChild(partyWrap);
 
-        const notesLabel = document.createElement('label'); notesLabel.textContent = 'Notes: ';
-        const notesInput = document.createElement('textarea'); notesInput.rows=4; notesInput.cols=30; notesInput.value = reservation.notes || '';
-        form.appendChild(notesLabel); form.appendChild(document.createElement('br')); form.appendChild(notesInput); form.appendChild(document.createElement('br'));
+        const notesWrap = document.createElement('div'); notesWrap.className = 'steward-edit-grid';
+        const notesLabel = document.createElement('label'); notesLabel.className='form-label'; notesLabel.textContent = 'Notes';
+        const notesInput = document.createElement('textarea'); notesInput.rows=4; notesInput.value = reservation.notes || ''; notesInput.className='form-input';
+        notesWrap.appendChild(notesLabel); notesWrap.appendChild(notesInput); form.appendChild(notesWrap);
 
-        const saveBtn = document.createElement('button'); saveBtn.type='button'; saveBtn.textContent='Save';
+        const buttonRow = document.createElement('div');
+        buttonRow.className = 'steward-item-actions';
+
+        const saveBtn = document.createElement('button'); saveBtn.type='button'; saveBtn.textContent='Save'; saveBtn.className='button';
         saveBtn.onclick = async () => {
             const payload = {
                 table_id: tableInput.value ? Number(tableInput.value) : null,
@@ -403,10 +674,12 @@ window.addEventListener('DOMContentLoaded', ()=>{
                 alert('Failed to save: ' + err);
             }
         };
-        const cancelBtn = document.createElement('button'); cancelBtn.type='button'; cancelBtn.textContent='Close';
+        const cancelBtn = document.createElement('button'); cancelBtn.type='button'; cancelBtn.textContent='Close'; cancelBtn.className='button button-subtle';
         cancelBtn.onclick = () => { panel.innerHTML = 'Select a reservation to view/edit.' };
 
-        form.appendChild(saveBtn); form.appendChild(cancelBtn);
+        buttonRow.appendChild(saveBtn);
+        buttonRow.appendChild(cancelBtn);
+        form.appendChild(buttonRow);
         panel.appendChild(form);
     }
 

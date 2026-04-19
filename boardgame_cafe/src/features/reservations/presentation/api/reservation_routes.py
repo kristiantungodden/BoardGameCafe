@@ -23,8 +23,13 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     MarkReservationNoShowUseCase,
     SeatReservationUseCase,
 )
+from shared.application.services.reservation_transition_event_publisher import (
+    publish_reservation_transition_event,
+)
 from shared.domain.exceptions import DomainError
-from shared.domain.events import ReservationCancelled, ReservationCreated
+from shared.domain.events import (
+    ReservationCreated,
+)
 from shared.infrastructure import csrf
 from shared.infrastructure.draft_store import clear_booking_draft, get_booking_draft, save_booking_draft
 from shared.infrastructure.qr_codes import (
@@ -276,35 +281,12 @@ def _run_status_transition(use_case, reservation_id: int):
     if reservation is None:
         return {"error": "Reservation not found"}, 404
 
-    if getattr(reservation, "status", None) == "cancelled":
-        event_bus = getattr(current_app, "event_bus", None)
-        if event_bus is not None:
-            cancellation_role = actor_role
-            if cancellation_role is None:
-                if getattr(current_user, "is_staff", False):
-                    cancellation_role = "staff"
-                elif getattr(current_user, "is_authenticated", False):
-                    cancellation_role = "customer"
-                else:
-                    cancellation_role = "unknown"
-
-            table_ids = getattr(reservation, "table_ids", None)
-            if table_ids is None:
-                table_id = getattr(reservation, "table_id", None)
-                table_ids = [table_id] if table_id is not None else []
-
-            event_bus.publish(
-                ReservationCancelled(
-                    reservation_id=reservation.id,
-                    user_id=reservation.customer_id,
-                    table_numbers=table_ids,
-                    start_ts=reservation.start_ts.isoformat(),
-                    end_ts=reservation.end_ts.isoformat(),
-                    party_size=reservation.party_size,
-                    cancelled_by_user_id=getattr(current_user, "id", None),
-                    cancelled_by_role=cancellation_role,
-                )
-            )
+    publish_reservation_transition_event(
+        event_bus=getattr(current_app, "event_bus", None),
+        reservation=reservation,
+        actor_user_id=getattr(current_user, "id", None),
+        actor_role=actor_role,
+    )
 
     return _serialize_reservation(reservation), 200
 
