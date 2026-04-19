@@ -1,4 +1,5 @@
 from flask import Blueprint, current_app, request, jsonify, url_for
+from flask_login import current_user
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import BadRequest
@@ -27,6 +28,23 @@ from shared.infrastructure.qr_codes import (
 bp = Blueprint("game_copies", __name__, url_prefix="/api/game-copies")
 
 copy_use_cases = get_game_copy_use_cases()
+
+
+def _is_staff_or_admin(user) -> bool:
+    role = getattr(user, "role", None)
+    if hasattr(role, "value"):
+        role = role.value
+    return role in {"staff", "admin"} or bool(
+        getattr(user, "is_staff", False) or getattr(user, "is_admin", False)
+    )
+
+
+def _require_staff_or_admin():
+    if not getattr(current_user, "is_authenticated", False):
+        return jsonify({"error": "Authentication required"}), 401
+    if not _is_staff_or_admin(current_user):
+        return jsonify({"error": "Staff access required"}), 403
+    return None
 
 
 def _serialize_game_copy(game_copy: GameCopy) -> dict:
@@ -74,6 +92,10 @@ def get_game_copy(copy_id: int):
 
 @bp.route("/", methods=["POST"])
 def create_game_copy():
+    err = _require_staff_or_admin()
+    if err:
+        return err
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -112,6 +134,10 @@ def create_game_copy():
 
 @bp.route("/<int:copy_id>/status", methods=["PATCH"])
 def update_game_copy_status(copy_id: int):
+    err = _require_staff_or_admin()
+    if err:
+        return err
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -141,6 +167,10 @@ def update_game_copy_status(copy_id: int):
 
 @bp.route("/<int:copy_id>/location", methods=["PATCH"])
 def update_game_copy_location(copy_id: int):
+    err = _require_staff_or_admin()
+    if err:
+        return err
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -172,6 +202,10 @@ def update_game_copy_location(copy_id: int):
 
 @bp.route("/<int:copy_id>/condition-note", methods=["PATCH"])
 def update_game_copy_condition_note(copy_id: int):
+    err = _require_staff_or_admin()
+    if err:
+        return err
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -203,6 +237,10 @@ def update_game_copy_condition_note(copy_id: int):
 
 @bp.route("/<int:copy_id>/qr", methods=["GET"])
 def get_game_copy_qr(copy_id: int):
+    err = _require_staff_or_admin()
+    if err:
+        return err
+
     game_copy = copy_use_cases.get_by_id.execute(copy_id)
     if not game_copy:
         return jsonify({"error": "Game copy not found"}), 404
@@ -217,6 +255,10 @@ def get_game_copy_qr(copy_id: int):
 
 @bp.route("/scan/<string:token>", methods=["GET"])
 def get_game_copy_by_qr(token: str):
+    err = _require_staff_or_admin()
+    if err:
+        return err
+
     copy_id = get_game_copy_id_by_qr_token(token)
     if copy_id is None:
         return jsonify({"error": "Invalid game copy QR code"}), 404

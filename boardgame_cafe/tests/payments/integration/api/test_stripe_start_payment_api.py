@@ -2,6 +2,22 @@ from types import SimpleNamespace
 
 from features.payments.domain.models.payment import Payment
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
+from features.payments.presentation.api import payment_routes
+
+
+class StubBookingRepository:
+    def get_by_id(self, booking_id: int):
+        return SimpleNamespace(id=booking_id, customer_id=1)
+
+
+payment_routes.current_user = SimpleNamespace(
+    id=1,
+    is_authenticated=True,
+    role="admin",
+    is_staff=True,
+    is_admin=True,
+)
+payment_routes.configure_booking_repository(StubBookingRepository())
 
 
 def test_start_payment_route_sets_provider_and_returns_redirect_url(client, app, monkeypatch):

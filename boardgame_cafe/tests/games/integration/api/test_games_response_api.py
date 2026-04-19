@@ -1,5 +1,14 @@
+import pytest
+
 from features.users.infrastructure import UserDB, hash_password
 from shared.infrastructure import db
+
+
+@pytest.fixture
+def client(app):
+    test_client = app.test_client()
+    _login_as_admin(test_client, app)
+    return test_client
 
 
 def _login_as_admin(client, app):

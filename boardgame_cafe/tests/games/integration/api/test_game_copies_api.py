@@ -1,6 +1,7 @@
 import pytest
 
 from features.games.presentation.api.game_copy_routes import bp as game_copy_bp
+from features.users.infrastructure import UserDB, hash_password
 from shared.infrastructure.qr_codes import get_or_create_game_copy_qr_token
 from shared.infrastructure import db
 from src.app import create_app
@@ -22,7 +23,26 @@ def app():
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    test_client = app.test_client()
+    with app.app_context():
+        existing = UserDB.query.filter_by(email="game-copies-admin@example.com").first()
+        if existing is None:
+            db.session.add(
+                UserDB(
+                    role="admin",
+                    name="Game Copies Admin",
+                    email="game-copies-admin@example.com",
+                    password_hash=hash_password("password123"),
+                )
+            )
+            db.session.commit()
+
+    login_response = test_client.post(
+        "/api/auth/login",
+        json={"email": "game-copies-admin@example.com", "password": "password123"},
+    )
+    assert login_response.status_code == 200
+    return test_client
 
 
 def _create_game(client, title: str = "Catan") -> int:

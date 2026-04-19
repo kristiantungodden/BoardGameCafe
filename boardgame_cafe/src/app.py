@@ -19,6 +19,7 @@ from shared.application.event_handlers.realtime_event_handler import (
 )
 
 from features.games.presentation.api import games_routes, game_copy_routes, game_rating_routes
+from features.bookings.infrastructure.repositories.booking_repository import SqlAlchemyBookingRepository
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
 from features.payments.presentation.api.payment_routes import (
     configure_payment_routes,
@@ -130,6 +131,10 @@ def create_app(config_name: str = None):
 def register_blueprints(app: Flask):
     """Register all API blueprints."""
     repo = PaymentRepository()
+    booking_repo = SqlAlchemyBookingRepository()
+    from features.payments.presentation.api.payment_routes import configure_booking_repository
+
+    configure_booking_repository(booking_repo)
     configure_payment_routes(repo)
     vipps = VippsAdapter()
     stripe_key = (app.config.get("STRIPE_SECRET_KEY") or "").strip()

@@ -76,6 +76,28 @@ def _can_view_reservation(user, reservation) -> bool:
     return getattr(reservation, "customer_id", None) == getattr(user, "id", None)
 
 
+def _require_authenticated():
+    if not current_user.is_authenticated:
+        return {"error": "Authentication required"}, 401
+    return None
+
+
+def _require_staff_or_admin():
+    if not current_user.is_authenticated:
+        return {"error": "Authentication required"}, 401
+    if not _is_staff_or_admin(current_user):
+        return {"error": "Staff access required"}, 403
+    return None
+
+
+def _require_reservation_access(reservation):
+    if _is_staff_or_admin(current_user):
+        return None
+    if getattr(reservation, "customer_id", None) != getattr(current_user, "id", None):
+        return {"error": "Unauthorized access to reservation"}, 403
+    return None
+
+
 def _checkin_redirect_target(reservation_id: int) -> str:
     if "my_bookings_page" in current_app.view_functions:
         return url_for("my_bookings_page")
@@ -126,8 +148,9 @@ def _serialize_status_history(entry):
 
 @bp.get("")
 def list_reservations():
-    if not current_user.is_authenticated:
-        return {"error": "Authentication required"}, 401
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
 
     use_case: ListReservationsUseCase = get_list_reservations_use_case()
     items = use_case.execute()
@@ -172,35 +195,36 @@ def get_booking_availability():
 
 @bp.get("/<int:reservation_id>")
 def get_reservation(reservation_id: int):
-    if not current_user.is_authenticated:
-        return {"error": "Authentication required"}, 401
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
 
     use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
     reservation = use_case.execute(reservation_id)
     if reservation is None:
         return {"error": "Reservation not found"}, 404
     
-    # Check authorization: user can only view their own reservation (unless staff)
-    if not (hasattr(current_user, 'is_staff') and current_user.is_staff):
-        if reservation.customer_id != current_user.id:
-            return {"error": "Unauthorized access to reservation"}, 403
+    auth_error = _require_reservation_access(reservation)
+    if auth_error:
+        return auth_error
     
     return _serialize_reservation(reservation), 200
 
 
 @bp.get("/<int:reservation_id>/history")
 def get_reservation_history(reservation_id: int):
-    if not current_user.is_authenticated:
-        return {"error": "Authentication required"}, 401
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
 
     reservation_use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
     reservation = reservation_use_case.execute(reservation_id)
     if reservation is None:
         return {"error": "Reservation not found"}, 404
 
-    if not (hasattr(current_user, "is_staff") and current_user.is_staff):
-        if reservation.customer_id != current_user.id:
-            return {"error": "Unauthorized access to reservation"}, 403
+    auth_error = _require_reservation_access(reservation)
+    if auth_error:
+        return auth_error
 
     history_use_case = get_reservation_status_history_use_case()
     history = history_use_case.execute(reservation_id)
@@ -211,8 +235,9 @@ def get_reservation_history(reservation_id: int):
 
 @bp.post("")
 def create_reservation():
-    if not current_user.is_authenticated:
-        return {"error": "Authentication required"}, 401
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
 
     try:
         raw = request.get_json()
@@ -263,8 +288,14 @@ def create_reservation():
 
 
 def _run_status_transition(use_case, reservation_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
     try:
         actor_role = getattr(current_user, "role", None)
+        if hasattr(actor_role, "value"):
+            actor_role = actor_role.value
         if actor_role is None and getattr(current_user, "is_staff", False):
             actor_role = "staff"
         if actor_role is None and getattr(current_user, "is_authenticated", False):
@@ -293,30 +324,67 @@ def _run_status_transition(use_case, reservation_id: int):
 
 @bp.patch("/<int:reservation_id>/cancel")
 def cancel_reservation(reservation_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
+    if not _is_staff_or_admin(current_user):
+        reservation_use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
+        reservation = reservation_use_case.execute(reservation_id)
+        if reservation is None:
+            return {"error": "Reservation not found"}, 404
+        if getattr(reservation, "customer_id", None) != getattr(current_user, "id", None):
+            return {"error": "Unauthorized access to reservation"}, 403
+
     use_case: CancelReservationUseCase = get_cancel_reservation_use_case()
     return _run_status_transition(use_case, reservation_id)
 
 
 @bp.patch("/<int:reservation_id>/seat")
 def seat_reservation(reservation_id: int):
+    auth_error = _require_staff_or_admin()
+    if auth_error:
+        return auth_error
+
     use_case: SeatReservationUseCase = get_seat_reservation_use_case()
     return _run_status_transition(use_case, reservation_id)
 
 
 @bp.patch("/<int:reservation_id>/complete")
 def complete_reservation(reservation_id: int):
+    auth_error = _require_staff_or_admin()
+    if auth_error:
+        return auth_error
+
     use_case: CompleteReservationUseCase = get_complete_reservation_use_case()
     return _run_status_transition(use_case, reservation_id)
 
 
 @bp.patch("/<int:reservation_id>/no-show")
 def no_show_reservation(reservation_id: int):
+    auth_error = _require_staff_or_admin()
+    if auth_error:
+        return auth_error
+
     use_case: MarkReservationNoShowUseCase = get_no_show_reservation_use_case()
     return _run_status_transition(use_case, reservation_id)
 
 
 @bp.post("/<int:reservation_id>/games")
 def add_game_to_reservation(reservation_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
+    if not _is_staff_or_admin(current_user):
+        reservation_use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
+        reservation = reservation_use_case.execute(reservation_id)
+        if reservation is None:
+            return {"error": "Reservation not found"}, 404
+        auth_error = _require_reservation_access(reservation)
+        if auth_error:
+            return auth_error
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -344,6 +412,19 @@ def add_game_to_reservation(reservation_id: int):
 
 @bp.get("/<int:reservation_id>/games")
 def list_games_for_reservation(reservation_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
+    if not _is_staff_or_admin(current_user):
+        reservation_use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
+        reservation = reservation_use_case.execute(reservation_id)
+        if reservation is None:
+            return {"error": "Reservation not found"}, 404
+        auth_error = _require_reservation_access(reservation)
+        if auth_error:
+            return auth_error
+
     use_case: ListReservationGamesUseCase = get_list_reservation_games_use_case()
     try:
         reservation_games = use_case.execute(reservation_id)
@@ -355,6 +436,19 @@ def list_games_for_reservation(reservation_id: int):
 
 @bp.delete("/<int:reservation_id>/games/<int:reservation_game_id>")
 def remove_game_from_reservation(reservation_id: int, reservation_game_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
+    if not _is_staff_or_admin(current_user):
+        reservation_use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
+        reservation = reservation_use_case.execute(reservation_id)
+        if reservation is None:
+            return {"error": "Reservation not found"}, 404
+        auth_error = _require_reservation_access(reservation)
+        if auth_error:
+            return auth_error
+
     use_case: RemoveGameFromReservationUseCase = (
         get_remove_game_from_reservation_use_case()
     )
@@ -372,16 +466,18 @@ def remove_game_from_reservation(reservation_id: int, reservation_game_id: int):
 
 @bp.get("/<int:reservation_id>/qr")
 def get_reservation_qr(reservation_id: int):
-    if not current_user.is_authenticated:
-        return {"error": "Authentication required"}, 401
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
 
     reservation_use_case: GetReservationByIdUseCase = get_reservation_by_id_use_case()
     reservation = reservation_use_case.execute(reservation_id)
     if reservation is None:
         return {"error": "Reservation not found"}, 404
 
-    if not _can_view_reservation(current_user, reservation):
-        return {"error": "Unauthorized access to reservation"}, 403
+    auth_error = _require_reservation_access(reservation)
+    if auth_error:
+        return auth_error
 
     token = get_or_create_reservation_qr_token(
         current_app.config["SECRET_KEY"],
@@ -397,11 +493,9 @@ def get_reservation_qr(reservation_id: int):
 
 @bp.get("/checkin/<string:token>")
 def check_in_with_token(token: str):
-    if not current_user.is_authenticated:
-        return {"error": "Authentication required"}, 401
-
-    if not _is_staff_or_admin(current_user):
-        return {"error": "Staff access required"}, 403
+    auth_error = _require_staff_or_admin()
+    if auth_error:
+        return auth_error
 
     try:
         reservation_id = decode_reservation_qr_token(current_app.config["SECRET_KEY"], token)

@@ -2,7 +2,11 @@ from http import HTTPStatus
 from types import SimpleNamespace
 
 from flask import Blueprint, current_app, jsonify, request
+from flask_login import current_user
 
+from features.bookings.application.interfaces.booking_repository_interface import (
+    BookingRepositoryInterface,
+)
 from features.payments.application.interfaces.payment_repository_interface import (
     PaymentRepositoryInterface,
 )
@@ -25,11 +29,17 @@ from features.payments.presentation.schemas.payment_schema import PaymentSchema
 payment_bp = Blueprint("payments", __name__, url_prefix="/api/payments")
 _payment_repository: PaymentRepositoryInterface | None = None
 _payment_provider: PaymentProviderInterface | None = None
+_booking_repository: BookingRepositoryInterface | None = None
 
 
 def configure_payment_routes(repository: PaymentRepositoryInterface) -> None:
     global _payment_repository
     _payment_repository = repository
+
+
+def configure_booking_repository(repository: BookingRepositoryInterface) -> None:
+    global _booking_repository
+    _booking_repository = repository
 
 
 def configure_payment_provider(provider: PaymentProviderInterface) -> None:
@@ -47,6 +57,44 @@ def _resolve_provider_for_payment(payment) -> PaymentProviderInterface | None:
             return _payment_provider
         return create_default_payment_provider()
     return _payment_provider
+
+
+def _is_staff_or_admin(user) -> bool:
+    role = getattr(user, "role", None)
+    if hasattr(role, "value"):
+        role = role.value
+    return role in {"staff", "admin"} or bool(
+        getattr(user, "is_staff", False) or getattr(user, "is_admin", False)
+    )
+
+
+def _require_authenticated():
+    if not getattr(current_user, "is_authenticated", False):
+        return {"error": "Authentication required"}, HTTPStatus.UNAUTHORIZED
+    return None
+
+
+def _get_booking_for_payment(payment):
+    if _booking_repository is None:
+        return None
+    booking_id = getattr(payment, "booking_id", None)
+    if booking_id is None:
+        return None
+    return _booking_repository.get_by_id(int(booking_id))
+
+
+def _require_payment_access(payment):
+    if _is_staff_or_admin(current_user):
+        return None
+
+    booking = _get_booking_for_payment(payment)
+    if booking is None:
+        return {"error": "Payment not found"}, HTTPStatus.NOT_FOUND
+
+    if getattr(booking, "customer_id", None) != getattr(current_user, "id", None):
+        return {"error": "Unauthorized access to payment"}, HTTPStatus.FORBIDDEN
+
+    return None
 
 
 @payment_bp.post("/calculate")
@@ -74,12 +122,24 @@ def calculate_payment_route():
 # CHANGE create_payment_route the same way — remove manual party_size checks:
 @payment_bp.post("/")
 def create_payment_route():
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
     if _payment_repository is None:
         return jsonify({"error": "Payment repository is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
+    if _booking_repository is None:
+        return jsonify({"error": "Booking repository is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
 
     try:
         data = request.get_json(silent=True) or {}
         validated = PaymentSchema.validate_create_request(data)
+
+        booking = _booking_repository.get_by_id(validated["booking_id"])
+        if booking is None:
+            return jsonify({"error": "Reservation not found"}), HTTPStatus.NOT_FOUND
+        if not _is_staff_or_admin(current_user) and getattr(booking, "customer_id", None) != getattr(current_user, "id", None):
+            return jsonify({"error": "Unauthorized access to payment"}), HTTPStatus.FORBIDDEN
 
         reservation = SimpleNamespace(
             id=validated["booking_id"],
@@ -96,11 +156,18 @@ def create_payment_route():
 # ADD a GET endpoint at the bottom:
 @payment_bp.get("/<int:payment_id>")
 def get_payment_route(payment_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
     if _payment_repository is None:
         return jsonify({"error": "Payment repository is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
 
     try:
         payment = get_payment_by_id(payment_id, _payment_repository)
+        access_error = _require_payment_access(payment)
+        if access_error:
+            return access_error
         return jsonify(PaymentSchema.dump(payment)), HTTPStatus.OK
     except ValueError as exc:
         return jsonify({"error": str(exc)}), HTTPStatus.NOT_FOUND
@@ -109,6 +176,10 @@ def get_payment_route(payment_id: int):
 # Start a payment with the configured provider for an existing payment id
 @payment_bp.post("/start/<int:payment_id>")
 def start_payment_route(payment_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
     if _payment_repository is None:
         return jsonify({"error": "Payment repository is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
     if _payment_provider is None:
@@ -116,6 +187,9 @@ def start_payment_route(payment_id: int):
 
     try:
         payment = get_payment_by_id(payment_id, _payment_repository)
+        access_error = _require_payment_access(payment)
+        if access_error:
+            return access_error
         provider = _resolve_provider_for_payment(payment)
         if provider is None:
             return jsonify({"error": "Payment provider is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
@@ -147,6 +221,10 @@ def start_payment_route(payment_id: int):
 # Check provider status for a stored payment and update local record
 @payment_bp.get("/status/<int:payment_id>")
 def check_payment_status_route(payment_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
     if _payment_repository is None:
         return jsonify({"error": "Payment repository is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
     if _payment_provider is None:
@@ -154,6 +232,9 @@ def check_payment_status_route(payment_id: int):
 
     try:
         payment = get_payment_by_id(payment_id, _payment_repository)
+        access_error = _require_payment_access(payment)
+        if access_error:
+            return access_error
         provider = _resolve_provider_for_payment(payment)
         if provider is None:
             return jsonify({"error": "Payment provider is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
@@ -175,6 +256,10 @@ def check_payment_status_route(payment_id: int):
 # Capture a reserved payment (optionally partial)
 @payment_bp.post("/capture/<int:payment_id>")
 def capture_payment_route(payment_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
     if _payment_repository is None:
         return jsonify({"error": "Payment repository is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
     if _payment_provider is None:
@@ -182,6 +267,9 @@ def capture_payment_route(payment_id: int):
 
     try:
         payment = get_payment_by_id(payment_id, _payment_repository)
+        access_error = _require_payment_access(payment)
+        if access_error:
+            return access_error
         provider = _resolve_provider_for_payment(payment)
         if provider is None:
             return jsonify({"error": "Payment provider is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
@@ -199,6 +287,10 @@ def capture_payment_route(payment_id: int):
 # Cancel a payment reservation
 @payment_bp.post("/cancel/<int:payment_id>")
 def cancel_payment_route(payment_id: int):
+    auth_error = _require_authenticated()
+    if auth_error:
+        return auth_error
+
     if _payment_repository is None:
         return jsonify({"error": "Payment repository is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR
     if _payment_provider is None:
@@ -206,6 +298,9 @@ def cancel_payment_route(payment_id: int):
 
     try:
         payment = get_payment_by_id(payment_id, _payment_repository)
+        access_error = _require_payment_access(payment)
+        if access_error:
+            return access_error
         provider = _resolve_provider_for_payment(payment)
         if provider is None:
             return jsonify({"error": "Payment provider is not configured"}), HTTPStatus.INTERNAL_SERVER_ERROR

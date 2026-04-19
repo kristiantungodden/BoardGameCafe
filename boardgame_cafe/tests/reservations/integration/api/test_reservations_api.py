@@ -1,5 +1,7 @@
 from datetime import datetime
+from types import SimpleNamespace
 
+import pytest
 from flask import Flask
 import features.reservations.presentation.api.reservation_routes as reservations_module
 from features.bookings.domain.models.booking import Booking
@@ -11,6 +13,17 @@ def _make_reservation(*, table_id: int, **kwargs) -> Booking:
     reservation = Booking(**kwargs)
     setattr(reservation, "table_id", table_id)
     return reservation
+
+
+@pytest.fixture(autouse=True)
+def _default_authenticated_user():
+    reservations_module.current_user = SimpleNamespace(
+        id=1,
+        is_authenticated=True,
+        role="staff",
+        is_staff=True,
+        is_admin=False,
+    )
 
 
 class FakeTransitionUseCase:
@@ -276,7 +289,7 @@ def test_patch_reservation_cancel_publishes_domain_event(monkeypatch):
     event = app.event_bus.events[0]
     assert isinstance(event, ReservationCancelled)
     assert event.reservation_id == 1
-    assert event.cancelled_by_role == "unknown"
+    assert event.cancelled_by_role == "staff"
 
 
 def test_patch_reservation_seat_not_found(monkeypatch):

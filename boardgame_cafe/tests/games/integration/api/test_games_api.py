@@ -2,8 +2,9 @@ from decimal import Decimal
 
 import pytest
 from features.games.infrastructure.database.game_copy_db import GameCopyDB
-from src.app import create_app
+from features.users.infrastructure import UserDB, hash_password
 from shared.infrastructure import db
+from src.app import create_app
 
 @pytest.fixture
 def app():
@@ -18,7 +19,26 @@ def app():
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    test_client = app.test_client()
+    with app.app_context():
+        existing = UserDB.query.filter_by(email="games-api-admin@example.com").first()
+        if existing is None:
+            db.session.add(
+                UserDB(
+                    role="admin",
+                    name="Games API Admin",
+                    email="games-api-admin@example.com",
+                    password_hash=hash_password("password123"),
+                )
+            )
+            db.session.commit()
+
+    login_response = test_client.post(
+        "/api/auth/login",
+        json={"email": "games-api-admin@example.com", "password": "password123"},
+    )
+    assert login_response.status_code == 200
+    return test_client
 
 
 def test_create_and_get_game(client):

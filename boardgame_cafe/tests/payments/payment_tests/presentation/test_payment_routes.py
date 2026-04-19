@@ -1,9 +1,11 @@
 import pytest
 from flask import Flask
+from types import SimpleNamespace
 
 from features.payments.domain.models.payment import Payment
 from features.payments.presentation.api import payment_routes
 from features.payments.presentation.api.payment_routes import (
+    configure_booking_repository,
     configure_payment_routes,
     payment_bp,
 )
@@ -27,12 +29,25 @@ class StubRepository:
         )
 
 
+class StubBookingRepository:
+    def get_by_id(self, booking_id: int):
+        return SimpleNamespace(id=booking_id, customer_id=1)
+
+
 def create_test_client(repository=None):
     app = Flask(__name__)
     app.register_blueprint(payment_bp)
 
     from features.payments.presentation.api import payment_routes
     payment_routes._payment_repository = None
+    payment_routes.current_user = SimpleNamespace(
+        id=1,
+        is_authenticated=True,
+        role="admin",
+        is_staff=True,
+        is_admin=True,
+    )
+    configure_booking_repository(StubBookingRepository())
     
     if repository is not None:
         configure_payment_routes(repository)

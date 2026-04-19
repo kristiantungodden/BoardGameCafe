@@ -35,7 +35,10 @@ tag_use_cases = get_game_tag_use_cases()
 def _require_admin():
     if not getattr(current_user, "is_authenticated", False):
         return jsonify({"error": "Authentication required"}), 401
-    if getattr(current_user, "role", None) != "admin":
+    role = getattr(current_user, "role", None)
+    if hasattr(role, "value"):
+        role = role.value
+    if role != "admin":
         return jsonify({"error": "Admin access required"}), 403
     return None
 
@@ -138,6 +141,10 @@ def get_game(game_id: int):
 
 @bp.route("/", methods=["POST"])
 def create_game():
+    err = _require_admin()
+    if err:
+        return err
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -165,6 +172,10 @@ def create_game():
 
 @bp.route("/<int:game_id>", methods=["PUT"])
 def update_game(game_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
     try:
         raw = request.get_json()
     except BadRequest:
@@ -212,6 +223,10 @@ def update_game(game_id: int):
 
 @bp.route("/<int:game_id>", methods=["DELETE"])
 def delete_game(game_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
     game = use_cases.get_game(game_id)
     if not game:
         return jsonify({"error": "Game not found"}), 404

@@ -1,5 +1,14 @@
+import pytest
+
 from features.users.infrastructure import UserDB, hash_password
 from shared.infrastructure import db
+
+
+@pytest.fixture
+def client(app):
+    test_client = app.test_client()
+    _login(test_client, _ensure_admin_user(app))
+    return test_client
 
 
 def _ensure_admin_user(app, email: str = "games-query-admin@example.com") -> str:

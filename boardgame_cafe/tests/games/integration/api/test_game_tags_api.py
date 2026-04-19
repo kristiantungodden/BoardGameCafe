@@ -79,7 +79,8 @@ def test_create_duplicate_tag_rejected(client, admin_user):
     assert second.get_json()["error"] == "Tag already exists"
 
 
-def test_attach_tag_requires_admin(client):
+def test_attach_tag_requires_admin(client, admin_user):
+    _login(client, admin_user)
     game_response = client.post(
         "/api/games/",
         json={
@@ -92,10 +93,19 @@ def test_attach_tag_requires_admin(client):
     )
     game_id = game_response.get_json()["id"]
 
-    response = client.post(
-        f"/api/games/{game_id}/tags",
-        json={"tag_id": 1},
-    )
+    from unittest.mock import patch
+    from types import SimpleNamespace
+    from features.games.presentation.api import games_routes
+
+    with patch.object(
+        games_routes,
+        "current_user",
+        SimpleNamespace(is_authenticated=False, role=None, is_staff=False, is_admin=False),
+    ):
+        response = client.post(
+            f"/api/games/{game_id}/tags",
+            json={"tag_id": 1},
+        )
     assert response.status_code == 401
     assert response.get_json()["error"] == "Authentication required"
 
