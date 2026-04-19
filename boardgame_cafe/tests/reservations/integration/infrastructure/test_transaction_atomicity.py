@@ -32,7 +32,7 @@ class TestTransactionAtomicity:
 		- No games assigned
 		- No payment record
 		"""
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -89,7 +89,7 @@ class TestTransactionAtomicity:
 		REQUIREMENT: If party is too large for any available table,
 		booking must fail completely without creating any records.
 		"""
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)

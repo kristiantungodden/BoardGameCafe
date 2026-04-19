@@ -5,17 +5,12 @@ from werkzeug.exceptions import BadRequest
 
 from features.games.application.use_cases.game_copy_use_cases import (
     CreateGameCopyCommand,
-    CreateGameCopyUseCase,
-    GetGameCopyByIdUseCase,
-    ListGameCopiesUseCase,
-    UpdateGameCopyConditionNoteUseCase,
-    UpdateGameCopyLocationUseCase,
-    UpdateGameCopyStatusUseCase,
+)
+from features.games.composition.game_use_case_factories import (
+    get_game_copy_use_cases,
+    rollback_games_transaction,
 )
 from features.games.domain.models.game_copy import GameCopy
-from features.games.infrastructure.repositories.game_copy_repository import (
-    GameCopyRepositoryImpl,
-)
 from features.games.presentation.schemas.game_copy_schema import (
     GameCopyConditionNoteUpdateRequest,
     GameCopyCreateRequest,
@@ -23,7 +18,6 @@ from features.games.presentation.schemas.game_copy_schema import (
     GameCopyStatusUpdateRequest,
 )
 from shared.domain.exceptions import DomainError
-from shared.infrastructure import db
 from shared.infrastructure.qr_codes import (
     generate_qr_svg,
     get_game_copy_id_by_qr_token,
@@ -32,13 +26,7 @@ from shared.infrastructure.qr_codes import (
 
 bp = Blueprint("game_copies", __name__, url_prefix="/api/game-copies")
 
-repository = GameCopyRepositoryImpl()
-create_game_copy_use_case = CreateGameCopyUseCase(repository)
-list_game_copies_use_case = ListGameCopiesUseCase(repository)
-get_game_copy_by_id_use_case = GetGameCopyByIdUseCase(repository)
-update_game_copy_status_use_case = UpdateGameCopyStatusUseCase(repository)
-update_game_copy_location_use_case = UpdateGameCopyLocationUseCase(repository)
-update_game_copy_condition_note_use_case = UpdateGameCopyConditionNoteUseCase(repository)
+copy_use_cases = get_game_copy_use_cases()
 
 
 def _serialize_game_copy(game_copy: GameCopy) -> dict:
@@ -71,13 +59,13 @@ def _serialize_game_copy_db(game_copy_db) -> dict:
 
 @bp.route("/", methods=["GET"])
 def list_game_copies():
-    game_copies = list_game_copies_use_case.execute()
+    game_copies = copy_use_cases.list_all.execute()
     return jsonify([_serialize_game_copy(copy) for copy in game_copies]), 200
 
 
 @bp.route("/<int:copy_id>", methods=["GET"])
 def get_game_copy(copy_id: int):
-    game_copy = get_game_copy_by_id_use_case.execute(copy_id)
+    game_copy = copy_use_cases.get_by_id.execute(copy_id)
     if not game_copy:
         return jsonify({"error": "Game copy not found"}), 404
 
@@ -102,7 +90,7 @@ def create_game_copy():
         ), 400
 
     try:
-        game_copy = create_game_copy_use_case.execute(
+        game_copy = copy_use_cases.create.execute(
             CreateGameCopyCommand(
                 game_id=payload.game_id,
                 copy_code=payload.copy_code,
@@ -116,7 +104,7 @@ def create_game_copy():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except IntegrityError:
-        db.session.rollback()
+        rollback_games_transaction()
         return jsonify({"error": "copy_code already exists"}), 409
 
     return jsonify(_serialize_game_copy(game_copy)), 201
@@ -140,7 +128,7 @@ def update_game_copy_status(copy_id: int):
         ), 400
 
     try:
-        game_copy = update_game_copy_status_use_case.execute(copy_id, payload.action)
+        game_copy = copy_use_cases.update_status.execute(copy_id, payload.action)
     except ValueError as exc:
         if str(exc) == "Game copy not found":
             return jsonify({"error": str(exc)}), 404
@@ -169,7 +157,7 @@ def update_game_copy_location(copy_id: int):
         ), 400
 
     try:
-        game_copy = update_game_copy_location_use_case.execute(
+        game_copy = copy_use_cases.update_location.execute(
             copy_id, payload.location
         )
     except ValueError as exc:
@@ -200,7 +188,7 @@ def update_game_copy_condition_note(copy_id: int):
         ), 400
 
     try:
-        game_copy = update_game_copy_condition_note_use_case.execute(
+        game_copy = copy_use_cases.update_condition_note.execute(
             copy_id, payload.condition_note
         )
     except ValueError as exc:
@@ -215,7 +203,7 @@ def update_game_copy_condition_note(copy_id: int):
 
 @bp.route("/<int:copy_id>/qr", methods=["GET"])
 def get_game_copy_qr(copy_id: int):
-    game_copy = get_game_copy_by_id_use_case.execute(copy_id)
+    game_copy = copy_use_cases.get_by_id.execute(copy_id)
     if not game_copy:
         return jsonify({"error": "Game copy not found"}), 404
 
@@ -233,12 +221,10 @@ def get_game_copy_by_qr(token: str):
     if copy_id is None:
         return jsonify({"error": "Invalid game copy QR code"}), 404
 
-    from features.games.infrastructure.database.game_copy_db import GameCopyDB
-
-    game_copy_db = db.session.get(GameCopyDB, copy_id)
-    if game_copy_db is None:
+    game_copy = copy_use_cases.get_by_id.execute(copy_id)
+    if game_copy is None:
         return jsonify({"error": "Game copy not found"}), 404
 
-    payload = _serialize_game_copy_db(game_copy_db)
+    payload = _serialize_game_copy(game_copy)
     payload["qr_token"] = token
     return jsonify(payload), 200

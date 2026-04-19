@@ -6,28 +6,21 @@ from werkzeug.exceptions import BadRequest
 
 from features.games.application.use_cases.game_rating_use_cases import (
     CreateGameRatingCommand,
-    CreateGameRatingUseCase,
-    GetRatingsByGameIdUseCase,
-    GetAverageRatingByGameIdUseCase,
+)
+from features.games.composition.game_use_case_factories import (
+    get_game_rating_use_cases,
+    rollback_games_transaction,
 )
 from features.games.domain.models.game_rating import GameRating
-from features.games.infrastructure.repositories.game_rating_repository import (
-    GameRatingRepositoryImpl,
-)
 from features.games.presentation.schemas.game_rating_schema import (
     GameRatingCreateRequest,
 )
 from shared.domain.exceptions import DomainError
-from shared.infrastructure import db
 
 
 bp = Blueprint("game_ratings", __name__, url_prefix="/api/game-ratings")
 
-repository = GameRatingRepositoryImpl()
-
-create_game_rating_use_case = CreateGameRatingUseCase(repository)
-get_ratings_by_game_id_use_case = GetRatingsByGameIdUseCase(repository)
-get_average_rating_use_case = GetAverageRatingByGameIdUseCase(repository)
+rating_use_cases = get_game_rating_use_cases()
 
 
 def _serialize_rating(rating: GameRating) -> dict:
@@ -64,7 +57,7 @@ def create_rating():
         ), 400
 
     try:
-        rating = create_game_rating_use_case.execute(
+        rating = rating_use_cases.create.execute(
             CreateGameRatingCommand(
                 customer_id=current_user.id,
                 game_id=payload.game_id,
@@ -77,7 +70,7 @@ def create_rating():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except IntegrityError:
-        db.session.rollback()
+        rollback_games_transaction()
         return jsonify({"error": "User has already rated this game"}), 409
 
     return jsonify(_serialize_rating(rating)), 201
@@ -86,7 +79,7 @@ def create_rating():
 @bp.route("/game/<int:game_id>", methods=["GET"])
 def get_ratings_by_game_id(game_id: int):
     try:
-        ratings = get_ratings_by_game_id_use_case.execute(game_id)
+        ratings = rating_use_cases.list_by_game.execute(game_id)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -96,7 +89,7 @@ def get_ratings_by_game_id(game_id: int):
 @bp.route("/game/<int:game_id>/average", methods=["GET"])
 def get_average_rating(game_id: int):
     try:
-        avg = get_average_rating_use_case.execute(game_id)
+        avg = rating_use_cases.get_average.execute(game_id)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 

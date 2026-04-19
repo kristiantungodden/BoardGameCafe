@@ -169,8 +169,8 @@ class TestApplicationLayerDependencyInjection:
 		REQUIREMENT: DI containers should ONLY wire up components.
 		It should NOT contain business logic, conditionals, or queries.
 		"""
-		from features.reservations.presentation.api import deps as reservation_deps
-		from features.tables.presentation.api import deps as table_deps
+		from features.reservations.composition import reservation_use_case_factories as reservation_deps
+		from features.tables.composition import table_use_case_factories as table_deps
 
 		for module in (reservation_deps, table_deps):
 			source = inspect.getsource(module)

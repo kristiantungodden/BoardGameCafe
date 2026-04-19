@@ -29,7 +29,7 @@ class TestOpeningHoursEnforcement:
 		This is a hard business rule that cannot be bypassed.
 		"""
 		from unittest.mock import patch
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -64,7 +64,7 @@ class TestOpeningHoursEnforcement:
 		REQUIREMENT: Bookings ending after 23:00 MUST be rejected.
 		This is a hard business rule that cannot be bypassed.
 		"""
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -95,7 +95,7 @@ class TestOpeningHoursEnforcement:
 	
 	def test_booking_at_opening_hour_accepted(self, app, test_data):
 		"""REQUIREMENT: Bookings starting at exactly 09:00 should be accepted."""
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -121,7 +121,7 @@ class TestOpeningHoursEnforcement:
 	
 	def test_booking_until_closing_hour_accepted(self, app, test_data):
 		"""REQUIREMENT: Bookings ending at exactly 23:00 should be accepted."""
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -163,8 +163,8 @@ class TestAutoAssignmentLogic:
 		
 		This ensures API is honest about what will actually happen.
 		"""
-		from features.reservations.presentation.api.deps import get_booking_availability_handler
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_booking_availability_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -208,7 +208,7 @@ class TestAutoAssignmentLogic:
 		- Table B (capacity 6)
 		- Table C (capacity 8)
 		"""
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -245,7 +245,7 @@ class TestAutoAssignmentLogic:
 		
 		This ensures deterministic, reproducible behavior.
 		"""
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)
@@ -283,7 +283,7 @@ class TestAutoAssignmentLogic:
 		REQUIREMENT: Auto-selection must skip tables/copies already booked 
 		during the requested time window.
 		"""
-		from features.reservations.presentation.api.deps import get_create_booking_handler
+		from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 		from features.reservations.application.use_cases.reservation_use_cases import (
 			CreateReservationCommand
 		)

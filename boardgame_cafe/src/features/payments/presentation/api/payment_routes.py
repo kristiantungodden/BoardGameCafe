@@ -3,28 +3,31 @@ from types import SimpleNamespace
 
 from flask import Blueprint, current_app, jsonify, request
 
+from features.payments.application.interfaces.payment_repository_interface import (
+    PaymentRepositoryInterface,
+)
 from features.payments.application.use_cases.payment_use_cases import (
     calculate_amount_cents,
     calculate_amount_kroner,
     create_calculated_payment,
     get_payment_by_id,
 )
-from features.payments.infrastructure.repositories.payment_repository import (
-    PaymentRepository,
+from features.payments.composition.payment_use_case_factories import (
+    create_default_payment_provider,
+    is_vipps_provider,
 )
 from features.payments.application.interfaces.payment_provider_interface import (
     PaymentProviderInterface,
 )
 from features.payments.domain.models.payment import PaymentStatus
-from features.payments.infrastructure.vipps import VippsAdapter
 from features.payments.presentation.schemas.payment_schema import PaymentSchema
 
 payment_bp = Blueprint("payments", __name__, url_prefix="/api/payments")
-_payment_repository: PaymentRepository | None = None
+_payment_repository: PaymentRepositoryInterface | None = None
 _payment_provider: PaymentProviderInterface | None = None
 
 
-def configure_payment_routes(repository: PaymentRepository) -> None:
+def configure_payment_routes(repository: PaymentRepositoryInterface) -> None:
     global _payment_repository
     _payment_repository = repository
 
@@ -40,9 +43,9 @@ def _resolve_provider_for_payment(payment) -> PaymentProviderInterface | None:
     provider_name = (getattr(payment, "provider", "") or "").lower()
     provider_ref = getattr(payment, "provider_ref", "") or ""
     if provider_name == "vipps" or provider_ref.startswith("vipps:"):
-        if isinstance(_payment_provider, VippsAdapter):
+        if is_vipps_provider(_payment_provider):
             return _payment_provider
-        return VippsAdapter()
+        return create_default_payment_provider()
     return _payment_provider
 
 

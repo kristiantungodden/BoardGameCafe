@@ -59,8 +59,6 @@ from features.bookings.infrastructure.repositories.booking_status_history_reposi
 from features.users.infrastructure.repositories.user_repository import SqlAlchemyUserRepository
 
 
-# --- Repository factories ---
-
 def get_reservation_repo() -> ReservationRepositoryInterface:
     return SqlAlchemyReservationRepository()
 
@@ -85,8 +83,6 @@ def get_status_history_repo():
     return SqlAlchemyBookingStatusHistoryRepository()
 
 
-# --- Workflow 2: View reservations ---
-
 def get_list_confirmed_reservations_use_case() -> ListConfirmedReservationsUseCase:
     return ListConfirmedReservationsUseCase(get_reservation_repo())
 
@@ -106,8 +102,6 @@ def get_browse_steward_reservations_use_case() -> BrowseStewardReservationsUseCa
     )
 
 
-# --- Workflow 3: Seat parties / update status ---
-
 def get_seat_reservation_use_case() -> SeatBookingUseCase:
     return SeatBookingUseCase(get_reservation_repo(), get_status_history_repo())
 
@@ -120,8 +114,6 @@ def get_no_show_reservation_use_case() -> MarkBookingNoShowUseCase:
     return MarkBookingNoShowUseCase(get_reservation_repo(), get_status_history_repo())
 
 
-# --- Workflow 4: Assign / swap games ---
-
 def get_swap_game_copy_use_case() -> SwapGameCopyUseCase:
     return SwapGameCopyUseCase(
         game_copy_repo=get_game_copy_repo(),
@@ -132,8 +124,6 @@ def get_swap_game_copy_use_case() -> SwapGameCopyUseCase:
 def get_update_reservation_use_case() -> UpdateReservationUseCase:
     return UpdateReservationUseCase(get_reservation_repo())
 
-
-# --- Workflow 5: Check out / check in game copies ---
 
 def get_update_game_copy_status_use_case() -> UpdateGameCopyStatusUseCase:
     return UpdateGameCopyStatusUseCase(get_game_copy_repo())
@@ -149,8 +139,6 @@ def get_browse_game_copies_use_case() -> BrowseGameCopiesUseCase:
         game_repo=GameRepository(),
     )
 
-
-# --- Workflow 6: Incidents ---
 
 def get_report_incident_use_case() -> ReportIncidentUseCase:
     return ReportIncidentUseCase(

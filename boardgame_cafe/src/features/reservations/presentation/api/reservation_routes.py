@@ -41,7 +41,7 @@ from features.payments.presentation.schemas.payment_schema import PaymentSchema
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationRequest
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationBookingRequest
 from features.reservations.presentation.schemas.reservation_game_schema import AddReservationGameRequest
-from features.reservations.presentation.api.deps import (
+from features.reservations.composition.reservation_use_case_factories import (
     get_booking_availability_handler,
     get_create_booking_handler,
     get_add_game_to_reservation_use_case,

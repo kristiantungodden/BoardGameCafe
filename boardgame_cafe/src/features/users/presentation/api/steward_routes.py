@@ -38,7 +38,7 @@ from shared.application.services.reservation_transition_event_publisher import (
     publish_reservation_transition_event,
 )
 from shared.domain.exceptions import DomainError
-from features.users.presentation.api.deps.get_steward_use_cases import (
+from features.users.composition.steward_use_case_factories import (
     get_complete_reservation_use_case,
     get_list_active_reservations_use_case,
     get_browse_steward_reservations_use_case,

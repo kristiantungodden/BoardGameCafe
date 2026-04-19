@@ -6,7 +6,7 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     CreateReservationCommand,
 )
 from features.reservations.presentation.api import reservation_routes
-from features.reservations.presentation.api.deps import (
+from features.reservations.composition.reservation_use_case_factories import (
     get_cancel_reservation_use_case,
     get_create_booking_handler,
 )

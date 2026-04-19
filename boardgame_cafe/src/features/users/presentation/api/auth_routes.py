@@ -7,7 +7,10 @@ from pydantic import ValidationError as PydanticValidationError
 from shared.domain.exceptions import ValidationError as DomainValidationError
 from shared.infrastructure import csrf
 from features.users.application.use_cases.auth_use_cases import LoginCommand, RegisterCommand
-from features.users.presentation.api.deps import get_login_use_case, get_register_use_case
+from features.users.composition.auth_use_case_factories import (
+    get_login_use_case,
+    get_register_use_case,
+)
 from features.users.presentation.schemas.auth_schema import LoginRequest
 
 bp = Blueprint("auth", __name__, url_prefix="/api/auth")

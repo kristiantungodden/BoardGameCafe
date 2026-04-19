@@ -8,18 +8,16 @@ from werkzeug.exceptions import BadRequest
 from features.games.application.use_cases.game_use_cases import GameUseCases
 from features.games.application.use_cases.game_tag_use_cases import (
     AttachGameTagCommand,
-    AttachGameTagUseCase,
     CreateGameTagCommand,
-    CreateGameTagUseCase,
-    ListGameTagsForGameUseCase,
-    ListGameTagsUseCase,
-    RemoveGameTagUseCase,
+)
+from features.games.composition.game_use_case_factories import (
+    get_game_tag_use_cases,
+    get_game_use_cases,
+    get_games_filtered,
 )
 from features.games.domain.models.game import Game
 from features.games.domain.models.game_tag import GameTag
 from features.games.domain.models.game_tag_link import GameTagLink
-from features.games.infrastructure.repositories.game_repository import GameRepository
-from features.games.infrastructure.repositories.game_tag_repository import GameTagRepository
 from features.games.presentation.schemas.game_schema import (
     GameCreateRequest,
     GameTagCreateRequest,
@@ -30,15 +28,8 @@ from shared.domain.exceptions import DomainError
 
 bp = Blueprint("games", __name__, url_prefix="/api/games")
 
-# Initialize repository and use case
-repository = GameRepository()
-use_cases = GameUseCases(repository)
-tag_repository = GameTagRepository()
-create_game_tag_use_case = CreateGameTagUseCase(tag_repository)
-list_game_tags_use_case = ListGameTagsUseCase(tag_repository)
-attach_game_tag_use_case = AttachGameTagUseCase(tag_repository)
-remove_game_tag_use_case = RemoveGameTagUseCase(tag_repository)
-list_game_tags_for_game_use_case = ListGameTagsForGameUseCase(tag_repository)
+use_cases: GameUseCases = get_game_use_cases()
+tag_use_cases = get_game_tag_use_cases()
 
 
 def _require_admin():
@@ -106,7 +97,7 @@ def get_games():
     if has_filters:
         # Use filtered and paginated results
         try:
-            games, total_count, page, page_size = repository.get_games_filtered(
+            games, total_count, page, page_size = get_games_filtered(
                 page=page,
                 page_size=page_size,
                 search=search,
@@ -250,7 +241,7 @@ def create_tag():
         return jsonify({"error": "Validation failed", "details": exc.errors(include_context=False)}), 400
 
     try:
-        tag = create_game_tag_use_case.execute(CreateGameTagCommand(name=payload.name))
+        tag = tag_use_cases.create.execute(CreateGameTagCommand(name=payload.name))
     except DomainError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -259,7 +250,7 @@ def create_tag():
 
 @bp.route("/tags", methods=["GET"])
 def list_tags():
-    tags = list_game_tags_use_case.execute()
+    tags = tag_use_cases.list_all.execute()
     return jsonify([_serialize_tag(tag) for tag in tags]), 200
 
 
@@ -280,7 +271,7 @@ def attach_tag_to_game(game_id: int):
         return jsonify({"error": "Validation failed", "details": exc.errors(include_context=False)}), 400
 
     try:
-        link = attach_game_tag_use_case.execute(
+        link = tag_use_cases.attach.execute(
             AttachGameTagCommand(game_id=game_id, tag_id=payload.tag_id)
         )
     except DomainError as exc:
@@ -292,7 +283,7 @@ def attach_tag_to_game(game_id: int):
 @bp.route("/<int:game_id>/tags", methods=["GET"])
 def list_tags_for_game(game_id: int):
     try:
-        tags = list_game_tags_for_game_use_case.execute(game_id)
+        tags = tag_use_cases.list_for_game.execute(game_id)
     except DomainError as exc:
         return jsonify({"error": str(exc)}), 404
 
@@ -305,7 +296,7 @@ def remove_tag_from_game(game_id: int, tag_id: int):
     if err:
         return err
 
-    removed = remove_game_tag_use_case.execute(game_id, tag_id)
+    removed = tag_use_cases.remove.execute(game_id, tag_id)
     if not removed:
         return jsonify({"error": "Game tag link not found"}), 404
 

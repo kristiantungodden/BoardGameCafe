@@ -8,7 +8,7 @@ from pydantic import ValidationError as PydanticValidationError
 from features.tables.presentation.schemas.table_availability_schema import (
     TableAvailabilityQuery,
 )
-from features.tables.presentation.api.deps import get_table_availability_use_case
+from features.tables.composition.table_use_case_factories import get_table_availability_use_case
 
 
 bp = Blueprint("tables", __name__, url_prefix="/api/tables")

@@ -3,8 +3,8 @@ from flask_login import current_user, login_required
 from pydantic import ValidationError as PydanticValidationError
 
 from features.users.application.use_cases.user_use_cases import UpdateOwnProfileCommand
+from features.users.composition.auth_use_case_factories import get_update_profile_use_case
 from features.users.infrastructure import UserDB as User
-from features.users.presentation.api.deps import get_update_profile_use_case
 from features.users.presentation.schemas.user_schema import UserUpdate
 from shared.domain.exceptions import ValidationError as DomainValidationError
 

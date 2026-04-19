@@ -14,7 +14,7 @@ from features.games.infrastructure.database.game_tag_link_db import GameTagLinkD
 from features.payments.infrastructure.database.payments_db import PaymentDB
 from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
-from features.reservations.presentation.api.deps import get_create_booking_handler
+from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 from features.tables.infrastructure.database.table_db import TableDB
 from features.users.infrastructure.database.user_db import UserDB
 from shared.infrastructure import db
