@@ -6,6 +6,7 @@ from features.bookings.application.use_cases.booking_lifecycle_use_cases import 
     BookingCommand,
     CancelBookingUseCase,
     CreateBookingRecordUseCase,
+    SeatBookingUseCase,
 )
 from features.bookings.domain.models.booking import Booking
 from features.payments.domain.models.payment import Payment, PaymentStatus
@@ -108,8 +109,6 @@ def test_cancel_booking_records_status_history_transition():
     history_repo = FakeStatusHistoryRepo()
     start = datetime.now() + timedelta(days=2)
 
-    start = datetime.now() + timedelta(days=2)
-
     booking = Booking(
         id=1,
         customer_id=1,
@@ -135,8 +134,6 @@ def test_cancel_booking_records_status_history_transition():
 def test_invalid_transition_does_not_record_status_history():
     booking_repo = FakeBookingRepo()
     history_repo = FakeStatusHistoryRepo()
-    start = datetime.now() + timedelta(days=2)
-
     start = datetime.now() + timedelta(days=2)
 
     booking = Booking(
@@ -218,3 +215,34 @@ def test_cancel_booking_refunds_paid_stripe_payment():
     assert updated.status == "cancelled"
     assert payment_provider.refunded_refs == ["cs_test_123"]
     assert payment_repo.get_by_booking_id(1).status == PaymentStatus.REFUNDED
+
+
+def test_seat_booking_transition_works_without_payment_dependencies():
+    booking_repo = FakeBookingRepo()
+    history_repo = FakeStatusHistoryRepo()
+    start = datetime.now() + timedelta(days=2)
+
+    booking = Booking(
+        id=1,
+        customer_id=1,
+        start_ts=start,
+        end_ts=start + timedelta(hours=2),
+        party_size=2,
+        status="confirmed",
+    )
+    booking_repo._items[1] = booking
+
+    use_case = SeatBookingUseCase(
+        booking_repo=booking_repo,
+        status_history_repo=history_repo,
+    )
+
+    updated = use_case.execute(1, actor_user_id=42, actor_role="staff")
+
+    assert updated.status == "seated"
+    entries = history_repo.list_for_booking(1)
+    assert len(entries) == 1
+    assert entries[0].from_status == "confirmed"
+    assert entries[0].to_status == "seated"
+    assert entries[0].actor_user_id == 42
+    assert entries[0].actor_role == "staff"

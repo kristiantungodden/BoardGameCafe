@@ -178,6 +178,8 @@ class SeatBookingUseCase:
         return _execute_transition_with_history(
             booking_repo=self.booking_repo,
             status_history_repo=self.status_history_repo,
+            payment_repo=None,
+            payment_provider=None,
             booking_id=booking_id,
             transition_method_name="seat",
             actor_user_id=actor_user_id,
@@ -203,6 +205,8 @@ class CompleteBookingUseCase:
         return _execute_transition_with_history(
             booking_repo=self.booking_repo,
             status_history_repo=self.status_history_repo,
+            payment_repo=None,
+            payment_provider=None,
             booking_id=booking_id,
             transition_method_name="complete",
             actor_user_id=actor_user_id,
@@ -228,6 +232,8 @@ class MarkBookingNoShowUseCase:
         return _execute_transition_with_history(
             booking_repo=self.booking_repo,
             status_history_repo=self.status_history_repo,
+            payment_repo=None,
+            payment_provider=None,
             booking_id=booking_id,
             transition_method_name="mark_no_show",
             actor_user_id=actor_user_id,
