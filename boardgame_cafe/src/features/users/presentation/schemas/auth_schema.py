@@ -8,3 +8,8 @@ PasswordStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length
 class LoginRequest(BaseModel):
     email: EmailStr
     password: PasswordStr
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: PasswordStr | None = None
+    new_password: Annotated[str, StringConstraints(strip_whitespace=True, min_length=8)]

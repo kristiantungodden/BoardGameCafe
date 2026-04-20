@@ -31,7 +31,7 @@ from features.payments.infrastructure.stripe.stripe_adapter import StripeAdapter
 from features.payments.infrastructure.stripe.stripe_webhook import bp as stripe_webhook_bp
 from features.reservations.presentation.api import reservation_routes
 from features.tables.presentation.api import table_routes
-from features.users.presentation.api import auth_routes, steward_routes
+from features.users.presentation.api import auth_routes, admin_routes, steward_routes
 from features.users.infrastructure import UserDB as User
 from ui import register_ui_pages
 
@@ -75,11 +75,39 @@ def create_app(config_name: str = None):
     def unauthorized():
         if request.path.startswith("/api/"):
             return {"error": "Authentication required"}, 401
+        if request.path.startswith("/admin"):
+            return redirect(url_for("admin_login_page", next=request.path))
         return redirect(url_for("login_page", next=request.path))
 
     @login_manager.user_loader
     def load_user(user_id):
         return db.session.get(User, int(user_id))
+
+    @app.before_request
+    def enforce_forced_password_change():
+        from flask_login import current_user
+
+        if not getattr(current_user, "is_authenticated", False):
+            return None
+        if not bool(getattr(current_user, "force_password_change", False)):
+            return None
+
+        endpoint = request.endpoint or ""
+        if endpoint.startswith("static"):
+            return None
+
+        allowed_endpoints = {
+            "auth.change_password",
+            "auth.logout",
+            "password_change_page",
+        }
+        if endpoint in allowed_endpoints:
+            return None
+
+        if request.path.startswith("/api/"):
+            return {"error": "Password change required", "requires_password_change": True}, 403
+
+        return redirect(url_for("password_change_page"))
 
     celery_app = init_celery(app)
     app.celery_app = celery_app
@@ -146,6 +174,7 @@ def register_blueprints(app: Flask):
     app.register_blueprint(vipps_callbacks)
 
     app.register_blueprint(auth_routes.bp)
+    app.register_blueprint(admin_routes.bp)
     app.register_blueprint(games_routes.bp)
     app.register_blueprint(game_copy_routes.bp)
     app.register_blueprint(game_rating_routes.bp)

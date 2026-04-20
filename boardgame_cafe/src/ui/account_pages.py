@@ -39,3 +39,8 @@ def register_account_pages(app: Flask) -> None:
             return redirect(url_for("me"))
 
         return render_template("account.html", user=current_user)
+
+    @app.route("/me/password-change", methods=["GET"])
+    @login_required
+    def password_change_page():
+        return render_template("change_password.html", user=current_user)
