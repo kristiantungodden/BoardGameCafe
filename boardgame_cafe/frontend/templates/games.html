@@ -3,85 +3,94 @@
 {% block title %}Dicer | Games{% endblock %}
 
 {% block content %}
-<h1 class="page-header">Games</h1>
-<p class="page-intro">
-    Explore our board game collection. Click a game card to view full details, copies, and ratings.
-</p>
+<section class="games-shell" aria-label="Game library">
+    <header class="games-header">
+        <h1 class="page-header">Games</h1>
+        <p class="page-intro">
+            Explore our board game collection. Click a game card to view full details, copies, and ratings.
+        </p>
+    </header>
 
-<div class="panel-grid">
-    <article class="panel">
-        <h3>Game Catalog</h3>
-        <p id="games-info">Live data from the API endpoint.</p>
-        <div id="games-list" class="game-catalog-grid" aria-live="polite">
-            <p class="game-state">Loading games...</p>
-        </div>
-        <div id="pagination-controls" class="pagination-controls" style="margin-top: 20px; text-align: center;"></div>
-    </article>
-    <article class="panel">
-        <h3>Featured Tabletop Picks</h3>
-        <p>Minimal cards for quick browsing, rich details in the popup.</p>
-    </article>
-    <article class="panel">
-        <h3>Search and Filters</h3>
-        <form id="game-filter-form" class="game-filter-form">
-            <div class="form-group">
-                <label for="search">Title Search:</label>
-                <input type="text" id="search" name="search" placeholder="Search by game title...">
+    <div class="games-layout">
+        <article class="panel games-catalog-panel">
+            <div class="games-catalog-head">
+                <h3>Game Catalog</h3>
+                <p id="games-info">Live data from the API endpoint.</p>
             </div>
-
-            <div class="form-group">
-                <label for="min_players">Minimum Players:</label>
-                <input type="number" id="min_players" name="min_players" min="1" placeholder="Min: 1">
+            <div id="games-list" class="game-catalog-grid" aria-live="polite">
+                <p class="game-state">Loading games...</p>
             </div>
+            <div id="pagination-controls" class="pagination-controls"></div>
+        </article>
 
-            <div class="form-group">
-                <label for="max_players">Maximum Players:</label>
-                <input type="number" id="max_players" name="max_players" min="1" placeholder="Max: 12">
-            </div>
+        <aside class="games-side-panel">
+            <article class="panel games-note-panel">
+                <h3>Featured Picks</h3>
+                <p>Minimal cards for quick browsing, rich details in the popup.</p>
+            </article>
+            <article class="panel games-filter-panel">
+                <h3>Search and Filters</h3>
+                <form id="game-filter-form" class="game-filter-form">
+                    <div class="form-group">
+                        <label for="search">Title Search</label>
+                        <input type="text" id="search" name="search" placeholder="Search by game title...">
+                    </div>
 
-            <div class="form-group">
-                <label for="complexity">Complexity:</label>
-                <select id="complexity" name="complexity">
-                    <option value="">Any complexity</option>
-                    <option value="1">1 (Very Simple)</option>
-                    <option value="1.5">1.5</option>
-                    <option value="2">2 (Simple)</option>
-                    <option value="2.5">2.5</option>
-                    <option value="3">3 (Medium)</option>
-                    <option value="3.5">3.5</option>
-                    <option value="4">4 (Complex)</option>
-                    <option value="4.5">4.5</option>
-                    <option value="5">5 (Very Complex)</option>
-                </select>
-            </div>
+                    <div class="form-group">
+                        <label for="min_players">Minimum Players</label>
+                        <input type="number" id="min_players" name="min_players" min="1" placeholder="Min: 1">
+                    </div>
 
-            <div class="form-group">
-                <label for="tag">Tag:</label>
-                <input type="text" id="tag" name="tag" placeholder="Search by tag (optional)">
-            </div>
+                    <div class="form-group">
+                        <label for="max_players">Maximum Players</label>
+                        <input type="number" id="max_players" name="max_players" min="1" placeholder="Max: 12">
+                    </div>
 
-            <div class="form-group">
-                <label for="page_size">Games per page:</label>
-                <select id="page_size" name="page_size">
-                    <option value="5">5</option>
-                    <option value="10" selected>10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                </select>
-            </div>
+                    <div class="form-group">
+                        <label for="complexity">Complexity</label>
+                        <select id="complexity" name="complexity">
+                            <option value="">Any complexity</option>
+                            <option value="1">1 (Very Simple)</option>
+                            <option value="1.5">1.5</option>
+                            <option value="2">2 (Simple)</option>
+                            <option value="2.5">2.5</option>
+                            <option value="3">3 (Medium)</option>
+                            <option value="3.5">3.5</option>
+                            <option value="4">4 (Complex)</option>
+                            <option value="4.5">4.5</option>
+                            <option value="5">5 (Very Complex)</option>
+                        </select>
+                    </div>
 
-            <div class="form-actions">
-                <button type="submit" class="button">Apply Filters</button>
-                <button type="reset" class="button button-secondary">Clear Filters</button>
-            </div>
-        </form>
-    </article>
-</div>
+                    <div class="form-group">
+                        <label for="tag">Tag</label>
+                        <input type="text" id="tag" name="tag" placeholder="Search by tag (optional)">
+                    </div>
 
-<div class="action-row action-row-top-gap">
-    <a class="button" href="/api/games/">Open Games API</a>
-    <a class="button button-secondary" href="/">Back to Home</a>
-</div>
+                    <div class="form-group">
+                        <label for="page_size">Games per page</label>
+                        <select id="page_size" name="page_size">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="button">Apply Filters</button>
+                        <button type="reset" class="button button-secondary">Clear Filters</button>
+                    </div>
+                </form>
+            </article>
+        </aside>
+    </div>
+
+    <div class="action-row action-row-top-gap">
+        <a class="button" href="/api/games/">Open Games API</a>
+        <a class="button button-secondary" href="/">Back to Home</a>
+    </div>
+</section>
 
 <section class="game-details-overlay" id="game-details-overlay" hidden>
     <div class="game-details-backdrop" id="game-details-backdrop"></div>
@@ -115,10 +124,87 @@
 </section>
 
 <style>
+    .games-shell {
+        display: grid;
+        gap: 0.9rem;
+    }
+
+    .games-header .page-header {
+        margin-bottom: 0.35rem;
+    }
+
+    .games-header .page-intro {
+        margin-bottom: 0;
+    }
+
+    .games-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.95fr);
+        gap: 0.85rem;
+        align-items: start;
+    }
+
+    .games-side-panel {
+        display: grid;
+        gap: 0.85rem;
+    }
+
+    .games-catalog-panel,
+    .games-note-panel,
+    .games-filter-panel {
+        background: linear-gradient(180deg, #fffdfa 0%, #f8f3e9 100%);
+        border: 1px solid #ded4c1;
+        border-radius: 8px;
+        box-shadow: 0 8px 20px rgba(31, 29, 26, 0.06);
+    }
+
+    .games-catalog-head {
+        margin-bottom: 0.45rem;
+    }
+
+    .games-catalog-head h3,
+    .games-note-panel h3,
+    .games-filter-panel h3 {
+        margin: 0;
+    }
+
+    .games-catalog-head p,
+    .games-note-panel p {
+        margin: 0.35rem 0 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+    }
+
+    #games-list {
+        max-height: min(62vh, 48rem);
+        overflow-y: auto;
+        padding-right: 0.35rem;
+        align-content: start;
+    }
+
+    #games-list::-webkit-scrollbar {
+        width: 9px;
+    }
+
+    #games-list::-webkit-scrollbar-track {
+        background: #f1eadc;
+        border-radius: 999px;
+    }
+
+    #games-list::-webkit-scrollbar-thumb {
+        background: #c9bda8;
+        border-radius: 999px;
+        border: 2px solid #f1eadc;
+    }
+
+    #games-list::-webkit-scrollbar-thumb:hover {
+        background: #b8a98e;
+    }
+
     .game-filter-form {
         display: flex;
         flex-direction: column;
-        gap: 15px;
+        gap: 0.65rem;
     }
 
     .form-group {
@@ -127,71 +213,72 @@
     }
 
     .form-group label {
-        font-weight: 500;
-        margin-bottom: 5px;
-        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+        font-size: 0.86rem;
+        color: #4f493e;
     }
 
     .form-group input,
     .form-group select {
-        padding: 8px 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 0.95rem;
+        padding: 0.52rem 0.62rem;
+        border: 1px solid #d2c6af;
+        border-radius: 6px;
+        font-size: 0.9rem;
         font-family: inherit;
+        background: #fffcf7;
+        color: #2a2721;
     }
 
     .form-group input:focus,
     .form-group select:focus {
         outline: none;
-        border-color: #4CAF50;
-        box-shadow: 0 0 3px rgba(76, 175, 80, 0.3);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(42, 90, 72, 0.16);
     }
 
     .form-actions {
         display: flex;
-        gap: 10px;
-        margin-top: 10px;
-    }
-
-    .form-actions button {
-        flex: 1;
-        padding: 10px 15px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: 500;
+        gap: 0.5rem;
+        margin-top: 0.2rem;
+        flex-wrap: wrap;
     }
 
     .pagination-controls {
         display: flex;
         justify-content: center;
-        gap: 10px;
+        gap: 0.55rem;
         align-items: center;
-        padding: 15px 0;
-        font-size: 0.95rem;
+        margin-top: 0.95rem;
+        padding: 0.4rem 0 0.1rem;
+        font-size: 0.9rem;
+        flex-wrap: wrap;
     }
 
     .pagination-controls button {
-        padding: 8px 12px;
-        border: 1px solid #ddd;
-        background: white;
-        border-radius: 4px;
+        padding: 0.42rem 0.72rem;
+        border: 1px solid #cfc2ab;
+        background: #f8f2e7;
+        color: #25221d;
+        border-radius: 6px;
         cursor: pointer;
+        font: inherit;
+        font-weight: 600;
     }
 
     .pagination-controls button:hover:not(:disabled) {
-        background-color: #f0f0f0;
+        background-color: #ede3d2;
     }
 
     .pagination-controls button:disabled {
-        opacity: 0.5;
+        opacity: 0.45;
         cursor: not-allowed;
     }
 
     .pagination-info {
-        padding: 0 10px;
-        font-weight: 500;
+        padding: 0 0.3rem;
+        font-weight: 600;
+        color: #4f493e;
     }
 
     .game-card-cta {
@@ -210,13 +297,13 @@
     }
 
     .game-card-view-button {
-        margin-top: 8px;
+        margin-top: 0.45rem;
     }
 
     .game-card-rating {
-        margin: 4px 0 0;
+        margin: 0.35rem 0 0;
         font-size: 0.86rem;
-        color: #355;
+        color: #5a5348;
     }
 
     .game-tags {
@@ -228,12 +315,13 @@
 
     .game-tag {
         display: inline-block;
-        background-color: #e3f2fd;
-        color: #1976d2;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 0.85rem;
-        font-weight: 500;
+        background-color: #efe7d8;
+        color: #3a352c;
+        padding: 0.22rem 0.56rem;
+        border-radius: 999px;
+        border: 1px solid #d8ccb4;
+        font-size: 0.78rem;
+        font-weight: 600;
     }
 
     .game-details-overlay[hidden] {
@@ -243,18 +331,18 @@
     .game-details-overlay {
         position: fixed;
         inset: 0;
-        z-index: 90;
+        z-index: 1200;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 20px;
+        padding: 1rem;
     }
 
     .game-details-backdrop {
         position: absolute;
         inset: 0;
         background: rgba(17, 24, 39, 0.52);
-        backdrop-filter: blur(2px);
+        backdrop-filter: blur(3px);
     }
 
     .game-details-card {
@@ -262,11 +350,11 @@
         z-index: 2;
         width: min(960px, 96vw);
         max-height: 90vh;
-        border-radius: 14px;
-        border: 1px solid #dbe3d3;
-        background: #ffffff;
-        box-shadow: 0 20px 48px rgba(23, 40, 31, 0.22);
-        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid #d7ccb7;
+        background: #fffdf8;
+        box-shadow: 0 20px 42px rgba(31, 29, 26, 0.28);
+        padding: 0.95rem;
         display: flex;
         flex-direction: column;
     }
@@ -275,14 +363,14 @@
         display: flex;
         align-items: center;
         justify-content: flex-start;
-        gap: 12px;
-        padding-right: 120px;
+        gap: 0.7rem;
+        padding-right: 7rem;
     }
 
     .game-details-close-floating {
         position: absolute;
-        top: 12px;
-        right: 12px;
+        top: 0.7rem;
+        right: 0.7rem;
         z-index: 6;
     }
 
@@ -292,30 +380,30 @@
     }
 
     .game-details-grid {
-        margin-top: 12px;
+        margin-top: 0.7rem;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        gap: 0.55rem;
     }
 
     .game-detail-item {
-        border: 1px solid #e6ece2;
-        border-radius: 8px;
-        padding: 10px;
+        border: 1px solid #ddd2be;
+        border-radius: 6px;
+        padding: 0.62rem;
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        background: #fcfdf9;
+        gap: 0.2rem;
+        background: #f8f2e8;
     }
 
     .game-detail-item span {
         font-size: 0.8rem;
-        color: #4b6155;
+        color: #5a5348;
     }
 
     .game-detail-item strong {
         font-size: 0.95rem;
-        color: #1a2a23;
+        color: #1f1d1a;
     }
 
     .game-detail-item-wide {
@@ -335,11 +423,11 @@
 
     .game-rating-block,
     .game-copies-block {
-        margin-top: 14px;
-        border: 1px solid #e6ece2;
-        border-radius: 8px;
-        padding: 12px;
-        background: #fafdf7;
+        margin-top: 0.8rem;
+        border: 1px solid #ddd2be;
+        border-radius: 6px;
+        padding: 0.72rem;
+        background: #faf5ec;
     }
 
     .game-rating-block h3,
@@ -351,15 +439,15 @@
     .game-copy-list {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 0.55rem;
     }
 
     .game-copy-item {
         display: flex;
         justify-content: space-between;
-        gap: 10px;
-        padding: 8px;
-        border: 1px solid #ededed;
+        gap: 0.6rem;
+        padding: 0.52rem;
+        border: 1px solid #e2d8c4;
         border-radius: 6px;
         background: #fff;
     }
@@ -381,7 +469,7 @@
     .game-copy-qr img {
         width: 64px;
         height: 64px;
-        border: 1px solid #e5e5e5;
+        border: 1px solid #ddd2be;
         border-radius: 4px;
         background: #fff;
     }
@@ -392,26 +480,26 @@
 
     .game-copy-state {
         margin: 0;
-        color: #666;
+        color: #60594d;
         font-size: 0.85rem;
     }
 
     .game-rating-average {
-        margin: 0 0 8px;
+        margin: 0 0 0.45rem;
         font-size: 0.88rem;
-        color: #345;
+        color: #50493f;
     }
 
     .game-rating-form {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 0.45rem;
     }
 
     .game-rating-form label {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 0.25rem;
         font-size: 0.85rem;
     }
 
@@ -419,29 +507,30 @@
     .game-rating-form textarea {
         font-family: inherit;
         font-size: 0.85rem;
-        border: 1px solid #d9d9d9;
+        border: 1px solid #d2c6af;
         border-radius: 6px;
-        padding: 6px 8px;
+        padding: 0.4rem 0.52rem;
+        background: #fff;
     }
 
     .game-rating-note,
     .game-rating-feedback {
         margin: 0;
         font-size: 0.82rem;
-        color: #4b4b4b;
+        color: #5f584b;
     }
 
     .game-rating-list {
-        margin: 10px 0 0;
-        padding-left: 18px;
+        margin: 0.6rem 0 0;
+        padding-left: 1.05rem;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 0.4rem;
     }
 
     .game-rating-list li {
         font-size: 0.86rem;
-        color: #213128;
+        color: #24221d;
     }
 
     .game-rating-list li p {
@@ -451,10 +540,18 @@
     .game-rating-list-head {
         display: flex;
         justify-content: space-between;
-        gap: 8px;
+        gap: 0.45rem;
     }
 
     @media (max-width: 860px) {
+        .games-layout {
+            grid-template-columns: 1fr;
+        }
+
+        #games-list {
+            max-height: min(58vh, 34rem);
+        }
+
         .game-details-grid {
             grid-template-columns: 1fr;
         }
