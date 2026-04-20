@@ -34,6 +34,7 @@ from features.tables.presentation.api import table_routes
 from features.users.presentation.api import auth_routes, admin_routes, steward_routes
 from features.users.infrastructure import UserDB as User
 from ui import register_ui_pages
+from shared.presentation.api.events_routes import bp as events_bp
 
 
 def create_app(config_name: str = None):
@@ -133,19 +134,9 @@ def create_app(config_name: str = None):
         # development-only mock vipps blueprint registered above
 
     
-    @app.route("/api/events/stream", methods=["GET"])
-    @login_required
-    def realtime_event_stream():
-        try:
-            response = Response(
-                stream_with_context(stream_realtime_events()),
-                mimetype="text/event-stream",
-            )
-        except RuntimeError as exc:
-            return {"error": str(exc)}, 503
-        response.headers["Cache-Control"] = "no-cache"
-        response.headers["X-Accel-Buffering"] = "no"
-        return response
+    # `/api/events/stream` is provided by the presentation blueprint
+    # `shared.presentation.api.events_routes` to keep presentation
+    # concerns separate from application setup.
 
     # Create database tables
     with app.app_context():
@@ -182,6 +173,7 @@ def register_blueprints(app: Flask):
     app.register_blueprint(reservation_routes.bp)
     app.register_blueprint(table_routes.bp)
     app.register_blueprint(steward_routes.bp)
+    app.register_blueprint(events_bp)
 
 
 def register_error_handlers(app: Flask):

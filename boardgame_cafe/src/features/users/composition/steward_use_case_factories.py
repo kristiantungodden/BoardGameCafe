@@ -140,10 +140,11 @@ def get_browse_game_copies_use_case() -> BrowseGameCopiesUseCase:
     )
 
 
-def get_report_incident_use_case() -> ReportIncidentUseCase:
+def get_report_incident_use_case(event_bus=None) -> ReportIncidentUseCase:
     return ReportIncidentUseCase(
         incident_repo=get_incident_repo(),
         game_copy_repo=get_game_copy_repo(),
+        event_bus=event_bus,
     )
 
 
@@ -155,8 +156,8 @@ def get_list_incidents_for_game_copy_use_case() -> ListIncidentsForGameCopyUseCa
     return ListIncidentsForGameCopyUseCase(get_incident_repo())
 
 
-def get_delete_incident_use_case() -> DeleteIncidentUseCase:
-    return DeleteIncidentUseCase(get_incident_repo())
+def get_delete_incident_use_case(event_bus=None) -> DeleteIncidentUseCase:
+    return DeleteIncidentUseCase(get_incident_repo(), event_bus=event_bus)
 
 
 def get_list_waitlist_use_case() -> ListWaitlistUseCase:

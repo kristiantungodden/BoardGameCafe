@@ -1,9 +1,10 @@
-from typing import Sequence
+from typing import Sequence, Optional
  
 from features.games.application.interfaces.game_copy_repository_interface import GameCopyRepository
 from features.games.application.interfaces.incident_repository_interface import IncidentRepositoryInterface
 from features.games.domain.models.incident import Incident
 from shared.domain.exceptions import InvalidStatusTransition
+from shared.domain.events import IncidentReported, IncidentDeleted
  
  
 class ReportIncidentUseCase:
@@ -18,9 +19,11 @@ class ReportIncidentUseCase:
         self,
         incident_repo: IncidentRepositoryInterface,
         game_copy_repo: GameCopyRepository,
+        event_bus: Optional[object] = None,
     ):
         self.incident_repo = incident_repo
         self.game_copy_repo = game_copy_repo
+        self.event_bus = event_bus
  
     def execute(
         self,
@@ -49,7 +52,25 @@ class ReportIncidentUseCase:
             incident_type=incident_type,
             note=note,
         )
-        return self.incident_repo.add(incident)
+        domain_incident = self.incident_repo.add(incident)
+        # Publish domain event if event bus available
+        try:
+            if self.event_bus:
+                self.event_bus.publish(
+                    IncidentReported(
+                        incident_id=domain_incident.id,
+                        game_copy_id=domain_incident.game_copy_id,
+                        reported_by=domain_incident.reported_by,
+                        incident_type=domain_incident.incident_type,
+                        note=domain_incident.note,
+                        created_at=domain_incident.created_at,
+                    )
+                )
+        except Exception:
+            # best-effort: don't let event publishing break the use case
+            pass
+
+        return domain_incident
  
  
 class ListIncidentsUseCase:
@@ -75,8 +96,21 @@ class ListIncidentsForGameCopyUseCase:
 class DeleteIncidentUseCase:
     """Delete an incident by id."""
 
-    def __init__(self, incident_repo: IncidentRepositoryInterface):
+    def __init__(self, incident_repo: IncidentRepositoryInterface, event_bus: Optional[object] = None):
         self.incident_repo = incident_repo
+        self.event_bus = event_bus
 
     def execute(self, incident_id: int) -> bool:
-        return self.incident_repo.delete(incident_id)
+        # Fetch the incident first so we can publish details after deletion
+        incident = self.incident_repo.get_by_id(incident_id)
+        if incident is None:
+            return False
+
+        ok = self.incident_repo.delete(incident_id)
+        if ok:
+            try:
+                if self.event_bus:
+                    self.event_bus.publish(IncidentDeleted(incident_id=incident_id))
+            except Exception:
+                pass
+        return ok

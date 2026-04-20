@@ -6,29 +6,25 @@
 <h1 class="page-header">Report Incident</h1>
 <p class="page-intro">Create a new incident for a game copy.</p>
 
-<form id="incident-form">
-  <div>
-    <label for="game-copy">Game Copy</label>
-    <select id="game-copy" name="game_copy_id">
-      <option value="">Loading...</option>
-    </select>
-  </div>
+<form id="incident-form" class="form-stack" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-  <div>
-    <label for="incident-type">Incident Type</label>
-    <select id="incident-type" name="incident_type">
-      <option value="damage">Damage</option>
-      <option value="loss">Loss</option>
-    </select>
-  </div>
+  <label class="form-label" for="game-copy">Game Copy</label>
+  <select class="form-input" id="game-copy" name="game_copy_id">
+    <option value="">Loading...</option>
+  </select>
 
-  <div>
-    <label for="note">Note</label>
-    <textarea id="note" name="note" rows="4" cols="50"></textarea>
-  </div>
+  <label class="form-label" for="incident-type">Incident Type</label>
+  <select class="form-input" id="incident-type" name="incident_type">
+    <option value="damage">Damage</option>
+    <option value="loss">Loss</option>
+  </select>
 
-  <div>
-    <button class="button" id="submit">Create Incident</button>
+  <label class="form-label" for="note">Note</label>
+  <textarea class="form-input" id="note" name="note" rows="4"></textarea>
+
+  <div class="action-row">
+    <button class="button" type="submit">Create Incident</button>
     <a class="button button-secondary" href="/steward/incidents">Cancel</a>
   </div>
 </form>

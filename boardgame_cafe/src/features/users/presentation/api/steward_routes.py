@@ -392,7 +392,7 @@ def report_incident(copy_id: int):
     if not incident_type or not note:
         return {"error": "incident_type and note are required"}, 400
 
-    use_case: ReportIncidentUseCase = get_report_incident_use_case()
+    use_case: ReportIncidentUseCase = get_report_incident_use_case(event_bus=getattr(current_app, 'event_bus', None))
     try:
         incident = use_case.execute(
             game_copy_id=copy_id,
@@ -403,11 +403,7 @@ def report_incident(copy_id: int):
     except (DomainError, ValueError) as exc:
         return {"error": str(exc)}, 400
 
-    # Publish realtime event for new incident (best-effort)
-    try:
-        publish_realtime_event({"event_type": "incident.created", "data": _serialize_incident(incident)})
-    except Exception:
-        pass
+    # Event publishing is handled by application/domain event handlers.
 
     return _serialize_incident(incident), 201
 
@@ -451,14 +447,11 @@ def delete_incident(incident_id: int):
     if err:
         return err
 
-    use_case = get_delete_incident_use_case()
+    use_case = get_delete_incident_use_case(event_bus=getattr(current_app, 'event_bus', None))
     ok = use_case.execute(incident_id)
     if not ok:
         return {"error": "Not found"}, 404
-    try:
-        publish_realtime_event({"event_type": "incident.deleted", "data": {"id": incident_id}})
-    except Exception:
-        pass
+    # Event publishing is handled by application/domain event handlers.
     return {}, 204
 
 
