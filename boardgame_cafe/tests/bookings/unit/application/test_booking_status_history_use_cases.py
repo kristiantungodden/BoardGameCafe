@@ -85,11 +85,13 @@ def test_cancel_booking_records_status_history_transition():
     booking_repo = FakeBookingRepo()
     history_repo = FakeStatusHistoryRepo()
 
+    start = datetime.now() + timedelta(days=2)
+
     booking = Booking(
         id=1,
         customer_id=1,
-        start_ts=datetime(2026, 4, 20, 18, 0),
-        end_ts=datetime(2026, 4, 20, 20, 0),
+        start_ts=start,
+        end_ts=start + timedelta(hours=2),
         party_size=4,
         status="confirmed",
     )
@@ -111,11 +113,13 @@ def test_invalid_transition_does_not_record_status_history():
     booking_repo = FakeBookingRepo()
     history_repo = FakeStatusHistoryRepo()
 
+    start = datetime.now() + timedelta(days=2)
+
     booking = Booking(
         id=1,
         customer_id=1,
-        start_ts=datetime(2026, 4, 20, 18, 0),
-        end_ts=datetime(2026, 4, 20, 20, 0),
+        start_ts=start,
+        end_ts=start + timedelta(hours=2),
         party_size=4,
         status="seated",
     )
