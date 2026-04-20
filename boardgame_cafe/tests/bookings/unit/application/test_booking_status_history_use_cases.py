@@ -8,6 +8,7 @@ from features.bookings.application.use_cases.booking_lifecycle_use_cases import 
     CreateBookingRecordUseCase,
 )
 from features.bookings.domain.models.booking import Booking
+from features.payments.domain.models.payment import Payment, PaymentStatus
 from shared.domain.exceptions import InvalidStatusTransition, ValidationError
 
 
@@ -54,6 +55,27 @@ class FakeStatusHistoryRepo:
         return [item for item in self.items if item.booking_id == booking_id]
 
 
+class FakePaymentRepo:
+    def __init__(self):
+        self._payments = {}
+
+    def get_by_booking_id(self, booking_id):
+        return self._payments.get(booking_id)
+
+    def update(self, payment):
+        self._payments[payment.booking_id] = payment
+        return payment
+
+
+class FakePaymentProvider:
+    def __init__(self):
+        self.refunded_refs = []
+
+    def refund(self, provider_ref):
+        self.refunded_refs.append(provider_ref)
+        return True
+
+
 def test_create_booking_records_initial_status_history():
     booking_repo = FakeBookingRepo()
     table_repo = FakeTableReservationRepo()
@@ -84,6 +106,7 @@ def test_create_booking_records_initial_status_history():
 def test_cancel_booking_records_status_history_transition():
     booking_repo = FakeBookingRepo()
     history_repo = FakeStatusHistoryRepo()
+    start = datetime.now() + timedelta(days=2)
 
     start = datetime.now() + timedelta(days=2)
 
@@ -112,6 +135,7 @@ def test_cancel_booking_records_status_history_transition():
 def test_invalid_transition_does_not_record_status_history():
     booking_repo = FakeBookingRepo()
     history_repo = FakeStatusHistoryRepo()
+    start = datetime.now() + timedelta(days=2)
 
     start = datetime.now() + timedelta(days=2)
 
@@ -155,3 +179,42 @@ def test_cancel_booking_requires_24h_notice():
 
     assert booking_repo.get_by_id(1).status == "confirmed"
     assert history_repo.list_for_booking(1) == []
+
+
+def test_cancel_booking_refunds_paid_stripe_payment():
+    booking_repo = FakeBookingRepo()
+    history_repo = FakeStatusHistoryRepo()
+    payment_repo = FakePaymentRepo()
+    payment_provider = FakePaymentProvider()
+
+    start = datetime.now() + timedelta(days=2)
+    booking = Booking(
+        id=1,
+        customer_id=1,
+        start_ts=start,
+        end_ts=start + timedelta(hours=2),
+        party_size=4,
+        status="confirmed",
+    )
+    booking_repo._items[1] = booking
+    payment_repo._payments[1] = Payment(
+        id=101,
+        booking_id=1,
+        amount_cents=2500,
+        provider="stripe",
+        provider_ref="cs_test_123",
+        status=PaymentStatus.PAID,
+    )
+
+    use_case = CancelBookingUseCase(
+        booking_repo=booking_repo,
+        status_history_repo=history_repo,
+        payment_repo=payment_repo,
+        payment_provider=payment_provider,
+    )
+
+    updated = use_case.execute(1)
+
+    assert updated.status == "cancelled"
+    assert payment_provider.refunded_refs == ["cs_test_123"]
+    assert payment_repo.get_by_booking_id(1).status == PaymentStatus.REFUNDED

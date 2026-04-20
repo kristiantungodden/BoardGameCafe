@@ -57,10 +57,19 @@ class StripeAdapter(PaymentProviderInterface):
         return "pending"
 
     def refund(self, provider_ref: str) -> bool:
-        return False
+        session = stripe.checkout.Session.retrieve(provider_ref)
+        payment_intent = getattr(session, "payment_intent", None)
+        if not payment_intent:
+            return False
+
+        if hasattr(payment_intent, "id"):
+            payment_intent = payment_intent.id
+
+        refund = stripe.Refund.create(payment_intent=payment_intent)
+        return getattr(refund, "status", "") in {"succeeded", "pending"}
 
     def capture(self, provider_ref: str, amount_cents=None, idempotency_key=None) -> bool:
         return False
 
     def cancel(self, provider_ref: str, should_release_remaining_funds=False, idempotency_key=None) -> bool:
-        return False
+        return self.refund(provider_ref)

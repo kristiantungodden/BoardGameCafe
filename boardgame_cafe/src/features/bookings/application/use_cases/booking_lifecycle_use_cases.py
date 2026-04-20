@@ -12,6 +12,13 @@ from features.bookings.domain.models.booking import Booking
 from features.bookings.domain.models.booking_status_history import (
     BookingStatusHistoryEntry,
 )
+from features.payments.application.interfaces.payment_provider_interface import (
+    PaymentProviderInterface,
+)
+from features.payments.application.interfaces.payment_repository_interface import (
+    PaymentRepositoryInterface,
+)
+from features.payments.domain.models.payment import PaymentStatus
 from features.reservations.application.interfaces.table_reservation_repository_interface import (
     TableReservationRepositoryInterface,
 )
@@ -127,9 +134,13 @@ class CancelBookingUseCase:
         self,
         booking_repo: BookingRepositoryInterface,
         status_history_repo: Optional[BookingStatusHistoryRepositoryInterface] = None,
+        payment_repo: Optional[PaymentRepositoryInterface] = None,
+        payment_provider: Optional[PaymentProviderInterface] = None,
     ):
         self.booking_repo = booking_repo
         self.status_history_repo = status_history_repo
+        self.payment_repo = payment_repo
+        self.payment_provider = payment_provider
 
     def execute(
         self,
@@ -140,6 +151,8 @@ class CancelBookingUseCase:
         return _execute_transition_with_history(
             booking_repo=self.booking_repo,
             status_history_repo=self.status_history_repo,
+            payment_repo=self.payment_repo,
+            payment_provider=self.payment_provider,
             booking_id=booking_id,
             transition_method_name="cancel",
             actor_user_id=actor_user_id,
@@ -233,6 +246,8 @@ class ListBookingStatusHistoryUseCase:
 def _execute_transition_with_history(
     booking_repo: BookingRepositoryInterface,
     status_history_repo: Optional[BookingStatusHistoryRepositoryInterface],
+    payment_repo: Optional[PaymentRepositoryInterface],
+    payment_provider: Optional[PaymentProviderInterface],
     booking_id: int,
     transition_method_name: str,
     actor_user_id: Optional[int],
@@ -244,6 +259,8 @@ def _execute_transition_with_history(
         return _apply_transition_and_log(
             booking_repo,
             status_history_repo,
+            payment_repo,
+            payment_provider,
             booking_id,
             transition_method_name,
             actor_user_id,
@@ -256,9 +273,12 @@ def _execute_transition_with_history(
         transition_history_repo = _instantiate_repo_in_transaction(
             status_history_repo, session
         )
+        transition_payment_repo = _instantiate_repo_in_transaction(payment_repo, session)
         return _apply_transition_and_log(
             transition_booking_repo,
             transition_history_repo,
+            transition_payment_repo,
+            payment_provider,
             booking_id,
             transition_method_name,
             actor_user_id,
@@ -279,6 +299,8 @@ def _instantiate_repo_in_transaction(repo, session):
 def _apply_transition_and_log(
     booking_repo,
     status_history_repo,
+    payment_repo,
+    payment_provider,
     booking_id: int,
     transition_method_name: str,
     actor_user_id: Optional[int],
@@ -295,6 +317,13 @@ def _apply_transition_and_log(
     getattr(booking, transition_method_name)()
     updated = booking_repo.update(booking)
 
+    if transition_method_name == "cancel":
+        _refund_paid_booking_if_supported(
+            booking_id=updated.id,
+            payment_repo=payment_repo,
+            payment_provider=payment_provider,
+        )
+
     if status_history_repo is not None:
         status_history_repo.save(
             BookingStatusHistoryEntry(
@@ -308,6 +337,35 @@ def _apply_transition_and_log(
         )
 
     return updated
+
+
+def _refund_paid_booking_if_supported(
+    booking_id: int,
+    payment_repo,
+    payment_provider,
+) -> None:
+    if payment_repo is None or payment_provider is None:
+        return
+
+    payment = payment_repo.get_by_booking_id(booking_id)
+    if payment is None:
+        return
+
+    provider_name = (getattr(payment, "provider", "") or "").lower()
+    provider_ref = (getattr(payment, "provider_ref", "") or "").strip()
+    if provider_name != "stripe" or not provider_ref or provider_ref == "not_created":
+        return
+
+    if payment.status != PaymentStatus.PAID:
+        return
+
+    refunded = payment_provider.refund(provider_ref)
+    if not refunded:
+        raise ValidationError("Payment refund failed during cancellation")
+
+    payment.status = PaymentStatus.REFUNDED
+    if hasattr(payment_repo, "update"):
+        payment_repo.update(payment)
 
 
 def _validate_cancellation_window(start_ts: datetime) -> None:

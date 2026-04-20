@@ -71,3 +71,50 @@ def test_fetch_status_maps_paid_and_pending(monkeypatch):
     )
 
     assert adapter.fetch_status("cs_pending") == "pending"
+
+
+def test_refund_uses_checkout_session_payment_intent(monkeypatch):
+    captured = {}
+
+    def fake_retrieve(provider_ref):
+        assert provider_ref == "cs_paid"
+        return SimpleNamespace(payment_intent="pi_123")
+
+    def fake_refund_create(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(status="succeeded")
+
+    monkeypatch.setattr(
+        "features.payments.infrastructure.stripe.stripe_adapter.stripe.checkout.Session.retrieve",
+        fake_retrieve,
+    )
+    monkeypatch.setattr(
+        "features.payments.infrastructure.stripe.stripe_adapter.stripe.Refund.create",
+        fake_refund_create,
+    )
+
+    adapter = StripeAdapter("sk_test_123", "https://boardgamecafe.example")
+    assert adapter.refund("cs_paid") is True
+    assert captured["payment_intent"] == "pi_123"
+
+
+def test_refund_returns_false_without_payment_intent(monkeypatch):
+    def fake_retrieve(provider_ref):
+        assert provider_ref == "cs_missing"
+        return SimpleNamespace(payment_intent=None)
+
+    monkeypatch.setattr(
+        "features.payments.infrastructure.stripe.stripe_adapter.stripe.checkout.Session.retrieve",
+        fake_retrieve,
+    )
+
+    adapter = StripeAdapter("sk_test_123", "https://boardgamecafe.example")
+    assert adapter.refund("cs_missing") is False
+
+
+def test_cancel_delegates_to_refund(monkeypatch):
+    adapter = StripeAdapter("sk_test_123", "https://boardgamecafe.example")
+
+    monkeypatch.setattr(adapter, "refund", lambda provider_ref: provider_ref == "cs_paid")
+
+    assert adapter.cancel("cs_paid") is True

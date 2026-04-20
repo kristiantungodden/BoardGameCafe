@@ -1,3 +1,5 @@
+import os
+
 from features.bookings.application.use_cases.booking_lifecycle_use_cases import (
     BookingCommand,
     CancelBookingUseCase,
@@ -20,6 +22,7 @@ from features.bookings.infrastructure.repositories.booking_status_history_reposi
     SqlAlchemyBookingStatusHistoryRepository,
 )
 from features.payments.application.use_cases.payment_use_cases import create_and_save_payment
+from features.payments.infrastructure.stripe.stripe_adapter import StripeAdapter
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
 from features.reservations.application.use_cases.booking_availability_use_cases import (
     GetBookingAvailabilityUseCase,
@@ -58,6 +61,12 @@ _table_reservation_repo = SqlAlchemyTableReservationRepository()
 _game_repo = SqlAlchemyGameReservationRepository()
 _lookup_repo = SqlAlchemyReservationLookupRepository()
 _payment_repo = PaymentRepository()
+_stripe_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+_stripe_provider = (
+    StripeAdapter(_stripe_key, os.getenv("APP_BASE_URL") or "http://localhost:5000")
+    if _stripe_key
+    else None
+)
 _status_history_repo = SqlAlchemyBookingStatusHistoryRepository()
 _available_table_repo = SqlAlchemyAvailableTableRepository()
 _available_copy_repo = SqlAlchemyAvailableGameCopyRepository()
@@ -80,7 +89,12 @@ def get_reservation_by_id_use_case() -> GetBookingByIdUseCase:
 
 
 def get_cancel_reservation_use_case() -> CancelBookingUseCase:
-    return CancelBookingUseCase(_repo, _status_history_repo)
+    return CancelBookingUseCase(
+        _repo,
+        _status_history_repo,
+        payment_repo=_payment_repo,
+        payment_provider=_stripe_provider,
+    )
 
 
 def get_seat_reservation_use_case() -> SeatBookingUseCase:
