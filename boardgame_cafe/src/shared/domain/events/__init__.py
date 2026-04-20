@@ -4,6 +4,8 @@ from .reservation_created import ReservationCreated
 from .reservation_payment_completed import ReservationPaymentCompleted
 from .reservation_seated import ReservationSeated
 from .user_registered import UserRegistered
+from .incident_reported import IncidentReported
+from .incident_deleted import IncidentDeleted
 
 __all__ = [
 	'ReservationCancelled',
@@ -12,4 +14,6 @@ __all__ = [
 	'ReservationPaymentCompleted',
 	'ReservationSeated',
 	'UserRegistered',
+	'IncidentReported',
+	'IncidentDeleted',
 ]

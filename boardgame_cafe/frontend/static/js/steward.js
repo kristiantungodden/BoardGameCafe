@@ -12,6 +12,20 @@ async function fetchJson(path, opts={}){
 
     const res = await fetch(path, opts);
     if (!res.ok) throw new Error(await res.text());
+
+    // Some endpoints return 204 No Content or plain text — handle gracefully.
+    if (res.status === 204) return {};
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+        // Return raw text for non-JSON successful responses.
+        try {
+            const txt = await res.text();
+            return txt;
+        } catch (_e) {
+            return {};
+        }
+    }
+
     return res.json();
 }
 
@@ -592,7 +606,30 @@ window.addEventListener('DOMContentLoaded', ()=>{
                     return;
                 }
 
-                if (et.startsWith('game.copy') || et.startsWith('game_copy') || et.startsWith('incident') || et.startsWith('reservation') || et.startsWith('waitlist')) {
+                if (et.startsWith('incident')) {
+                    const data = payload.data || {};
+                    const incidentId = data.id || 'unknown';
+                    const eventKey = `incident:${incidentId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    if (et === 'incident.created') {
+                        showRealtimeNotice(`Incident reported for copy ${data.game_copy_id || 'unknown'}.`, 'success');
+                    } else if (et === 'incident.deleted') {
+                        showRealtimeNotice(`Incident #${incidentId} deleted.`, 'info');
+                    } else {
+                        showRealtimeNotice('Incident updated.', 'info');
+                    }
+
+                    // If the incidents list UI exists, refresh it specifically; otherwise reload everything.
+                    if (document.getElementById('incident-list')) {
+                        loadIncidents().catch((err) => console.error('Failed to reload incidents', err));
+                    } else {
+                        reloadAll();
+                    }
+                    return;
+                }
+
+                if (et.startsWith('game.copy') || et.startsWith('game_copy') || et.startsWith('reservation') || et.startsWith('waitlist')) {
                     // For simplicity, reload the lists that may be affected
                     reloadAll();
                 }
