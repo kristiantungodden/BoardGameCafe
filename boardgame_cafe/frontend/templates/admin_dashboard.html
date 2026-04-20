@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<section class="steward-dashboard admin-dashboard" id="admin-data">
+	<header class="steward-hero">
+		<div>
+			<p class="hero-kicker">Administration</p>
+			<h1 class="page-header">Admin Dashboard</h1>
+			<p class="page-intro compact">Govern users, policies, floor setup, catalogue content, and reporting from one control center.</p>
+		</div>
+		<div class="steward-hero-actions">
+			<a class="button" href="#user-management">Users</a>
+			<a class="button button-secondary" href="#stewards">Create steward</a>
+			<a class="button button-subtle" href="#reports">Reports</a>
+		</div>
+	</header>
+
+	<section class="steward-toolbar card">
+		<div class="steward-toolbar-left">
+			<label class="form-label" for="admin-snapshot-date">Snapshot date</label>
+			<input class="form-input" type="date" id="admin-snapshot-date" />
+		</div>
+		<div class="steward-toolbar-right">
+			<button class="button button-subtle" type="button" id="admin-refresh">Refresh stats</button>
+			<span class="steward-connection" id="admin-connection-status">Loading admin stats...</span>
+		</div>
+	</section>
+
+	<section class="steward-metrics" aria-label="Admin summary">
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Users</p>
+			<p class="steward-metric-value" id="metric-users">0</p>
+		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Games</p>
+			<p class="steward-metric-value" id="metric-games">0</p>
+		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Game copies</p>
+			<p class="steward-metric-value" id="metric-copies">0</p>
+		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Tables</p>
+			<p class="steward-metric-value" id="metric-tables">0</p>
+		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Open bookings</p>
+			<p class="steward-metric-value" id="metric-open-bookings">0</p>
+		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Open incidents</p>
+			<p class="steward-metric-value" id="metric-open-incidents">0</p>
+		</article>
+	</section>
+
+	<section class="steward-layout">
+		<div class="steward-main-grid">
+			<section class="card" id="user-management">
+				<h3>User Management</h3>
+				<p class="hero-copy">Browse users and track password-reset requirements across all roles.</p>
+				<div id="admin-user-list">Loading users...</div>
+			</section>
+			<section class="card" id="stewards">
+				<h3>Create Steward</h3>
+				<p class="hero-copy">Admins create steward accounts directly. New stewards are forced to change password on first login.</p>
+				<form class="form-stack" id="create-steward-form">
+					<label class="form-label" for="steward-name">Name</label>
+					<input class="form-input" id="steward-name" name="name" required>
+
+					<label class="form-label" for="steward-email">Email</label>
+					<input class="form-input" type="email" id="steward-email" name="email" required>
+
+					<label class="form-label" for="steward-phone">Phone (optional)</label>
+					<input class="form-input" id="steward-phone" name="phone">
+
+					<label class="form-label" for="steward-password">Temporary password</label>
+					<input class="form-input" type="password" minlength="8" id="steward-password" name="password" required>
+
+					<div class="action-row">
+						<button class="button" type="submit">Create steward</button>
+					</div>
+				</form>
+				<p class="quick-links" id="create-steward-message"></p>
+			</section>
+			<section class="card" id="catalogue">
+				<h3>Catalogue & Copies</h3>
+				<p class="hero-copy">Manage the game catalogue, copy inventory, and copy status workflow.</p>
+				<p class="quick-links">The steward copy workflow can be reused here, with extra catalogue controls on top.</p>
+			</section>
+			<section class="card" id="floor">
+				<h3>Floor & Tables</h3>
+				<p class="hero-copy">Configure floors, zones, table sizes, and operational statuses for the café map.</p>
+				<p class="quick-links">This will build on the existing table and floorplan structure already used by bookings.</p>
+			</section>
+			<section class="card" id="policies">
+				<h3>Policies & Fees</h3>
+				<p class="hero-copy">Define pricing, penalties, refunds, and operating policies in one place.</p>
+				<p class="quick-links">Planned as a small configuration module so reporting and checkout can read the same source of truth.</p>
+			</section>
+			<section class="card" id="reports">
+				<h3>Reports</h3>
+				<p class="hero-copy">Track revenue, utilization, and game popularity with admin-level reporting views.</p>
+				<p class="quick-links">This should be read-only analytics backed by query services, not CRUD screens.</p>
+			</section>
+			<section class="card" id="content">
+				<h3>Content & Promos</h3>
+				<p class="hero-copy">Publish promotions, announcements, and homepage content for customers.</p>
+				<p class="quick-links">This will likely need a separate content model, since it is not part of steward operations.</p>
+			</section>
+		</div>
+		<aside class="card steward-side-panel">
+			<h3>Admin Notes</h3>
+			<p class="hero-copy">Use this dashboard as the main admin landing page. Steward actions stay in the operational console, while governance, reporting, and user control move here.</p>
+			<hr>
+			<h4>Implementation order</h4>
+			<p class="quick-links">1. User management. 2. Steward approvals. 3. Policies and fees. 4. Reports. 5. Content and promos.</p>
+		</aside>
+	</section>
+
+	<p class="steward-last-update" id="admin-last-updated">Last updated: --</p>
+</section>
+
+<script src="/static/js/admin.js"></script>
+{% endblock %}

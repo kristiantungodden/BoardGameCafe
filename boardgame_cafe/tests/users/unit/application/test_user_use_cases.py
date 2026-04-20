@@ -10,10 +10,16 @@ from features.users.application.use_cases.user_use_cases import (
     UpdateUserUseCase,
     UpdateOwnProfileUseCase,
     ChangePasswordUseCase,
+    CreateStewardUseCase,
+    ListUsersUseCase,
+    ForcePasswordResetUseCase,
     CreateUserCommand,
     UpdateUserCommand,
     UpdateOwnProfileCommand,
     ChangePasswordCommand,
+    CreateStewardCommand,
+    ListUsersQuery,
+    ForcePasswordResetCommand,
 )
 
 
@@ -316,3 +322,133 @@ class TestChangePasswordUseCase:
         with pytest.raises(ValidationError, match="Insufficient permissions to change password"):
             self.use_case.execute(cmd, requesting_user)
         self.mock_repo.save.assert_not_called()
+
+
+class TestCreateStewardUseCase:
+    """Test CreateStewardUseCase."""
+
+    def setup_method(self):
+        self.mock_repo = Mock()
+        self.use_case = CreateStewardUseCase(self.mock_repo)
+
+    def test_admin_can_create_steward_with_forced_password_change(self):
+        admin = User("Admin", "admin@test.com", "hash", Role.ADMIN, id=1)
+        self.mock_repo.get_by_email.return_value = None
+        self.mock_repo.save.side_effect = lambda user: user
+
+        cmd = CreateStewardCommand(
+            name="New Steward",
+            email="steward@test.com",
+            password_hash="hashed_pw",
+            phone="12345678",
+        )
+
+        user = self.use_case.execute(cmd, admin)
+
+        assert user.role == Role.STAFF
+        assert user.force_password_change is True
+        self.mock_repo.save.assert_called_once()
+
+    def test_non_admin_cannot_create_steward(self):
+        staff = User("Staff", "staff@test.com", "hash", Role.STAFF, id=2)
+        cmd = CreateStewardCommand(
+            name="New Steward",
+            email="steward@test.com",
+            password_hash="hashed_pw",
+        )
+
+        with pytest.raises(ValidationError, match="Admin access required"):
+            self.use_case.execute(cmd, staff)
+
+        self.mock_repo.save.assert_not_called()
+
+    def test_create_steward_rejects_duplicate_email(self):
+        admin = User("Admin", "admin@test.com", "hash", Role.ADMIN, id=1)
+        existing = User("Existing", "steward@test.com", "hash", Role.STAFF, id=3)
+        self.mock_repo.get_by_email.return_value = existing
+
+        cmd = CreateStewardCommand(
+            name="New Steward",
+            email="steward@test.com",
+            password_hash="hashed_pw",
+        )
+
+        with pytest.raises(ValidationError, match="email already exists"):
+            self.use_case.execute(cmd, admin)
+
+        self.mock_repo.save.assert_not_called()
+
+
+class TestListUsersUseCase:
+    """Test ListUsersUseCase."""
+
+    def setup_method(self):
+        self.mock_repo = Mock()
+        self.use_case = ListUsersUseCase(self.mock_repo)
+
+    def test_list_users_for_admin(self):
+        admin = User("Admin", "admin@test.com", "hash", Role.ADMIN, id=1)
+        users = [
+            User("Alice", "alice@test.com", "hash", Role.CUSTOMER, id=2),
+            User("Bob", "bob@test.com", "hash", Role.STAFF, id=3),
+        ]
+        self.mock_repo.list_all.return_value = users
+
+        result = self.use_case.execute(ListUsersQuery(), admin)
+
+        assert len(result) == 2
+        self.mock_repo.list_all.assert_called_once()
+
+    def test_list_users_with_search_filter(self):
+        admin = User("Admin", "admin@test.com", "hash", Role.ADMIN, id=1)
+        users = [
+            User("Alice", "alice@test.com", "hash", Role.CUSTOMER, id=2),
+            User("Bob", "bob@example.com", "hash", Role.STAFF, id=3),
+        ]
+        self.mock_repo.list_all.return_value = users
+
+        result = self.use_case.execute(ListUsersQuery(search_text="example"), admin)
+
+        assert len(result) == 1
+        assert result[0].email == "bob@example.com"
+
+    def test_list_users_rejects_customer(self):
+        customer = User("Customer", "c@test.com", "hash", Role.CUSTOMER, id=4)
+
+        with pytest.raises(ValidationError, match="Insufficient permissions to list users"):
+            self.use_case.execute(ListUsersQuery(), customer)
+
+
+class TestForcePasswordResetUseCase:
+    """Test ForcePasswordResetUseCase."""
+
+    def setup_method(self):
+        self.mock_repo = Mock()
+        self.use_case = ForcePasswordResetUseCase(self.mock_repo)
+
+    def test_admin_can_force_reset_customer(self):
+        admin = User("Admin", "admin@test.com", "hash", Role.ADMIN, id=1)
+        target = User("Customer", "cust@test.com", "hash", Role.CUSTOMER, id=2)
+
+        self.mock_repo.get_by_id.return_value = target
+        self.mock_repo.save.side_effect = lambda user: user
+
+        result = self.use_case.execute(ForcePasswordResetCommand(user_id=2), admin)
+
+        assert result.force_password_change is True
+        self.mock_repo.save.assert_called_once_with(target)
+
+    def test_force_reset_user_not_found(self):
+        admin = User("Admin", "admin@test.com", "hash", Role.ADMIN, id=1)
+        self.mock_repo.get_by_id.return_value = None
+
+        with pytest.raises(ValidationError, match="User not found"):
+            self.use_case.execute(ForcePasswordResetCommand(user_id=999), admin)
+
+    def test_force_reset_rejects_insufficient_permissions(self):
+        staff = User("Staff", "staff@test.com", "hash", Role.STAFF, id=1)
+        target = User("Other Staff", "other@test.com", "hash", Role.STAFF, id=2)
+        self.mock_repo.get_by_id.return_value = target
+
+        with pytest.raises(ValidationError, match="Insufficient permissions to force password change"):
+            self.use_case.execute(ForcePasswordResetCommand(user_id=2), staff)

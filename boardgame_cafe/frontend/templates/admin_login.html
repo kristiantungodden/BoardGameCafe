@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Dicer | Admin Sign In{% endblock %}
+
+{% block content %}
+<h1 class="page-header">Admin Sign In</h1>
+<p class="page-intro">Use an administrator account to access the admin control center.</p>
+
+<form method="post" action="/api/auth/login" class="form-stack" autocomplete="on">
+	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+	<input type="hidden" name="area" value="admin">
+	<label class="form-label" for="email">Email</label>
+	<input class="form-input" type="email" id="email" name="email" required>
+
+	<label class="form-label" for="password">Password</label>
+	<input class="form-input" type="password" id="password" name="password" required>
+
+	<div class="action-row">
+		<button class="button" type="submit">Sign in to admin</button>
+		<a class="button button-secondary" href="/login">Back to regular sign in</a>
+	</div>
+</form>
+
+<p class="page-intro">If your account is awaiting a password reset, you will be prompted after sign-in.</p>
+{% endblock %}

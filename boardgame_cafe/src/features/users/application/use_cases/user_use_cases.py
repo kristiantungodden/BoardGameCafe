@@ -38,6 +38,25 @@ class ChangePasswordCommand:
     new_password_hash: str
 
 
+@dataclass
+class CreateStewardCommand:
+    name: str
+    email: str
+    password_hash: str
+    phone: Optional[str] = None
+
+
+@dataclass
+class ListUsersQuery:
+    role: Optional[Role] = None
+    search_text: Optional[str] = None
+
+
+@dataclass
+class ForcePasswordResetCommand:
+    user_id: int
+
+
 class CreateUserUseCase:
     """Use case for creating new users."""
 
@@ -126,4 +145,72 @@ class ChangePasswordUseCase:
             raise ValidationError("Insufficient permissions to change password")
 
         target_user.change_password(cmd.new_password_hash)
+        return self.user_repo.save(target_user)
+
+
+class CreateStewardUseCase:
+    """Use case for admin-driven steward provisioning."""
+
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
+    def execute(self, cmd: CreateStewardCommand, requesting_user: User) -> User:
+        """Create a steward account that must change password on first login."""
+        if requesting_user.role != Role.ADMIN:
+            raise ValidationError("Admin access required")
+
+        if self.user_repo.get_by_email(cmd.email):
+            raise ValidationError("email already exists")
+
+        user = User(
+            name=cmd.name,
+            email=cmd.email,
+            password_hash=cmd.password_hash,
+            role=Role.STAFF,
+            phone=cmd.phone,
+        )
+        user.force_password_reset()
+        return self.user_repo.save(user)
+
+
+class ListUsersUseCase:
+    """Use case for user listing and filtering."""
+
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
+    def execute(self, query: ListUsersQuery, requesting_user: User) -> list[User]:
+        if requesting_user.role not in (Role.ADMIN, Role.STAFF):
+            raise ValidationError("Insufficient permissions to list users")
+
+        if query.role is not None:
+            users = list(self.user_repo.list_by_role(query.role.value))
+        else:
+            users = list(self.user_repo.list_all())
+
+        search_text = (query.search_text or "").strip().lower()
+        if not search_text:
+            return users
+
+        return [
+            user for user in users
+            if search_text in user.name.lower() or search_text in user.email.lower()
+        ]
+
+
+class ForcePasswordResetUseCase:
+    """Use case for forcing password change on another user."""
+
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
+    def execute(self, cmd: ForcePasswordResetCommand, requesting_user: User) -> User:
+        target_user = self.user_repo.get_by_id(cmd.user_id)
+        if not target_user:
+            raise ValidationError("User not found")
+
+        if not UserDomainService.can_user_force_password_change(requesting_user, target_user):
+            raise ValidationError("Insufficient permissions to force password change")
+
+        target_user.force_password_reset()
         return self.user_repo.save(target_user)
