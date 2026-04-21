@@ -85,6 +85,30 @@ def create_app(config_name: str = None):
         return db.session.get(User, int(user_id))
 
     @app.before_request
+    def enforce_suspension():
+        from flask_login import current_user
+
+        if not getattr(current_user, "is_authenticated", False):
+            return None
+        if not bool(getattr(current_user, "is_suspended", False)):
+            return None
+
+        endpoint = request.endpoint or ""
+        if endpoint.startswith("static"):
+            return None
+
+        allowed_endpoints = {
+            "auth.logout",
+        }
+        if endpoint in allowed_endpoints:
+            return None
+
+        if request.path.startswith("/api/"):
+            return {"error": "Account suspended"}, 403
+
+        return redirect(url_for("login_page"))
+
+    @app.before_request
     def enforce_forced_password_change():
         from flask_login import current_user
 

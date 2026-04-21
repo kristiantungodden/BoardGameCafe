@@ -75,8 +75,15 @@ function setAdminConnection(text) {
     if (node) node.textContent = text;
 }
 
-function widgetCollapseStorageKey(widgetId) {
-    return `admin.widget.collapsed.${widgetId}`;
+function setUserManagementMessage(message, isError = false) {
+    const node = document.getElementById('admin-user-message');
+    if (!node) return;
+    node.textContent = message;
+    node.style.color = isError ? '#8d2430' : '';
+}
+
+function widgetCollapseStorageKey(groupId) {
+    return `admin.widget.group.collapsed.${groupId}`;
 }
 
 function setWidgetCollapsedState(section, toggle, collapsed) {
@@ -92,37 +99,67 @@ function setupAdminWidgetCollapse() {
     if (!dashboard) return;
 
     const widgets = dashboard.querySelectorAll('.steward-main-grid > section.card[id]');
+    const entries = [];
+
     widgets.forEach((section) => {
         const heading = section.querySelector('h3');
-        if (!heading || section.querySelector('.dashboard-widget-toggle')) {
+        if (!heading) {
             return;
         }
 
         section.dataset.widgetTitle = (heading.textContent || 'widget').trim();
         heading.classList.add('dashboard-widget-title');
 
-        const toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'button button-subtle dashboard-widget-toggle';
-        heading.appendChild(toggle);
+        let toggle = section.querySelector('.dashboard-widget-toggle');
+        if (!toggle) {
+            toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'dashboard-widget-toggle';
+            heading.appendChild(toggle);
+        }
+
+        entries.push({ section, toggle });
+    });
+
+    const groupsByTop = new Map();
+    entries.forEach((entry) => {
+        const topKey = String(entry.section.offsetTop);
+        const group = groupsByTop.get(topKey) || [];
+        group.push(entry);
+        groupsByTop.set(topKey, group);
+    });
+
+    groupsByTop.forEach((groupEntries) => {
+        const groupId = groupEntries
+            .map((entry) => entry.section.id)
+            .sort()
+            .join('|');
 
         let isCollapsed = false;
         try {
-            isCollapsed = window.localStorage.getItem(widgetCollapseStorageKey(section.id)) === '1';
+            isCollapsed = window.localStorage.getItem(widgetCollapseStorageKey(groupId)) === '1';
         } catch (_error) {
             isCollapsed = false;
         }
 
-        setWidgetCollapsedState(section, toggle, isCollapsed);
+        const applyGroupState = (collapsed) => {
+            groupEntries.forEach(({ section, toggle }) => {
+                setWidgetCollapsedState(section, toggle, collapsed);
+            });
+        };
 
-        toggle.addEventListener('click', () => {
-            const next = !section.classList.contains('widget-collapsed');
-            setWidgetCollapsedState(section, toggle, next);
-            try {
-                window.localStorage.setItem(widgetCollapseStorageKey(section.id), next ? '1' : '0');
-            } catch (_error) {
-                // Storage can be unavailable in strict browser modes.
-            }
+        applyGroupState(isCollapsed);
+
+        groupEntries.forEach(({ section, toggle }) => {
+            toggle.addEventListener('click', () => {
+                const next = !section.classList.contains('widget-collapsed');
+                applyGroupState(next);
+                try {
+                    window.localStorage.setItem(widgetCollapseStorageKey(groupId), next ? '1' : '0');
+                } catch (_error) {
+                    // Storage can be unavailable in strict browser modes.
+                }
+            });
         });
     });
 }
@@ -183,30 +220,59 @@ function renderUsers(users) {
 
         const meta = document.createElement('p');
         meta.className = 'steward-item-meta';
-        meta.textContent = user.force_password_change
-            ? 'Password change required on next login'
-            : 'Password status: normal';
+        const statusBits = [];
+        statusBits.push(user.force_password_change ? 'Password reset required' : 'Password status: normal');
+        statusBits.push(user.is_suspended ? 'Account suspended' : 'Account active');
+        meta.textContent = statusBits.join(' · ');
         item.appendChild(meta);
 
-        if (!user.force_password_change) {
-            const actions = document.createElement('div');
-            actions.className = 'steward-item-actions';
+        const actions = document.createElement('div');
+        actions.className = 'steward-item-actions';
 
+        if (!user.force_password_change) {
             const resetBtn = document.createElement('button');
             resetBtn.className = 'button button-subtle';
             resetBtn.textContent = 'Force password reset';
             resetBtn.addEventListener('click', async () => {
                 try {
                     await fetchJson(`/api/admin/users/${user.id}/force-password-reset`, { method: 'POST' });
+                    setUserManagementMessage('Password reset required on next login.');
                     await loadUsers();
                 } catch (error) {
                     console.error(error);
+                    setUserManagementMessage('Could not force password reset.', true);
                 }
             });
 
             actions.appendChild(resetBtn);
-            item.appendChild(actions);
         }
+
+        const suspendBtn = document.createElement('button');
+        suspendBtn.className = 'button button-subtle';
+        const nextSuspended = !Boolean(user.is_suspended);
+        suspendBtn.textContent = nextSuspended ? 'Suspend user' : 'Unsuspend user';
+        suspendBtn.addEventListener('click', async () => {
+            const promptText = nextSuspended
+                ? `Suspend user ${user.email}? They will no longer be able to sign in.`
+                : `Unsuspend user ${user.email}?`;
+            if (!window.confirm(promptText)) return;
+            try {
+                await fetchJson(`/api/admin/users/${user.id}/suspension`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ suspended: nextSuspended }),
+                });
+                setUserManagementMessage(nextSuspended ? 'User suspended.' : 'User unsuspended.');
+                await loadUsers();
+                await loadAdminStats();
+            } catch (error) {
+                console.error(error);
+                setUserManagementMessage('Could not update suspension status.', true);
+            }
+        });
+
+        actions.appendChild(suspendBtn);
+        item.appendChild(actions);
 
         list.appendChild(item);
     });
@@ -668,7 +734,7 @@ function renderCatalogueCopies(copies) {
                         <option value="available" ${copy.status === 'available' ? 'selected' : ''}>available</option>
                         <option value="reserved" ${copy.status === 'reserved' ? 'selected' : ''}>reserved</option>
                         <option value="in_use" ${copy.status === 'in_use' ? 'selected' : ''}>in_use</option>
-                        <option value="maintenance" ${copy.status === 'maintenance' ? 'selected' : ''}>maintenance</option>
+                        <option value="maintenance" ${copy.status === 'maintenance' ? 'selected' : ''}>unavailable</option>
                         <option value="lost" ${copy.status === 'lost' ? 'selected' : ''}>lost</option>
                         <option value="occupied" ${copy.status === 'occupied' ? 'selected' : ''}>occupied</option>
                     </select>
@@ -677,7 +743,6 @@ function renderCatalogueCopies(copies) {
             </div>
             <div class="steward-item-actions">
                 <button class="button button-secondary" type="button" data-copy-save="${copy.id}">Save</button>
-                <button class="button button-subtle" type="button" data-copy-incidents="${copy.id}">View incidents</button>
                 <button class="button button-subtle" type="button" data-copy-delete="${copy.id}">Delete copy</button>
             </div>
         `;
@@ -732,23 +797,17 @@ function renderCatalogueCopies(copies) {
         });
     });
 
-    container.querySelectorAll('[data-copy-incidents]').forEach((button) => {
-        button.addEventListener('click', async () => {
-            const copyId = Number(button.getAttribute('data-copy-incidents'));
-            await loadCopyIncidents(copyId);
-        });
-    });
 }
 
-async function loadCopyIncidents(copyId) {
+async function loadCopyIncidents() {
     const container = document.getElementById('admin-copy-incidents');
     if (!container) return;
     container.textContent = 'Loading incidents...';
 
     try {
-        const incidents = await fetchJson(`/api/admin/catalogue/copies/${copyId}/incidents`);
+        const incidents = await fetchJson('/api/admin/catalogue/incidents');
         if (!Array.isArray(incidents) || incidents.length === 0) {
-            container.textContent = `No incidents for copy #${copyId}.`;
+            container.textContent = 'There are no incidents.';
             return;
         }
 
@@ -762,14 +821,36 @@ async function loadCopyIncidents(copyId) {
                     <p class="steward-item-title">Incident #${incident.id} · ${incident.incident_type}</p>
                     <span class="steward-item-meta">${incident.created_at ? new Date(incident.created_at).toLocaleString() : ''}</span>
                 </div>
+                <p class="steward-item-meta">Copy: ${incident.game_copy_code || `#${incident.game_copy_id}`} · ${incident.game_title || 'Unknown game'}</p>
                 <p class="steward-item-meta">Reported by: ${incident.reported_by_name || `User #${incident.reported_by}`}</p>
                 <p class="steward-item-meta">${incident.note || ''}</p>
+                <div class="steward-item-actions">
+                    <button class="button button-secondary" type="button" data-incident-resolve="${incident.id}">Resolved</button>
+                </div>
             `;
             list.appendChild(item);
         });
 
         container.innerHTML = '';
         container.appendChild(list);
+
+        container.querySelectorAll('[data-incident-resolve]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const incidentId = Number(button.getAttribute('data-incident-resolve'));
+                if (!window.confirm(`Resolve incident #${incidentId}? This will set the copy status to available.`)) {
+                    return;
+                }
+
+                try {
+                    await fetchJson(`/api/admin/catalogue/incidents/${incidentId}/resolve`, { method: 'POST' });
+                    await loadCatalogue();
+                    await loadAdminStats();
+                } catch (resolveError) {
+                    console.error(resolveError);
+                    setCatalogueMessage('Could not resolve incident.', true);
+                }
+            });
+        });
     } catch (error) {
         console.error(error);
         container.textContent = 'Could not load incidents.';
@@ -785,13 +866,16 @@ async function loadCatalogue() {
         renderCopyGameSelect(ADMIN_CATALOGUE.games, ADMIN_CATALOGUE.copies);
         renderCatalogueGames(ADMIN_CATALOGUE.games);
         renderCatalogueCopies(ADMIN_CATALOGUE.copies);
+        await loadCopyIncidents();
     } catch (error) {
         console.error(error);
         setCatalogueMessage('Could not load catalogue.', true);
         const gamesContainer = document.getElementById('admin-catalogue-games');
         const copiesContainer = document.getElementById('admin-catalogue-copies');
+        const incidentsContainer = document.getElementById('admin-copy-incidents');
         if (gamesContainer) gamesContainer.textContent = 'Error loading games.';
         if (copiesContainer) copiesContainer.textContent = 'Error loading copies.';
+        if (incidentsContainer) incidentsContainer.textContent = 'Could not load incidents.';
     }
 }
 

@@ -3,6 +3,7 @@ from typing import Optional, Sequence
 from features.games.application.interfaces.game_copy_repository_interface import GameCopyRepository
 from features.games.domain.models.game_copy import GameCopy
 from features.games.infrastructure.database.game_copy_db import GameCopyDB
+from features.games.infrastructure.database.incident_db import IncidentDB
 from shared.infrastructure import db
 
 
@@ -38,6 +39,17 @@ class GameCopyRepositoryImpl(GameCopyRepository):
 
         if not db_copy:
             raise ValueError("Game copy not found")
+
+        # Keep copies unavailable while unresolved incidents exist.
+        if db_copy.status != "available" and game_copy.status == "available":
+            has_open_incidents = (
+                db.session.query(IncidentDB.id)
+                .filter(IncidentDB.game_copy_id == int(db_copy.id))
+                .first()
+                is not None
+            )
+            if has_open_incidents:
+                raise ValueError("Cannot mark copy as available while unresolved incidents exist")
 
         db_copy.status = game_copy.status
         db_copy.location = game_copy.location

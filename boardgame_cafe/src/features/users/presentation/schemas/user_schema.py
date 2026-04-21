@@ -53,6 +53,7 @@ class UserResponse(BaseModel):
     phone: Optional[str] = None
     role: str = Field(pattern=r"^(customer|staff|admin)$")
     force_password_change: bool
+    is_suspended: bool
 
     @staticmethod
     def from_domain(user: User) -> UserResponse:
@@ -63,4 +64,5 @@ class UserResponse(BaseModel):
             phone=user.phone,
             role=user.role.value,
             force_password_change=user.force_password_change,
+            is_suspended=bool(getattr(user, "is_suspended", False)),
         )

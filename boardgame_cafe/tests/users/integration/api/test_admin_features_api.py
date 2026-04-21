@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from features.users.infrastructure import UserDB, hash_password
+from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
 from features.games.infrastructure.database.incident_db import IncidentDB
 from features.tables.infrastructure.database.table_db import TableDB
@@ -97,6 +98,55 @@ def test_admin_can_list_users_and_force_password_reset(app, client):
     assert reset_payload["force_password_change"] is True
 
 
+def test_admin_can_suspend_user_but_not_self(app, client):
+    with app.app_context():
+        admin_id = _create_user(
+            role="admin",
+            name="Admin",
+            email="admin-suspend@example.com",
+            password="AdminPass123",
+        )
+        target_id = _create_user(
+            role="customer",
+            name="Suspend Target",
+            email="suspend-target@example.com",
+            password="CustomerPass123",
+        )
+
+    _login(client, email="admin-suspend@example.com", password="AdminPass123")
+
+    suspend_target = client.patch(
+        f"/api/admin/users/{target_id}/suspension",
+        json={"suspended": True},
+    )
+    assert suspend_target.status_code == 200
+    assert suspend_target.get_json()["is_suspended"] is True
+
+    users_after_suspend = client.get("/api/admin/users")
+    assert users_after_suspend.status_code == 200
+    suspended_user = next((u for u in users_after_suspend.get_json() if u["id"] == target_id), None)
+    assert suspended_user is not None
+    assert suspended_user["is_suspended"] is True
+
+    client.post("/api/auth/logout")
+
+    suspended_login = client.post(
+        "/api/auth/login",
+        json={"email": "suspend-target@example.com", "password": "CustomerPass123"},
+    )
+    assert suspended_login.status_code == 403
+    assert suspended_login.get_json()["error"] == "Account suspended"
+
+    _login(client, email="admin-suspend@example.com", password="AdminPass123")
+
+    suspend_self = client.patch(
+        f"/api/admin/users/{admin_id}/suspension",
+        json={"suspended": True},
+    )
+    assert suspend_self.status_code == 400
+    assert suspend_self.get_json()["error"] == "You cannot suspend your own account."
+
+
 def test_non_admin_cannot_access_admin_user_management(app, client):
     with app.app_context():
         _create_user(
@@ -111,6 +161,25 @@ def test_non_admin_cannot_access_admin_user_management(app, client):
     response = client.get("/api/admin/users")
     assert response.status_code == 403
     assert response.get_json()["error"] == "Admin access required"
+
+
+def test_admin_cannot_suspend_last_active_admin(app, client):
+    with app.app_context():
+        admin_id = _create_user(
+            role="admin",
+            name="Solo Admin",
+            email="solo-admin@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="solo-admin@example.com", password="AdminPass123")
+
+    suspend_self_admin = client.patch(
+        f"/api/admin/users/{admin_id}/suspension",
+        json={"suspended": True},
+    )
+    assert suspend_self_admin.status_code == 400
+    assert suspend_self_admin.get_json()["error"] == "You cannot suspend your own account."
 
 
 def test_forced_password_user_can_change_password_without_current_password(app, client):
@@ -286,7 +355,7 @@ def test_admin_can_get_and_update_pricing(app, client):
 
 def test_admin_can_manage_catalogue_and_copies(app, client):
     with app.app_context():
-        admin_id = _create_user(
+        _create_user(
             role="admin",
             name="Catalogue Admin",
             email="admin-catalogue@example.com",
@@ -359,6 +428,13 @@ def test_admin_can_manage_catalogue_and_copies(app, client):
     incidents = incidents_resp.get_json()
     assert any(i["incident_type"] == "damage" for i in incidents)
 
+    blocked_available = client.put(
+        f"/api/admin/catalogue/copies/{copy_id}",
+        json={"status": "available"},
+    )
+    assert blocked_available.status_code == 409
+    assert blocked_available.get_json()["error"] == "Resolve incidents before setting copy to available."
+
     overview = client.get("/api/admin/catalogue")
     assert overview.status_code == 200
     payload = overview.get_json()
@@ -373,3 +449,130 @@ def test_admin_can_manage_catalogue_and_copies(app, client):
 
     delete_game = client.delete(f"/api/admin/catalogue/games/{game_id}")
     assert delete_game.status_code == 200
+
+
+def test_admin_can_resolve_incident_and_restore_copy_to_available(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Incident Admin",
+            email="admin-resolve-incident@example.com",
+            password="AdminPass123",
+        )
+        staff_id = _create_user(
+            role="staff",
+            name="Incident Reporter",
+            email="incident-reporter@example.com",
+            password="StaffPass123",
+        )
+        game = GameDB(
+            title="Catan",
+            min_players=3,
+            max_players=4,
+            playtime_min=90,
+            complexity=2.3,
+            price_cents=3900,
+            description="Trading and settlements",
+            image_url=None,
+        )
+        db.session.add(game)
+        db.session.commit()
+
+        copy = GameCopyDB(
+            game_id=game.id,
+            copy_code="CATAN-001",
+            status="maintenance",
+            location="Repair shelf",
+            condition_note="Missing road pieces",
+        )
+        db.session.add(copy)
+        db.session.commit()
+
+        incident = IncidentDB(
+            game_copy_id=copy.id,
+            reported_by=staff_id,
+            incident_type="damage",
+            note="Box corner crushed",
+        )
+        db.session.add(incident)
+        db.session.commit()
+        incident_id = int(incident.id)
+        copy_id = int(copy.id)
+
+    _login(client, email="admin-resolve-incident@example.com", password="AdminPass123")
+
+    resolve_response = client.post(f"/api/admin/catalogue/incidents/{incident_id}/resolve")
+    assert resolve_response.status_code == 200
+    assert resolve_response.get_json()["copy"]["status"] == "available"
+
+    incidents_response = client.get("/api/admin/catalogue/incidents")
+    assert incidents_response.status_code == 200
+    incidents = incidents_response.get_json()
+    assert all(i["id"] != incident_id for i in incidents)
+
+    with app.app_context():
+        updated_copy = db.session.get(GameCopyDB, copy_id)
+        assert updated_copy is not None
+        assert updated_copy.status == "available"
+
+
+def test_admin_cannot_set_copy_available_with_unresolved_incident(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Incident Gate Admin",
+            email="admin-incident-gate@example.com",
+            password="AdminPass123",
+        )
+        staff_id = _create_user(
+            role="staff",
+            name="Incident Reporter",
+            email="incident-gate-reporter@example.com",
+            password="StaffPass123",
+        )
+        game = GameDB(
+            title="Ticket to Ride",
+            min_players=2,
+            max_players=5,
+            playtime_min=60,
+            complexity=2.1,
+            price_cents=3500,
+            description="Route-building game",
+            image_url=None,
+        )
+        db.session.add(game)
+        db.session.commit()
+
+        copy = GameCopyDB(
+            game_id=game.id,
+            copy_code="TTR-001",
+            status="maintenance",
+            location="Repair shelf",
+            condition_note="Needs review",
+        )
+        db.session.add(copy)
+        db.session.commit()
+
+        incident = IncidentDB(
+            game_copy_id=copy.id,
+            reported_by=staff_id,
+            incident_type="damage",
+            note="Damaged train cards",
+        )
+        db.session.add(incident)
+        db.session.commit()
+        copy_id = int(copy.id)
+        incident_id = int(incident.id)
+
+    _login(client, email="admin-incident-gate@example.com", password="AdminPass123")
+
+    blocked = client.put(
+        f"/api/admin/catalogue/copies/{copy_id}",
+        json={"status": "available"},
+    )
+    assert blocked.status_code == 409
+    assert blocked.get_json()["error"] == "Resolve incidents before setting copy to available."
+
+    resolved = client.post(f"/api/admin/catalogue/incidents/{incident_id}/resolve")
+    assert resolved.status_code == 200
+    assert resolved.get_json()["copy"]["status"] == "available"
