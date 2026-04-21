@@ -24,6 +24,7 @@ class User:
     password_hash: str  # Pre-hashed password from infrastructure
     role: Role = Role.CUSTOMER
     force_password_change: bool = False
+    is_suspended: bool = False
     phone: Optional[str] = None
     id: Optional[int] = None
 
@@ -56,6 +57,14 @@ class User:
     def force_password_reset(self) -> None:
         """Force user to change password on next login."""
         self.force_password_change = True
+
+    def suspend(self) -> None:
+        """Suspend account access until explicitly restored."""
+        self.is_suspended = True
+
+    def unsuspend(self) -> None:
+        """Restore account access for a suspended user."""
+        self.is_suspended = False
 
     def update_profile(self, name: Optional[str] = None, phone: Optional[str] = None) -> None:
         """Update user profile information."""

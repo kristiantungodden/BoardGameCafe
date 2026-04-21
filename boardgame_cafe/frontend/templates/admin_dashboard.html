@@ -61,6 +61,7 @@
 				<h3>User Management</h3>
 				<p class="hero-copy">Browse users and track password-reset requirements across all roles.</p>
 				<div id="admin-user-list">Loading users...</div>
+				<p class="quick-links" id="admin-user-message"></p>
 			</section>
 			<section class="card" id="stewards">
 				<h3>Create Steward</h3>
@@ -87,9 +88,11 @@
 			<section class="card" id="catalogue">
 				<h3>Catalogue & Copies</h3>
 				<p class="hero-copy">Admin-only controls for creating, editing, and deleting games and physical copies.</p>
+				<p class="quick-links" id="catalogue-message"></p>
 
-				<div class="form-grid-two">
-					<form class="form-stack" id="admin-game-create-form">
+				<div class="catalogue-sections">
+					<section class="catalogue-column">
+						<form class="form-stack" id="admin-game-create-form">
 						<h4>Create Game</h4>
 						<label class="form-label" for="admin-game-title">Title</label>
 						<input class="form-input" id="admin-game-title" name="title" required>
@@ -128,9 +131,16 @@
 						<div class="action-row">
 							<button class="button" type="submit">Create game</button>
 						</div>
-					</form>
+						</form>
+						<hr class="widget-divider">
+						<h4 class="catalogue-list-title">Games</h4>
+						<label class="form-label catalogue-search-label" for="admin-catalogue-game-search">Search Games</label>
+						<input class="form-input catalogue-search-input" id="admin-catalogue-game-search" type="search" placeholder="Search by title, id, or description">
+						<div id="admin-catalogue-games" class="steward-scroll-list">Loading games...</div>
+					</section>
 
-					<form class="form-stack" id="admin-copy-create-form">
+					<section class="catalogue-column">
+						<form class="form-stack" id="admin-copy-create-form">
 						<h4>Create Copy</h4>
 						<label class="form-label" for="admin-copy-game-id">Game</label>
 						<select class="form-input" id="admin-copy-game-id" name="game_id" required></select>
@@ -157,23 +167,19 @@
 						<div class="action-row">
 							<button class="button" type="submit">Create copy</button>
 						</div>
-					</form>
+						</form>
+						<hr class="widget-divider">
+						<h4 class="catalogue-list-title">Copies</h4>
+						<label class="form-label catalogue-search-label" for="admin-catalogue-copy-search">Search Copies</label>
+						<input class="form-input catalogue-search-input" id="admin-catalogue-copy-search" type="search" placeholder="Search by code, game, location, or status">
+						<div id="admin-catalogue-copies" class="steward-scroll-list">Loading copies...</div>
+					</section>
 				</div>
-
-				<p class="quick-links" id="catalogue-message"></p>
-
-				<h4 class="catalogue-list-title">Games</h4>
-				<label class="form-label catalogue-search-label" for="admin-catalogue-game-search">Search Games</label>
-				<input class="form-input catalogue-search-input" id="admin-catalogue-game-search" type="search" placeholder="Search by title, id, or description">
-				<div id="admin-catalogue-games" class="steward-scroll-list">Loading games...</div>
-
-				<h4 class="catalogue-list-title">Copies</h4>
-				<label class="form-label catalogue-search-label" for="admin-catalogue-copy-search">Search Copies</label>
-				<input class="form-input catalogue-search-input" id="admin-catalogue-copy-search" type="search" placeholder="Search by code, game, location, or status">
-				<div id="admin-catalogue-copies" class="steward-scroll-list">Loading copies...</div>
-
-				<h4>Copy Incidents</h4>
-				<div id="admin-copy-incidents" class="steward-scroll-list">Select a copy to view incidents.</div>
+			</section>
+			<section class="card" id="copy-incidents">
+				<h3>Copy Incidents</h3>
+				<p class="hero-copy">Damage and problem history for physical game copies across the catalogue.</p>
+				<div id="admin-copy-incidents" class="steward-scroll-list">Loading incidents...</div>
 			</section>
 			<section class="card" id="floor">
 				<h3>Floor & Tables</h3>
@@ -209,9 +215,11 @@
 				</form>
 				<p class="quick-links" id="pricing-message"></p>
 
+				<hr class="widget-divider">
 				<h4>Table Prices</h4>
 				<div id="admin-table-pricing-list" class="steward-scroll-list">Loading table prices...</div>
 
+				<hr class="widget-divider">
 				<h4>Game Prices</h4>
 				<div id="admin-game-pricing-list" class="steward-scroll-list">Loading game prices...</div>
 			</section>

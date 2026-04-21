@@ -11,9 +11,11 @@ def init_db(app=None):
         with app.app_context():
             db.create_all()
             _ensure_booking_status_history_actor_columns()
+            _ensure_users_suspension_column()
     else:
         db.create_all()
         _ensure_booking_status_history_actor_columns()
+        _ensure_users_suspension_column()
 
 
 def _ensure_booking_status_history_actor_columns() -> None:
@@ -43,3 +45,21 @@ def _ensure_booking_status_history_actor_columns() -> None:
     with db.engine.begin() as connection:
         for statement in statements:
             connection.execute(text(statement))
+
+
+def _ensure_users_suspension_column() -> None:
+    inspector = inspect(db.engine)
+    table_names = set(inspector.get_table_names())
+    if "users" not in table_names:
+        return
+
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("users")
+    }
+    if "is_suspended" in existing_columns:
+        return
+
+    with db.engine.begin() as connection:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN is_suspended BOOLEAN NOT NULL DEFAULT 0")
+        )

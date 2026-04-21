@@ -234,6 +234,11 @@ def test_steward_swap_and_game_copy_status_and_incident_flow(client, app, test_d
     assert incident["incident_type"] == "damage"
     assert incident["note"] == "Edge broken"
 
+    with app.app_context():
+        updated_copy = db.session.get(GameCopyDB, copy_b)
+        assert updated_copy is not None
+        assert updated_copy.status == "maintenance"
+
     # List incidents for the copy
     list_inc = client.get(f"/api/steward/game-copies/{copy_b}/incidents")
     assert list_inc.status_code == 200

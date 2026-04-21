@@ -72,6 +72,7 @@ def _serialize_user(user) -> dict:
         "phone": user.phone,
         "role": role,
         "force_password_change": bool(getattr(user, "force_password_change", False)),
+        "is_suspended": bool(getattr(user, "is_suspended", False)),
     }
 
 
@@ -106,9 +107,13 @@ def _serialize_copy(row: GameCopyDB) -> dict:
 
 def _serialize_incident(row: IncidentDB) -> dict:
     steward = getattr(row, "steward", None)
+    game_copy = getattr(row, "game_copy", None)
+    game = getattr(game_copy, "game", None) if game_copy is not None else None
     return {
         "id": int(row.id),
         "game_copy_id": int(row.game_copy_id),
+        "game_copy_code": getattr(game_copy, "copy_code", None),
+        "game_title": getattr(game, "title", None),
         "reported_by": int(row.reported_by),
         "reported_by_name": getattr(steward, "name", None),
         "incident_type": row.incident_type,
@@ -396,7 +401,17 @@ def update_catalogue_copy(copy_id: int):
                 raise ValueError("copy_code cannot be blank")
             row.copy_code = copy_code
         if "status" in raw:
-            row.status = _parse_copy_status(raw.get("status"))
+            next_status = _parse_copy_status(raw.get("status"))
+            if row.status != "available" and next_status == "available":
+                has_open_incidents = (
+                    db.session.query(IncidentDB.id)
+                    .filter(IncidentDB.game_copy_id == copy_id)
+                    .first()
+                    is not None
+                )
+                if has_open_incidents:
+                    return jsonify({"error": "Resolve incidents before setting copy to available."}), 409
+            row.status = next_status
         if "location" in raw:
             row.location = raw.get("location")
         if "condition_note" in raw:
@@ -444,6 +459,42 @@ def list_catalogue_copy_incidents(copy_id: int):
         .all()
     )
     return jsonify([_serialize_incident(row) for row in rows]), 200
+
+
+@bp.get("/catalogue/incidents")
+def list_catalogue_incidents():
+    err = _require_admin()
+    if err:
+        return err
+
+    rows = (
+        db.session.query(IncidentDB)
+        .order_by(IncidentDB.created_at.desc(), IncidentDB.id.desc())
+        .all()
+    )
+    return jsonify([_serialize_incident(row) for row in rows]), 200
+
+
+@bp.post("/catalogue/incidents/<int:incident_id>/resolve")
+def resolve_catalogue_incident(incident_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
+    incident = db.session.get(IncidentDB, incident_id)
+    if incident is None:
+        return jsonify({"error": "Incident not found"}), 404
+
+    copy_row = db.session.get(GameCopyDB, int(incident.game_copy_id))
+    if copy_row is None:
+        return jsonify({"error": "Game copy not found"}), 404
+
+    # Resolving an incident means restoring the copy to normal availability.
+    copy_row.status = "available"
+    db.session.delete(incident)
+    db.session.commit()
+
+    return jsonify({"message": "Incident resolved", "copy": _serialize_copy(copy_row)}), 200
 
 
 @bp.get("/dashboard/stats")
@@ -577,6 +628,40 @@ def force_password_reset(user_id: int):
         return jsonify({"error": message}), 403
 
     return jsonify(_serialize_user(user)), 200
+
+
+@bp.patch("/users/<int:user_id>/suspension")
+def set_user_suspension(user_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
+    target = db.session.get(UserDB, user_id)
+    if target is None:
+        return jsonify({"error": "User not found"}), 404
+
+    try:
+        current_user_id = int(getattr(current_user, "id", 0) or 0)
+    except (TypeError, ValueError):
+        current_user_id = 0
+
+    if target.id == current_user_id:
+        return jsonify({"error": "You cannot suspend your own account."}), 400
+
+    raw = request.get_json(silent=True) or {}
+    suspend_value = raw.get("suspended")
+    if not isinstance(suspend_value, bool):
+        return jsonify({"error": "suspended must be true or false"}), 400
+
+    if _user_role_value(target) == "admin" and suspend_value:
+        active_admin_count = _count(UserDB, UserDB.role == "admin", UserDB.is_suspended.is_(False))
+        if active_admin_count <= 1:
+            return jsonify({"error": "Cannot suspend the last active admin account."}), 409
+
+    target.is_suspended = suspend_value
+    db.session.commit()
+
+    return jsonify(_serialize_user(target)), 200
 
 
 @bp.get("/pricing")

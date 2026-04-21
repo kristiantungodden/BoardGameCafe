@@ -550,18 +550,38 @@ footer {
     gap: 0.8rem;
 }
 
+#admin-data .steward-main-grid > section.card {
+    position: relative;
+}
+
 #admin-data .dashboard-widget-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
+    display: block;
+    padding-right: 1.6rem;
 }
 
 #admin-data .dashboard-widget-toggle {
-    margin-left: auto;
-    padding: 0.32rem 0.62rem;
-    font-size: 0.78rem;
-    line-height: 1.1;
+    position: absolute;
+    top: 0.75rem;
+    right: 0.85rem;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    color: #5e5a53;
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+#admin-data .dashboard-widget-toggle:hover {
+    color: #2f2b24;
+}
+
+#admin-data .card hr.widget-divider {
+    border: none;
+    border-top: 1px solid #e0ddd6;
+    margin: 1.1rem 0 0.9rem;
 }
 
 #admin-data .steward-main-grid > section.card.widget-collapsed {
@@ -573,6 +593,7 @@ footer {
 }
 
 #catalogue,
+#copy-incidents,
 #floor,
 #policies {
     grid-column: 1 / -1;
@@ -614,6 +635,27 @@ footer {
     margin: 1rem 0 0.35rem;
 }
 
+#catalogue .catalogue-sections {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+    align-items: start;
+}
+
+#catalogue .catalogue-column {
+    display: grid;
+    gap: 0.6rem;
+    align-content: start;
+}
+
+#catalogue .form-stack {
+    max-width: none;
+}
+
+#catalogue .form-stack .form-input {
+    width: 100%;
+}
+
 #catalogue .catalogue-search-label {
     display: block;
     margin-bottom: 0.3rem;
@@ -627,6 +669,12 @@ footer {
     width: 100%;
     max-width: none;
     margin-bottom: 0.6rem;
+}
+
+@media (max-width: 940px) {
+    #catalogue .catalogue-sections {
+        grid-template-columns: 1fr;
+    }
 }
 
 .pricing-compact-grid {
