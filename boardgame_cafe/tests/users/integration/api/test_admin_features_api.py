@@ -5,6 +5,7 @@ from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
 from features.games.infrastructure.database.incident_db import IncidentDB
 from features.tables.infrastructure.database.table_db import TableDB
+from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from shared.infrastructure import db
 
 
@@ -576,3 +577,65 @@ def test_admin_cannot_set_copy_available_with_unresolved_incident(app, client):
     resolved = client.post(f"/api/admin/catalogue/incidents/{incident_id}/resolve")
     assert resolved.status_code == 200
     assert resolved.get_json()["copy"]["status"] == "available"
+
+
+def test_admin_can_manage_announcements_and_home_shows_only_published(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Content Admin",
+            email="admin-content@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="admin-content@example.com", password="AdminPass123")
+
+    create_draft = client.post(
+        "/api/admin/content/announcements",
+        json={
+            "title": "Draft Promo",
+            "body": "This draft should not show on the homepage.",
+            "publish_now": False,
+        },
+    )
+    assert create_draft.status_code == 201
+    draft_id = create_draft.get_json()["id"]
+
+    create_published = client.post(
+        "/api/admin/content/announcements",
+        json={
+            "title": "Friday Event",
+            "body": "Join our Friday board game night.",
+            "cta_label": "Book now",
+            "cta_url": "/booking",
+            "publish_now": True,
+        },
+    )
+    assert create_published.status_code == 201
+    published_id = create_published.get_json()["id"]
+
+    listing = client.get("/api/admin/content/announcements")
+    assert listing.status_code == 200
+    payload = listing.get_json()
+    assert any(item["id"] == draft_id and item["is_published"] is False for item in payload)
+    assert any(item["id"] == published_id and item["is_published"] is True for item in payload)
+
+    publish_draft = client.post(f"/api/admin/content/announcements/{draft_id}/publish")
+    assert publish_draft.status_code == 200
+    assert publish_draft.get_json()["is_published"] is True
+
+    unpublish_draft = client.post(f"/api/admin/content/announcements/{draft_id}/unpublish")
+    assert unpublish_draft.status_code == 200
+    assert unpublish_draft.get_json()["is_published"] is False
+
+    home_response = client.get("/")
+    assert home_response.status_code == 200
+    html = home_response.get_data(as_text=True)
+    assert "Friday Event" in html
+    assert "Draft Promo" not in html
+
+    delete_published = client.delete(f"/api/admin/content/announcements/{published_id}")
+    assert delete_published.status_code == 200
+
+    with app.app_context():
+        assert db.session.get(AnnouncementDB, published_id) is None

@@ -5,28 +5,20 @@
 {% block content %}
 <section class="steward-dashboard admin-dashboard" id="admin-data">
 	<header class="steward-hero">
-		<div>
-			<p class="hero-kicker">Administration</p>
-			<h1 class="page-header">Admin Dashboard</h1>
-			<p class="page-intro compact">Govern users, policies, floor setup, catalogue content, and reporting from one control center.</p>
-		</div>
-		<div class="steward-hero-actions">
-			<a class="button" href="#user-management">Users</a>
-			<a class="button button-secondary" href="#stewards">Create steward</a>
-			<a class="button button-subtle" href="#reports">Reports</a>
-		</div>
+		<p class="hero-kicker">WELCOME TO THE ADMIN DASHBOARD</p>
+		<h1 class="page-header">Admin Dashboard</h1>
+		<p class="page-intro compact">In here you can govern users, policies, floor setup, catalogue content, and reporting from one control center.</p>
+		<section class="steward-toolbar card">
+			<div class="steward-toolbar-left">
+				<label class="form-label" for="admin-snapshot-date">Snapshot date</label>
+				<input class="form-input" type="date" id="admin-snapshot-date" />
+			</div>
+			<div class="steward-toolbar-right">
+				<button class="button button-subtle" type="button" id="admin-refresh">Refresh stats</button>
+				<span class="steward-connection" id="admin-connection-status">Loading admin stats...</span>
+			</div>
+		</section>
 	</header>
-
-	<section class="steward-toolbar card">
-		<div class="steward-toolbar-left">
-			<label class="form-label" for="admin-snapshot-date">Snapshot date</label>
-			<input class="form-input" type="date" id="admin-snapshot-date" />
-		</div>
-		<div class="steward-toolbar-right">
-			<button class="button button-subtle" type="button" id="admin-refresh">Refresh stats</button>
-			<span class="steward-connection" id="admin-connection-status">Loading admin stats...</span>
-		</div>
-	</section>
 
 	<section class="steward-metrics" aria-label="Admin summary">
 		<article class="steward-metric-card">
@@ -53,6 +45,10 @@
 			<p class="steward-metric-label">Open incidents</p>
 			<p class="steward-metric-value" id="metric-open-incidents">0</p>
 		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Live announcements</p>
+			<p class="steward-metric-value" id="metric-published-announcements">0</p>
+		</article>
 	</section>
 
 	<section class="steward-layout">
@@ -60,7 +56,10 @@
 			<section class="card" id="user-management">
 				<h3>User Management</h3>
 				<p class="hero-copy">Browse users and track password-reset requirements across all roles.</p>
-				<div id="admin-user-list">Loading users...</div>
+				<input class="form-input" type="search" id="admin-user-search" placeholder="Search by name, email or role…" autocomplete="off" />
+				<div class="steward-scroll-list">
+					<div id="admin-user-list">Loading users...</div>
+				</div>
 				<p class="quick-links" id="admin-user-message"></p>
 			</section>
 			<section class="card" id="stewards">
@@ -230,8 +229,41 @@
 			</section>
 			<section class="card" id="content">
 				<h3>Content & Promos</h3>
-				<p class="hero-copy">Publish promotions, announcements, and homepage content for customers.</p>
-				<p class="quick-links">This will likely need a separate content model, since it is not part of steward operations.</p>
+				<p class="hero-copy">Publish homepage announcements and promotions visible to customers on the landing page.</p>
+
+				<form class="form-stack" id="admin-announcement-form">
+					<label class="form-label" for="announcement-title">Title</label>
+					<input class="form-input" id="announcement-title" name="title" maxlength="160" required>
+
+					<label class="form-label" for="announcement-body">Message</label>
+					<textarea class="form-input" id="announcement-body" name="body" rows="4" required></textarea>
+
+					<div class="form-grid-two">
+						<div>
+							<label class="form-label" for="announcement-cta-label">Button label (optional)</label>
+							<input class="form-input" id="announcement-cta-label" name="cta_label" maxlength="80">
+						</div>
+						<div>
+							<label class="form-label" for="announcement-cta-url">Button URL (optional)</label>
+							<input class="form-input" id="announcement-cta-url" name="cta_url" placeholder="/booking or https://...">
+						</div>
+					</div>
+
+					<label class="form-label content-promo-checkbox">
+						<input type="checkbox" id="announcement-publish-now" name="publish_now" checked>
+						Publish immediately
+					</label>
+
+					<div class="action-row">
+						<button class="button" type="submit">Publish announcement</button>
+					</div>
+				</form>
+
+				<p class="quick-links" id="admin-announcement-message"></p>
+
+				<hr class="widget-divider">
+				<h4>Published & Draft Announcements</h4>
+				<div id="admin-announcements-list" class="steward-scroll-list">Loading announcements...</div>
 			</section>
 		</div>
 	</section>

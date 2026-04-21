@@ -18,6 +18,7 @@ from features.users.infrastructure.pricing_settings import (
     resolve_base_fee,
     set_cancel_time_limit_hours,
 )
+from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from features.users.application.use_cases.user_use_cases import (
     CreateStewardCommand,
     ForcePasswordResetCommand,
@@ -120,6 +121,38 @@ def _serialize_incident(row: IncidentDB) -> dict:
         "note": row.note,
         "created_at": row.created_at.isoformat() if getattr(row, "created_at", None) else None,
     }
+
+
+def _serialize_announcement(row: AnnouncementDB) -> dict:
+    creator = getattr(row, "creator", None)
+    return {
+        "id": int(row.id),
+        "title": row.title,
+        "body": row.body,
+        "cta_label": row.cta_label,
+        "cta_url": row.cta_url,
+        "is_published": bool(row.is_published),
+        "published_at": row.published_at.isoformat() if getattr(row, "published_at", None) else None,
+        "created_at": row.created_at.isoformat() if getattr(row, "created_at", None) else None,
+        "updated_at": row.updated_at.isoformat() if getattr(row, "updated_at", None) else None,
+        "created_by": int(row.created_by) if row.created_by is not None else None,
+        "created_by_name": getattr(creator, "name", None),
+    }
+
+
+def _parse_optional_text(value):
+    if value is None:
+        return None
+    text_value = str(value).strip()
+    return text_value or None
+
+
+def _validate_announcement_cta(label: str | None, url: str | None) -> None:
+    if bool(label) != bool(url):
+        raise ValueError("cta_label and cta_url must either both be set or both be empty")
+
+    if url and not (url.startswith("/") or url.startswith("http://") or url.startswith("https://")):
+        raise ValueError("cta_url must start with /, http://, or https://")
 
 
 def _get_requesting_domain_user():
@@ -536,9 +569,153 @@ def dashboard_stats():
         "bookings_by_status": booking_counts,
         "open_bookings": booking_counts.get("confirmed", 0) + booking_counts.get("seated", 0),
         "open_incidents": _count(IncidentDB),
+        "published_announcements": int(db.session.query(func.count(AnnouncementDB.id)).filter(AnnouncementDB.is_published.is_(True)).scalar() or 0),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
     return jsonify(payload), 200
+
+
+@bp.get("/content/announcements")
+def list_announcements():
+    err = _require_admin()
+    if err:
+        return err
+
+    rows = (
+        db.session.query(AnnouncementDB)
+        .order_by(AnnouncementDB.created_at.desc(), AnnouncementDB.id.desc())
+        .all()
+    )
+    return jsonify([_serialize_announcement(row) for row in rows]), 200
+
+
+@bp.post("/content/announcements")
+def create_announcement():
+    err = _require_admin()
+    if err:
+        return err
+
+    raw = request.get_json(silent=True) or {}
+    try:
+        title = str(raw.get("title") or "").strip()
+        body = str(raw.get("body") or "").strip()
+        if not title:
+            raise ValueError("title is required")
+        if not body:
+            raise ValueError("body is required")
+
+        cta_label = _parse_optional_text(raw.get("cta_label"))
+        cta_url = _parse_optional_text(raw.get("cta_url"))
+        _validate_announcement_cta(cta_label, cta_url)
+
+        publish_now = bool(raw.get("publish_now", False))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        creator_id = int(getattr(current_user, "id", 0) or 0)
+    except (TypeError, ValueError):
+        creator_id = None
+
+    row = AnnouncementDB(
+        title=title,
+        body=body,
+        cta_label=cta_label,
+        cta_url=cta_url,
+        is_published=publish_now,
+        published_at=datetime.now(timezone.utc) if publish_now else None,
+        created_by=creator_id,
+    )
+    db.session.add(row)
+    db.session.commit()
+
+    return jsonify(_serialize_announcement(row)), 201
+
+
+@bp.put("/content/announcements/<int:announcement_id>")
+def update_announcement(announcement_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
+    row = db.session.get(AnnouncementDB, announcement_id)
+    if row is None:
+        return jsonify({"error": "Announcement not found"}), 404
+
+    raw = request.get_json(silent=True) or {}
+    if not raw:
+        return jsonify({"error": "At least one field must be provided"}), 400
+
+    try:
+        if "title" in raw:
+            title = str(raw.get("title") or "").strip()
+            if not title:
+                raise ValueError("title cannot be blank")
+            row.title = title
+
+        if "body" in raw:
+            body = str(raw.get("body") or "").strip()
+            if not body:
+                raise ValueError("body cannot be blank")
+            row.body = body
+
+        if "cta_label" in raw:
+            row.cta_label = _parse_optional_text(raw.get("cta_label"))
+        if "cta_url" in raw:
+            row.cta_url = _parse_optional_text(raw.get("cta_url"))
+
+        _validate_announcement_cta(row.cta_label, row.cta_url)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    db.session.commit()
+    return jsonify(_serialize_announcement(row)), 200
+
+
+@bp.post("/content/announcements/<int:announcement_id>/publish")
+def publish_announcement(announcement_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
+    row = db.session.get(AnnouncementDB, announcement_id)
+    if row is None:
+        return jsonify({"error": "Announcement not found"}), 404
+
+    row.is_published = True
+    row.published_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify(_serialize_announcement(row)), 200
+
+
+@bp.post("/content/announcements/<int:announcement_id>/unpublish")
+def unpublish_announcement(announcement_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
+    row = db.session.get(AnnouncementDB, announcement_id)
+    if row is None:
+        return jsonify({"error": "Announcement not found"}), 404
+
+    row.is_published = False
+    db.session.commit()
+    return jsonify(_serialize_announcement(row)), 200
+
+
+@bp.delete("/content/announcements/<int:announcement_id>")
+def delete_announcement(announcement_id: int):
+    err = _require_admin()
+    if err:
+        return err
+
+    row = db.session.get(AnnouncementDB, announcement_id)
+    if row is None:
+        return jsonify({"error": "Announcement not found"}), 404
+
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({"message": "Announcement deleted"}), 200
 
 
 @bp.get("/users")
