@@ -7,6 +7,7 @@ class TableDB(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     table_nr = db.Column(db.String(10), unique=True, nullable=False)
     capacity = db.Column(db.Integer, nullable=False)
+    price_cents = db.Column(db.Integer, nullable=False, server_default="15000")
     floor = db.Column(db.Integer, nullable=False, default=1)
     zone = db.Column(db.String(50), nullable=False)
     features = db.Column(db.JSON, default={})

@@ -16,3 +16,7 @@ class ReservationLookupRepositoryInterface(ABC):
     @abstractmethod
     def list_game_copies(self) -> Sequence[dict]:
         raise NotImplementedError
+
+    @abstractmethod
+    def get_pricing(self) -> dict:
+        raise NotImplementedError

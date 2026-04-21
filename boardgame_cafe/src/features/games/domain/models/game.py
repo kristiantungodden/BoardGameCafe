@@ -14,6 +14,7 @@ class Game:
     max_players: int
     playtime_min: int
     complexity: Decimal
+    price_cents: int = 0
     description: Optional[str] = None
     image_url: Optional[str] = None
     created_at: Optional[str] = None  # optional, for read-only display
@@ -29,6 +30,7 @@ class Game:
         min_players: int,
         max_players: int,
         playtime_min: int,
+        price_cents: int,
         complexity: Decimal,
         description: Optional[str] = None,
         image_url: Optional[str] = None,
@@ -41,6 +43,7 @@ class Game:
         self.min_players = min_players
         self.max_players = max_players
         self.playtime_min = playtime_min
+        self.price_cents = price_cents
         self.complexity = complexity
         self.description = description
         self.image_url = image_url

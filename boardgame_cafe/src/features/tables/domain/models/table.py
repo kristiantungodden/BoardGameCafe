@@ -16,6 +16,7 @@ class Table:
 
     number: int
     capacity: int
+    price_cents: int = 15000
     floor: int = 1
     zone: Optional[str] = None
     features: Optional[dict[str, bool]] = None
@@ -29,6 +30,8 @@ class Table:
             raise ValidationError("number must be a positive integer")
         if self.capacity <= 0 or self.capacity != int(self.capacity):
             raise ValidationError("capacity must be a positive integer")
+        if self.price_cents < 0 or self.price_cents != int(self.price_cents):
+            raise ValidationError("price_cents must be a non-negative integer")
         if self.floor <= 0 or self.floor != int(self.floor):
             raise ValidationError("floor must be a positive integer")
         if self.status not in VALID_TABLE_STATUSES:

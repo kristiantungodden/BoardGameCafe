@@ -59,6 +59,7 @@ class GetBookingAvailabilityUseCase:
             {
                 "id": game.id,
                 "title": game.title,
+                "price_cents": int(getattr(game, "price_cents", 0) or 0),
                 "available": game.id in available_game_ids,
                 "suggested_copy_id": (
                     sorted(copies_by_game.get(game.id, []))[0]

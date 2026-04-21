@@ -19,6 +19,7 @@ class TableRepository(TableRepositoryInterface):
         db_table = CafeTableDB(
             table_nr=str(table.number),
             capacity=table.capacity,
+            price_cents=table.price_cents,
             floor=table.floor,
             zone=table.zone,
             features=table.features or {},
@@ -53,6 +54,7 @@ class TableRepository(TableRepositoryInterface):
 
         db_table.table_nr = str(table.number)
         db_table.capacity = table.capacity
+        db_table.price_cents = table.price_cents
         db_table.floor = table.floor
         db_table.zone = table.zone
         db_table.features = table.features or {}
@@ -125,6 +127,7 @@ class TableRepository(TableRepositoryInterface):
         table = Table(
             number=int(table_number_match.group(1)),
             capacity=db_table.capacity,
+            price_cents=getattr(db_table, "price_cents", 15000),
             floor=getattr(db_table, "floor", 1),
             zone=db_table.zone,
             features=db_table.features or {},

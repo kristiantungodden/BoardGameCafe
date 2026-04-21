@@ -379,26 +379,8 @@ async function loadGameCopies(){
 
             const meta = document.createElement('p');
             meta.className = 'steward-item-meta';
-            meta.textContent = `${c.game_title || `Game #${c.game_id}`} · ${c.location || 'No location set'}`;
+            meta.textContent = `${c.game_title || `Game #${c.game_id}`} · ${c.location || 'No location set'} · ${c.status}`;
             item.appendChild(meta);
-
-            const statusBtn = document.createElement('button');
-            statusBtn.className = 'button button-subtle';
-            if (c.status === 'lost') {
-                statusBtn.textContent = 'Remove Lost';
-                statusBtn.onclick = async () => {
-                    // 'return' action will set status back to available
-                    await fetchJson(`/api/steward/game-copies/${c.id}/status`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'return'})});
-                    await reloadAll();
-                }
-            } else {
-                statusBtn.textContent = 'Set Lost';
-                statusBtn.onclick = async () => {
-                    await fetchJson(`/api/steward/game-copies/${c.id}/status`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'lost'})});
-                    await reloadAll();
-                }
-            }
-            item.appendChild(statusBtn);
             list.appendChild(item);
         });
         container.appendChild(list);
@@ -486,13 +468,6 @@ async function loadIncidents(){
             meta.textContent = `Copy ${i.game_copy_id} · ${formatIsoDateTime(i.created_at)} · ${i.note || 'No note'}`;
             item.appendChild(meta);
 
-            const delBtn = document.createElement('button'); delBtn.textContent='Delete'; delBtn.className='button button-subtle';
-            delBtn.onclick = async ()=>{
-                if(!confirm('Delete incident #' + i.id + '?')) return;
-                await fetchJson(`/api/steward/incidents/${i.id}`,{method:'DELETE'});
-                await reloadAll();
-            }
-            item.appendChild(delBtn);
             list.appendChild(item);
         });
         container.appendChild(list);

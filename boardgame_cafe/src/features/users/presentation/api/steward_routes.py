@@ -71,6 +71,14 @@ def _require_staff():
     return None
 
 
+def _require_admin():
+    if not current_user.is_authenticated:
+        return {"error": "Authentication required"}, 401
+    if current_user.role != "admin":
+        return {"error": "Admin access required"}, 403
+    return None
+
+
 def _serialize_reservation(reservation):
     return {
         "id": reservation.id,
@@ -349,7 +357,7 @@ def list_game_copies():
 @bp.patch("/game-copies/<int:copy_id>/status")
 @login_required
 def update_game_copy_status(copy_id: int):
-    err = _require_staff()
+    err = _require_admin()
     if err:
         return err
 
@@ -443,7 +451,7 @@ def list_all_incidents():
 @bp.delete("/incidents/<int:incident_id>")
 @login_required
 def delete_incident(incident_id: int):
-    err = _require_staff()
+    err = _require_admin()
     if err:
         return err
 

@@ -4,10 +4,6 @@
 
 {% block content %}
 <h1 class="page-header">Booking</h1>
-<p class="page-intro">
-    Choose date and timeslot, pick a table from the floor plan, add games, and create your booking in one step.
-    Final table/game reservation and payment are still completed in one atomic transaction.
-</p>
 
 <div id="reservation-feedback" class="flash-stack" aria-live="polite"></div>
 
@@ -69,19 +65,12 @@
             </div>
 
             <div class="booking-subsection">
-                <h4 class="subsection-title">Add Games (Optional)</h4>
-                <div class="form-grid-two">
-                    <div>
-                        <label class="form-label" for="requested-game-id">Game</label>
-                        <select class="form-input" id="requested-game-id">
-                            <option value="">Select game</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="form-label">Availability</label>
-                        <div id="selected-game-availability" class="inline-meta">Select a timeslot first.</div>
-                    </div>
+                <h4 class="subsection-title">Add Games</h4>
+                <div>
+                    <label class="form-label" for="requested-game-id">Game</label>
+                    <select class="form-input" id="requested-game-id">
+                        <option value="">Select game</option>
+                    </select>
                 </div>
                 <div class="action-row compact-actions">
                     <button class="button button-secondary" id="add-game-button" type="button">Add Game</button>
@@ -108,17 +97,13 @@
 
         <h4 class="subsection-title">Queued Games</h4>
         <div id="reservation-games-list" class="mini-list">No games queued yet.</div>
-
-        <h4 class="subsection-title">Latest Payment</h4>
-        <div id="latest-payment" class="mini-list">No payment created in this session.</div>
     </aside>
 </section>
 
 <script>
     const csrfToken = "{{ csrf_token() }}";
     const currentUserId = Number("{{ current_user.id if current_user.is_authenticated else 0 }}");
-    const PRICE_PER_TABLE_CENTS = 15000;
-    const BOOKING_BASE_FEE_CENTS = 2500;
+    const DEFAULT_BOOKING_BASE_FEE_CENTS = 2500;
     const OPEN_HOUR = 9;
     const CLOSE_HOUR = 23;
     const SLOT_STEP_MINUTES = 30;
@@ -132,6 +117,9 @@
         selectedTableIds: [],
         lookup: {
             games: [],
+            pricing: {
+                booking_base_fee_cents: DEFAULT_BOOKING_BASE_FEE_CENTS,
+            },
         },
         availability: {
             games: [],
@@ -279,42 +267,11 @@
             const status = availability
                 ? (availability.available ? "[Available]" : "[Unavailable]")
                 : "[Select date/slot]";
-            gameSelect.innerHTML += `<option value="${game.id}">${game.title} ${status}</option>`;
+            const feeLabel = Number(game.price_cents || 0) > 0
+                ? ` - ${moneyFromCents(Number(game.price_cents || 0))}`
+                : "";
+            gameSelect.innerHTML += `<option value="${game.id}">${game.title}${feeLabel} ${status}</option>`;
         });
-
-        renderSelectedGameAvailability();
-    }
-
-    function renderSelectedGameAvailability() {
-        const box = document.getElementById("selected-game-availability");
-        const selectedGameId = Number(document.getElementById("requested-game-id")?.value || 0);
-        if (!box) {
-            return;
-        }
-
-        if (!selectedGameId) {
-            box.classList.remove("availability-yes", "availability-no");
-            box.textContent = "Select a game to see status.";
-            return;
-        }
-
-        const availability = getAvailabilityByGameId(selectedGameId);
-        if (!availability) {
-            box.classList.remove("availability-yes", "availability-no");
-            box.textContent = "Select date and timeslot first.";
-            return;
-        }
-
-        if (availability.available) {
-            box.classList.remove("availability-no");
-            box.classList.add("availability-yes");
-            box.textContent = "Available";
-            return;
-        }
-
-        box.classList.remove("availability-yes");
-        box.classList.add("availability-no");
-        box.textContent = "Unavailable";
     }
 
     function renderBookingSummary() {
@@ -334,10 +291,16 @@
             : "None selected";
 
         document.getElementById("summary-party-size").textContent = String(Math.max(0, partySize));
-        const tableCount = selectedTables.length;
-        const estimate = tableCount === 0
-            ? 0
-            : (tableCount * PRICE_PER_TABLE_CENTS) + BOOKING_BASE_FEE_CENTS;
+        const tableTotal = selectedTables.reduce(
+            (sum, table) => sum + Number(table.price_cents || 0),
+            0,
+        );
+        const gameTotal = state.pendingGames.reduce((sum, item) => {
+            const game = getGameById(item.requested_game_id);
+            return sum + Number(game?.price_cents || 0);
+        }, 0);
+        const baseFee = Number(state.lookup.pricing?.booking_base_fee_cents || DEFAULT_BOOKING_BASE_FEE_CENTS);
+        const estimate = selectedTables.length === 0 ? 0 : tableTotal + gameTotal + baseFee;
         document.getElementById("summary-payment").textContent = moneyFromCents(estimate);
     }
 
@@ -571,8 +534,10 @@
 
             state.lookup = {
                 games: body.games || [],
+                pricing: body.pricing || { booking_base_fee_cents: DEFAULT_BOOKING_BASE_FEE_CENTS },
             };
             renderGameSelectOptions();
+            renderBookingSummary();
         } catch (error) {
             setFeedback("Could not load game list.", "error");
         }
@@ -610,6 +575,7 @@
                 const idx = Number(btn.getAttribute("data-remove-queued-game-index"));
                 state.pendingGames = state.pendingGames.filter((_, i) => i !== idx);
                 renderReservationGames();
+                renderBookingSummary();
                 scheduleAutoSave();
             });
         });
@@ -762,6 +728,7 @@
 
         state.pendingGames.push({ requested_game_id: selectedGameId });
         renderReservationGames();
+        renderBookingSummary();
         setFeedback("Game added to booking.", "success");
         scheduleAutoSave();
     }
@@ -836,10 +803,6 @@
                 console.warn("Could not clear draft:", err);
             }
 
-            if (body.payment) {
-                renderPayment(body.payment, "Payment created with booking.");
-            }
-
             const paymentId = body.payment.id;
 
             const paymentStartResponse = await fetch(`/api/payments/start/${paymentId}`, {
@@ -901,21 +864,6 @@
         } catch (error) {
             setFeedback(error.message, "error");
         }
-    }
-
-    function renderPayment(payment, contextMessage = "Payment created.") {
-        const box = document.getElementById("latest-payment");
-        if (!box) {
-            return;
-        }
-
-        box.innerHTML = `
-            <div class="mini-list-row"><strong>${contextMessage}</strong></div>
-            <div class="mini-list-row">Payment #${payment.id || "n/a"}</div>
-            <div class="mini-list-row">Reservation #${payment.booking_id}</div>
-            <div class="mini-list-row">Amount: ${payment.amount_kroner} ${payment.currency}</div>
-            <div class="mini-list-row">Status: ${payment.status}</div>
-        `;
     }
 
     // Draft persistence (session-based auto-save)
@@ -1108,7 +1056,6 @@
         renderFloorPlan();
         scheduleAutoSave();
     });
-    document.getElementById("requested-game-id")?.addEventListener("change", renderSelectedGameAvailability);
     window.addEventListener("pagehide", flushDraftOnExit);
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") {

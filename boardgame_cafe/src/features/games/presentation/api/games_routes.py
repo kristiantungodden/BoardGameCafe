@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from flask import Blueprint, request, jsonify
 from flask_login import current_user
 from pydantic import ValidationError as PydanticValidationError
@@ -51,6 +49,7 @@ def _serialize_game(game: Game) -> dict:
         "min_players": game.min_players,
         "max_players": game.max_players,
         "playtime_min": game.playtime_min,
+        "price_cents": int(getattr(game, "price_cents", 0) or 0),
         "complexity": float(game.complexity),
         "description": game.description,
         "image_url": game.image_url,
@@ -161,6 +160,7 @@ def create_game():
         min_players=payload.min_players,
         max_players=payload.max_players,
         playtime_min=payload.playtime_min,
+        price_cents=payload.price_cents,
         complexity=payload.complexity,
         description=payload.description,
         image_url=payload.image_url,
@@ -203,6 +203,9 @@ def update_game(game_id: int):
     new_playtime_min = (
         payload.playtime_min if payload.playtime_min is not None else game.playtime_min
     )
+    new_price_cents = payload.price_cents if payload.price_cents is not None else int(
+        getattr(game, "price_cents", 0) or 0
+    )
     new_complexity = payload.complexity if payload.complexity is not None else game.complexity
     new_description = payload.description if payload.description is not None else game.description
     new_image_url = payload.image_url if payload.image_url is not None else game.image_url
@@ -212,6 +215,7 @@ def update_game(game_id: int):
         min_players=new_min_players,
         max_players=new_max_players,
         playtime_min=new_playtime_min,
+        price_cents=new_price_cents,
         complexity=new_complexity,
         description=new_description,
         image_url=new_image_url,
