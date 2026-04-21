@@ -12,6 +12,7 @@ class UserDB(db.Model, UserMixin):
     phone = db.Column(db.String(20), nullable=True)
     password_hash = db.Column(db.Text, nullable=False)
     force_password_change = db.Column(db.Boolean, nullable=False, default=False)
+    is_suspended = db.Column(db.Boolean, nullable=False, default=False)
 
     def to_dict(self):
         return {
@@ -21,4 +22,5 @@ class UserDB(db.Model, UserMixin):
             "email": self.email,
             "phone": self.phone,
             "force_password_change": self.force_password_change,
+            "is_suspended": self.is_suspended,
         }

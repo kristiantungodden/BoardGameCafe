@@ -93,6 +93,47 @@ def ensure_floor_column_for_tables() -> None:
     db.session.commit()
 
 
+def ensure_price_columns() -> None:
+    """Add pricing columns for legacy databases before ORM table queries."""
+    inspector = inspect(db.engine)
+    dialect = db.engine.dialect.name
+
+    if inspector.has_table("games"):
+        game_columns = {col["name"] for col in inspector.get_columns("games")}
+        if "price_cents" not in game_columns:
+            if dialect == "sqlite":
+                db.session.execute(text("ALTER TABLE games ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0"))
+            elif dialect == "postgresql":
+                db.session.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS price_cents INTEGER NOT NULL DEFAULT 0"))
+            else:
+                db.session.execute(text("ALTER TABLE games ADD COLUMN price_cents INTEGER"))
+                db.session.execute(text("UPDATE games SET price_cents = 0 WHERE price_cents IS NULL"))
+
+    if inspector.has_table("cafe_tables"):
+        table_columns = {col["name"] for col in inspector.get_columns("cafe_tables")}
+        if "price_cents" not in table_columns:
+            if dialect == "sqlite":
+                db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 15000"))
+            elif dialect == "postgresql":
+                db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN IF NOT EXISTS price_cents INTEGER NOT NULL DEFAULT 15000"))
+            else:
+                db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN price_cents INTEGER"))
+                db.session.execute(text("UPDATE cafe_tables SET price_cents = 15000 WHERE price_cents IS NULL"))
+
+    if inspector.has_table("users"):
+        user_columns = {col["name"] for col in inspector.get_columns("users")}
+        if "is_suspended" not in user_columns:
+            if dialect == "sqlite":
+                db.session.execute(text("ALTER TABLE users ADD COLUMN is_suspended BOOLEAN NOT NULL DEFAULT 0"))
+            elif dialect == "postgresql":
+                db.session.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT FALSE"))
+            else:
+                db.session.execute(text("ALTER TABLE users ADD COLUMN is_suspended BOOLEAN"))
+                db.session.execute(text("UPDATE users SET is_suspended = 0 WHERE is_suspended IS NULL"))
+
+    db.session.commit()
+
+
 def ensure_booking_link_columns() -> None:
     """Add booking-oriented link columns for legacy local databases."""
     inspector = inspect(db.engine)
@@ -519,6 +560,7 @@ def seed_demo_data() -> None:
 
     with app.app_context():
         ensure_floor_column_for_tables()
+        ensure_price_columns()
         ensure_booking_link_columns()
         clear_database()
         g_inserted, g_updated, g_total = seed_games()

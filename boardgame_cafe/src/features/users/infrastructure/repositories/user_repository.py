@@ -29,6 +29,7 @@ class SqlAlchemyUserRepository(UserRepositoryInterface):
         row.role = user.role.value
         row.password_hash = user.password_hash
         row.force_password_change = user.force_password_change
+        row.is_suspended = user.is_suspended
 
         db.session.commit()
         return _to_domain(row)
@@ -59,4 +60,5 @@ def _to_domain(row: Optional[UserDB]) -> Optional[User]:
         role=Role(row.role),
         password_hash=row.password_hash,
         force_password_change=row.force_password_change,
+        is_suspended=bool(getattr(row, "is_suspended", False)),
     )

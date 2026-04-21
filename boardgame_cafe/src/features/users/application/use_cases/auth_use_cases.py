@@ -44,5 +44,7 @@ class LoginUseCase:
         user = self.users.get_by_email(cmd.email)
         if not user or not self.hasher.verify(user.password_hash, cmd.password):
             raise ValidationError("Invalid credentials")
+        if bool(getattr(user, "is_suspended", False)):
+            raise ValidationError("Account suspended")
         self.session.login(user.id)  # adapter handles flask-login user object lookup
         return user

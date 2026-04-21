@@ -9,6 +9,7 @@ class TableDB(db.Model):
     capacity = db.Column(db.Integer, nullable=False)
     floor = db.Column(db.Integer, nullable=False, default=1)
     zone = db.Column(db.String(50), nullable=False)
+    price_cents = db.Column(db.Integer, nullable=False, default=15000)
     features = db.Column(db.JSON, default=dict)
     width = db.Column(db.Integer, nullable=True)
     height = db.Column(db.Integer, nullable=True)

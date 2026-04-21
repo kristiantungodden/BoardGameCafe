@@ -24,6 +24,7 @@ class User:
     password_hash: str  # Pre-hashed password from infrastructure
     role: Role = Role.CUSTOMER
     force_password_change: bool = False
+    is_suspended: bool = False
     phone: Optional[str] = None
     id: Optional[int] = None
 
