@@ -1,4 +1,10 @@
+from datetime import datetime, timedelta, timezone
+
 from features.users.infrastructure import UserDB, hash_password
+from features.games.infrastructure.database.game_copy_db import GameCopyDB
+from features.games.infrastructure.database.game_db import GameDB
+from features.games.infrastructure.database.incident_db import IncidentDB
+from features.tables.infrastructure.database.table_db import TableDB
 from shared.infrastructure import db
 
 
@@ -92,6 +98,55 @@ def test_admin_can_list_users_and_force_password_reset(app, client):
     assert reset_payload["force_password_change"] is True
 
 
+def test_admin_can_suspend_user_but_not_self(app, client):
+    with app.app_context():
+        admin_id = _create_user(
+            role="admin",
+            name="Admin",
+            email="admin-suspend@example.com",
+            password="AdminPass123",
+        )
+        target_id = _create_user(
+            role="customer",
+            name="Suspend Target",
+            email="suspend-target@example.com",
+            password="CustomerPass123",
+        )
+
+    _login(client, email="admin-suspend@example.com", password="AdminPass123")
+
+    suspend_target = client.patch(
+        f"/api/admin/users/{target_id}/suspension",
+        json={"suspended": True},
+    )
+    assert suspend_target.status_code == 200
+    assert suspend_target.get_json()["is_suspended"] is True
+
+    users_after_suspend = client.get("/api/admin/users")
+    assert users_after_suspend.status_code == 200
+    suspended_user = next((u for u in users_after_suspend.get_json() if u["id"] == target_id), None)
+    assert suspended_user is not None
+    assert suspended_user["is_suspended"] is True
+
+    client.post("/api/auth/logout")
+
+    suspended_login = client.post(
+        "/api/auth/login",
+        json={"email": "suspend-target@example.com", "password": "CustomerPass123"},
+    )
+    assert suspended_login.status_code == 403
+    assert suspended_login.get_json()["error"] == "Account suspended"
+
+    _login(client, email="admin-suspend@example.com", password="AdminPass123")
+
+    suspend_self = client.patch(
+        f"/api/admin/users/{admin_id}/suspension",
+        json={"suspended": True},
+    )
+    assert suspend_self.status_code == 400
+    assert suspend_self.get_json()["error"] == "You cannot suspend your own account."
+
+
 def test_non_admin_cannot_access_admin_user_management(app, client):
     with app.app_context():
         _create_user(
@@ -106,6 +161,25 @@ def test_non_admin_cannot_access_admin_user_management(app, client):
     response = client.get("/api/admin/users")
     assert response.status_code == 403
     assert response.get_json()["error"] == "Admin access required"
+
+
+def test_admin_cannot_suspend_last_active_admin(app, client):
+    with app.app_context():
+        admin_id = _create_user(
+            role="admin",
+            name="Solo Admin",
+            email="solo-admin@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="solo-admin@example.com", password="AdminPass123")
+
+    suspend_self_admin = client.patch(
+        f"/api/admin/users/{admin_id}/suspension",
+        json={"suspended": True},
+    )
+    assert suspend_self_admin.status_code == 400
+    assert suspend_self_admin.get_json()["error"] == "You cannot suspend your own account."
 
 
 def test_forced_password_user_can_change_password_without_current_password(app, client):
@@ -168,3 +242,337 @@ def test_non_forced_user_must_send_current_password_to_change_password(app, clie
         json={"current_password": "NormalPass123", "new_password": "UpdatedPass123"},
     )
     assert ok_change.status_code == 200
+
+
+def test_admin_can_get_and_update_pricing(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Pricing Admin",
+            email="admin-pricing@example.com",
+            password="AdminPass123",
+        )
+        table = TableDB(table_nr="T99", capacity=4, floor=1, zone="main", status="available", price_cents=15000)
+        game = GameDB(
+            title="Terraforming Mars",
+            min_players=1,
+            max_players=5,
+            playtime_min=120,
+            complexity=3.5,
+            price_cents=5000,
+        )
+        db.session.add(table)
+        db.session.add(game)
+        db.session.commit()
+        table_id = int(table.id)
+        game_id = int(game.id)
+
+    _login(client, email="admin-pricing@example.com", password="AdminPass123")
+
+    get_response = client.get("/api/admin/pricing")
+    assert get_response.status_code == 200
+    payload = get_response.get_json()
+    assert "booking_base_fee_cents" in payload
+    assert "booking_cancel_time_limit_hours" in payload
+    assert any(item["id"] == table_id for item in payload["tables"])
+    assert any(item["id"] == game_id for item in payload["games"])
+
+    active_until = (datetime.now(timezone.utc) + timedelta(hours=4)).isoformat()
+    base_response = client.put(
+        "/api/admin/pricing/base-fee",
+        json={
+            "booking_base_fee_cents": 4900,
+            "booking_base_fee_active_until": active_until,
+            "booking_cancel_time_limit_hours": 24,
+        },
+    )
+    table_response = client.put(f"/api/admin/pricing/tables/{table_id}", json={"price_cents": 22000})
+    game_response = client.put(f"/api/admin/pricing/games/{game_id}", json={"price_cents": 7900})
+
+    assert base_response.status_code == 200
+    assert table_response.status_code == 200
+    assert game_response.status_code == 200
+
+    refreshed = client.get("/api/admin/pricing").get_json()
+    assert refreshed["booking_base_fee_cents"] == 4900
+    assert refreshed["booking_base_fee_default_cents"] == 2500
+    assert refreshed["booking_base_fee_has_temporary_override"] is True
+    assert refreshed["booking_base_fee_active_until"] is not None
+    assert refreshed["booking_cancel_time_limit_hours"] == 24
+    assert next(item for item in refreshed["tables"] if item["id"] == table_id)["price_cents"] == 22000
+    assert next(item for item in refreshed["games"] if item["id"] == game_id)["price_cents"] == 7900
+
+    permanent_response = client.put(
+        "/api/admin/pricing/base-fee",
+        json={
+            "booking_base_fee_cents": 3600,
+            "booking_base_fee_priority": 50,
+            "booking_cancel_time_limit_hours": 12,
+        },
+    )
+    assert permanent_response.status_code == 200
+
+    refreshed_after_permanent = client.get("/api/admin/pricing").get_json()
+    assert refreshed_after_permanent["booking_base_fee_cents"] == 3600
+    assert refreshed_after_permanent["booking_base_fee_default_cents"] == 3600
+    assert refreshed_after_permanent["booking_base_fee_has_temporary_override"] is False
+    assert refreshed_after_permanent["booking_base_fee_active_until"] is None
+    assert refreshed_after_permanent["booking_cancel_time_limit_hours"] == 12
+
+    lower_priority_until = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+    low_priority_override = client.put(
+        "/api/admin/pricing/base-fee",
+        json={
+            "booking_base_fee_cents": 1500,
+            "booking_base_fee_active_until": lower_priority_until,
+            "booking_base_fee_priority": 0,
+            "booking_cancel_time_limit_hours": 12,
+        },
+    )
+    assert low_priority_override.status_code == 200
+
+    after_low_priority_override = client.get("/api/admin/pricing").get_json()
+    assert after_low_priority_override["booking_base_fee_default_cents"] == 3600
+    assert after_low_priority_override["booking_base_fee_cents"] == 3600
+    assert after_low_priority_override["booking_base_fee_default_priority"] == 50
+
+    high_priority_override = client.put(
+        "/api/admin/pricing/base-fee",
+        json={
+            "booking_base_fee_cents": 1500,
+            "booking_base_fee_active_until": lower_priority_until,
+            "booking_base_fee_priority": 100,
+            "booking_cancel_time_limit_hours": 12,
+        },
+    )
+    assert high_priority_override.status_code == 200
+
+    after_high_priority_override = client.get("/api/admin/pricing").get_json()
+    assert after_high_priority_override["booking_base_fee_default_cents"] == 3600
+    assert after_high_priority_override["booking_base_fee_cents"] == 1500
+    assert after_high_priority_override["booking_base_fee_has_temporary_override"] is True
+
+
+def test_admin_can_manage_catalogue_and_copies(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Catalogue Admin",
+            email="admin-catalogue@example.com",
+            password="AdminPass123",
+        )
+        staff_id = _create_user(
+            role="staff",
+            name="Steward Reporter",
+            email="steward-reporter@example.com",
+            password="StaffPass123",
+        )
+
+    _login(client, email="admin-catalogue@example.com", password="AdminPass123")
+
+    create_game = client.post(
+        "/api/admin/catalogue/games",
+        json={
+            "title": "Azul",
+            "min_players": 2,
+            "max_players": 4,
+            "playtime_min": 45,
+            "complexity": 2.0,
+            "price_cents": 3500,
+            "description": "Tile drafting game",
+            "image_url": "https://example.com/azul.png",
+        },
+    )
+    assert create_game.status_code == 201
+    game_id = create_game.get_json()["id"]
+
+    update_game = client.put(
+        f"/api/admin/catalogue/games/{game_id}",
+        json={"price_cents": 4200, "playtime_min": 50},
+    )
+    assert update_game.status_code == 200
+    assert update_game.get_json()["price_cents"] == 4200
+
+    create_copy = client.post(
+        "/api/admin/catalogue/copies",
+        json={
+            "game_id": game_id,
+            "copy_code": "AZUL-001",
+            "status": "available",
+            "location": "Shelf A",
+            "condition_note": "Excellent",
+        },
+    )
+    assert create_copy.status_code == 201
+    copy_id = create_copy.get_json()["id"]
+
+    update_copy = client.put(
+        f"/api/admin/catalogue/copies/{copy_id}",
+        json={"status": "maintenance", "location": "Back room"},
+    )
+    assert update_copy.status_code == 200
+    assert update_copy.get_json()["status"] == "maintenance"
+
+    with app.app_context():
+        incident = IncidentDB(
+            game_copy_id=copy_id,
+            reported_by=staff_id,
+            incident_type="damage",
+            note="Corner wear",
+        )
+        db.session.add(incident)
+        db.session.commit()
+
+    incidents_resp = client.get(f"/api/admin/catalogue/copies/{copy_id}/incidents")
+    assert incidents_resp.status_code == 200
+    incidents = incidents_resp.get_json()
+    assert any(i["incident_type"] == "damage" for i in incidents)
+
+    blocked_available = client.put(
+        f"/api/admin/catalogue/copies/{copy_id}",
+        json={"status": "available"},
+    )
+    assert blocked_available.status_code == 409
+    assert blocked_available.get_json()["error"] == "Resolve incidents before setting copy to available."
+
+    overview = client.get("/api/admin/catalogue")
+    assert overview.status_code == 200
+    payload = overview.get_json()
+    assert any(g["id"] == game_id for g in payload["games"])
+    assert any(c["id"] == copy_id for c in payload["copies"])
+
+    delete_game_before_copy = client.delete(f"/api/admin/catalogue/games/{game_id}")
+    assert delete_game_before_copy.status_code == 409
+
+    delete_copy = client.delete(f"/api/admin/catalogue/copies/{copy_id}")
+    assert delete_copy.status_code == 200
+
+    delete_game = client.delete(f"/api/admin/catalogue/games/{game_id}")
+    assert delete_game.status_code == 200
+
+
+def test_admin_can_resolve_incident_and_restore_copy_to_available(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Incident Admin",
+            email="admin-resolve-incident@example.com",
+            password="AdminPass123",
+        )
+        staff_id = _create_user(
+            role="staff",
+            name="Incident Reporter",
+            email="incident-reporter@example.com",
+            password="StaffPass123",
+        )
+        game = GameDB(
+            title="Catan",
+            min_players=3,
+            max_players=4,
+            playtime_min=90,
+            complexity=2.3,
+            price_cents=3900,
+            description="Trading and settlements",
+            image_url=None,
+        )
+        db.session.add(game)
+        db.session.commit()
+
+        copy = GameCopyDB(
+            game_id=game.id,
+            copy_code="CATAN-001",
+            status="maintenance",
+            location="Repair shelf",
+            condition_note="Missing road pieces",
+        )
+        db.session.add(copy)
+        db.session.commit()
+
+        incident = IncidentDB(
+            game_copy_id=copy.id,
+            reported_by=staff_id,
+            incident_type="damage",
+            note="Box corner crushed",
+        )
+        db.session.add(incident)
+        db.session.commit()
+        incident_id = int(incident.id)
+        copy_id = int(copy.id)
+
+    _login(client, email="admin-resolve-incident@example.com", password="AdminPass123")
+
+    resolve_response = client.post(f"/api/admin/catalogue/incidents/{incident_id}/resolve")
+    assert resolve_response.status_code == 200
+    assert resolve_response.get_json()["copy"]["status"] == "available"
+
+    incidents_response = client.get("/api/admin/catalogue/incidents")
+    assert incidents_response.status_code == 200
+    incidents = incidents_response.get_json()
+    assert all(i["id"] != incident_id for i in incidents)
+
+    with app.app_context():
+        updated_copy = db.session.get(GameCopyDB, copy_id)
+        assert updated_copy is not None
+        assert updated_copy.status == "available"
+
+
+def test_admin_cannot_set_copy_available_with_unresolved_incident(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Incident Gate Admin",
+            email="admin-incident-gate@example.com",
+            password="AdminPass123",
+        )
+        staff_id = _create_user(
+            role="staff",
+            name="Incident Reporter",
+            email="incident-gate-reporter@example.com",
+            password="StaffPass123",
+        )
+        game = GameDB(
+            title="Ticket to Ride",
+            min_players=2,
+            max_players=5,
+            playtime_min=60,
+            complexity=2.1,
+            price_cents=3500,
+            description="Route-building game",
+            image_url=None,
+        )
+        db.session.add(game)
+        db.session.commit()
+
+        copy = GameCopyDB(
+            game_id=game.id,
+            copy_code="TTR-001",
+            status="maintenance",
+            location="Repair shelf",
+            condition_note="Needs review",
+        )
+        db.session.add(copy)
+        db.session.commit()
+
+        incident = IncidentDB(
+            game_copy_id=copy.id,
+            reported_by=staff_id,
+            incident_type="damage",
+            note="Damaged train cards",
+        )
+        db.session.add(incident)
+        db.session.commit()
+        copy_id = int(copy.id)
+        incident_id = int(incident.id)
+
+    _login(client, email="admin-incident-gate@example.com", password="AdminPass123")
+
+    blocked = client.put(
+        f"/api/admin/catalogue/copies/{copy_id}",
+        json={"status": "available"},
+    )
+    assert blocked.status_code == 409
+    assert blocked.get_json()["error"] == "Resolve incidents before setting copy to available."
+
+    resolved = client.post(f"/api/admin/catalogue/incidents/{incident_id}/resolve")
+    assert resolved.status_code == 200
+    assert resolved.get_json()["copy"]["status"] == "available"

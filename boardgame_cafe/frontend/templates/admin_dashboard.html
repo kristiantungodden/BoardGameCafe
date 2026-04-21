@@ -61,6 +61,7 @@
 				<h3>User Management</h3>
 				<p class="hero-copy">Browse users and track password-reset requirements across all roles.</p>
 				<div id="admin-user-list">Loading users...</div>
+				<p class="quick-links" id="admin-user-message"></p>
 			</section>
 			<section class="card" id="stewards">
 				<h3>Create Steward</h3>
@@ -86,84 +87,141 @@
 			</section>
 			<section class="card" id="catalogue">
 				<h3>Catalogue & Copies</h3>
-				<p class="hero-copy">Manage the game catalogue, copy inventory, and copy status workflow.</p>
-				<p class="quick-links">The steward copy workflow can be reused here, with extra catalogue controls on top.</p>
+				<p class="hero-copy">Admin-only controls for creating, editing, and deleting games and physical copies.</p>
+				<p class="quick-links" id="catalogue-message"></p>
+
+				<div class="catalogue-sections">
+					<section class="catalogue-column">
+						<form class="form-stack" id="admin-game-create-form">
+						<h4>Create Game</h4>
+						<label class="form-label" for="admin-game-title">Title</label>
+						<input class="form-input" id="admin-game-title" name="title" required>
+						<div class="form-grid-two">
+							<div>
+								<label class="form-label" for="admin-game-min-players">Min players</label>
+								<input class="form-input" id="admin-game-min-players" name="min_players" type="number" min="1" value="2" required>
+							</div>
+							<div>
+								<label class="form-label" for="admin-game-max-players">Max players</label>
+								<input class="form-input" id="admin-game-max-players" name="max_players" type="number" min="1" value="4" required>
+							</div>
+						</div>
+						<div class="form-grid-two">
+							<div>
+								<label class="form-label" for="admin-game-playtime">Playtime (min)</label>
+								<input class="form-input" id="admin-game-playtime" name="playtime_min" type="number" min="0" value="60" required>
+							</div>
+							<div>
+								<label class="form-label" for="admin-game-complexity">Complexity (0-5)</label>
+								<input class="form-input" id="admin-game-complexity" name="complexity" type="number" min="0" max="5" step="0.1" value="2.5" required>
+							</div>
+						</div>
+						<div class="form-grid-two">
+							<div>
+								<label class="form-label" for="admin-game-price">Price (NOK)</label>
+								<input class="form-input" id="admin-game-price" name="price_nok" type="number" min="0" step="0.01" value="0" required>
+							</div>
+							<div>
+								<label class="form-label" for="admin-game-image-url">Image URL</label>
+								<input class="form-input" id="admin-game-image-url" name="image_url">
+							</div>
+						</div>
+						<label class="form-label" for="admin-game-description">Description</label>
+						<textarea class="form-input" id="admin-game-description" name="description" rows="3"></textarea>
+						<div class="action-row">
+							<button class="button" type="submit">Create game</button>
+						</div>
+						</form>
+						<hr class="widget-divider">
+						<h4 class="catalogue-list-title">Games</h4>
+						<label class="form-label catalogue-search-label" for="admin-catalogue-game-search">Search Games</label>
+						<input class="form-input catalogue-search-input" id="admin-catalogue-game-search" type="search" placeholder="Search by title, id, or description">
+						<div id="admin-catalogue-games" class="steward-scroll-list">Loading games...</div>
+					</section>
+
+					<section class="catalogue-column">
+						<form class="form-stack" id="admin-copy-create-form">
+						<h4>Create Copy</h4>
+						<label class="form-label" for="admin-copy-game-id">Game</label>
+						<select class="form-input" id="admin-copy-game-id" name="game_id" required></select>
+						<label class="form-label" for="admin-copy-code">Copy code</label>
+						<input class="form-input" id="admin-copy-code" name="copy_code" required>
+						<div class="form-grid-two">
+							<div>
+								<label class="form-label" for="admin-copy-status">Status</label>
+								<select class="form-input" id="admin-copy-status" name="status">
+									<option value="available" selected>available</option>
+									<option value="reserved">reserved</option>
+									<option value="in_use">in_use</option>
+									<option value="maintenance">maintenance</option>
+									<option value="lost">lost</option>
+								</select>
+							</div>
+							<div>
+								<label class="form-label" for="admin-copy-location">Location</label>
+								<input class="form-input" id="admin-copy-location" name="location">
+							</div>
+						</div>
+						<label class="form-label" for="admin-copy-condition-note">Condition note</label>
+						<textarea class="form-input" id="admin-copy-condition-note" name="condition_note" rows="2"></textarea>
+						<div class="action-row">
+							<button class="button" type="submit">Create copy</button>
+						</div>
+						</form>
+						<hr class="widget-divider">
+						<h4 class="catalogue-list-title">Copies</h4>
+						<label class="form-label catalogue-search-label" for="admin-catalogue-copy-search">Search Copies</label>
+						<input class="form-input catalogue-search-input" id="admin-catalogue-copy-search" type="search" placeholder="Search by code, game, location, or status">
+						<div id="admin-catalogue-copies" class="steward-scroll-list">Loading copies...</div>
+					</section>
+				</div>
+			</section>
+			<section class="card" id="copy-incidents">
+				<h3>Copy Incidents</h3>
+				<p class="hero-copy">Damage and problem history for physical game copies across the catalogue.</p>
+				<div id="admin-copy-incidents" class="steward-scroll-list">Loading incidents...</div>
 			</section>
 			<section class="card" id="floor">
 				<h3>Floor & Tables</h3>
 				<p class="hero-copy">Configure floors, zones, table sizes, and operational statuses for the café map.</p>
-				<div class="steward-item-list">
-					<form class="form-stack steward-item" id="create-floor-form">
-						<h4>Create Floor</h4>
-						<label class="form-label" for="floor-number">Floor number</label>
-						<input class="form-input" id="floor-number" name="number" type="number" min="1" required>
-
-						<label class="form-label" for="floor-name">Floor name</label>
-						<input class="form-input" id="floor-name" name="name" required>
-
-						<div class="action-row">
-							<button class="button" type="submit">Create floor</button>
-						</div>
-					</form>
-					<p class="quick-links" id="create-floor-message"></p>
-				</div>
-
-				<div class="steward-item-list" style="margin-top: 1.5rem;">
-					<form class="form-stack steward-item" id="create-zone-form">
-						<h4>Create Zone</h4>
-						<label class="form-label" for="zone-floor">Floor</label>
-						<input class="form-input" id="zone-floor" name="floor" type="number" min="1" required>
-
-						<label class="form-label" for="zone-name">Zone name</label>
-						<input class="form-input" id="zone-name" name="name" required>
-
-						<label class="form-label" for="zone-notes">Notes</label>
-						<input class="form-input" id="zone-notes" name="notes">
-
-						<div class="action-row">
-							<button class="button" type="submit">Create zone</button>
-						</div>
-					</form>
-					<p class="quick-links" id="create-zone-message"></p>
-				</div>
-
-				<div class="steward-item-list" style="margin-top: 1.5rem;">
-					<form class="form-stack steward-item" id="create-table-form">
-						<h4>Create Table</h4>
-						<label class="form-label" for="table-number">Table number</label>
-						<input class="form-input" id="table-number" name="number" type="number" min="1" required>
-
-						<label class="form-label" for="table-capacity">Capacity</label>
-						<input class="form-input" id="table-capacity" name="capacity" type="number" min="1" required>
-
-						<label class="form-label" for="table-floor">Floor</label>
-						<input class="form-input" id="table-floor" name="floor" type="number" min="1" required>
-
-						<label class="form-label" for="table-zone">Zone</label>
-						<input class="form-input" id="table-zone" name="zone" required>
-
-						<div class="action-row">
-							<button class="button" type="submit">Create table</button>
-						</div>
-					</form>
-					<p class="quick-links" id="create-table-message"></p>
-				</div>
-				<div class="card" style="margin-top: 1.5rem;">
-					<div class="steward-floorplan-head">
-						<h4>Floorplan</h4>
-						<div>
-							<label class="form-label" for="admin-floor-select">Floor</label>
-							<select class="form-input" id="admin-floor-select"></select>
-						</div>
-					</div>
-					<div id="admin-floorplan"></div>
-				</div>
-				<p class="quick-links">Use the forms above to add records, then edit or delete them directly from the floorplan view.</p>
+				<p class="quick-links">This will build on the existing table and floorplan structure already used by bookings.</p>
 			</section>
 			<section class="card" id="policies">
 				<h3>Policies & Fees</h3>
-				<p class="hero-copy">Define pricing, penalties, refunds, and operating policies in one place.</p>
-				<p class="quick-links">Planned as a small configuration module so reporting and checkout can read the same source of truth.</p>
+				<p class="hero-copy">Manage base booking fee and per-item pricing used by booking and payment flows.</p>
+				<form class="form-stack" id="pricing-base-fee-form">
+					<div class="pricing-compact-grid">
+						<div class="pricing-field">
+							<label class="form-label" for="pricing-base-fee">Base fee (NOK)</label>
+							<input class="form-input" id="pricing-base-fee" name="booking_base_fee" type="number" min="0" step="0.01" required>
+						</div>
+						<div class="pricing-field">
+							<label class="form-label" for="pricing-base-fee-until">Until (optional)</label>
+							<input class="form-input" id="pricing-base-fee-until" name="booking_base_fee_active_until" type="datetime-local">
+						</div>
+						<div class="pricing-field">
+							<label class="form-label" for="pricing-base-fee-priority">Priority</label>
+							<input class="form-input" id="pricing-base-fee-priority" name="booking_base_fee_priority" type="number" min="0" step="1" value="100">
+						</div>
+						<div class="pricing-field">
+							<label class="form-label" for="pricing-cancel-time-limit">Cancel limit (h)</label>
+							<input class="form-input" id="pricing-cancel-time-limit" name="booking_cancel_time_limit_hours" type="number" min="0" step="1" value="24">
+						</div>
+						<div class="pricing-field pricing-field-actions">
+							<button class="button" type="submit">Save</button>
+						</div>
+					</div>
+					<p class="quick-links pricing-compact-note">Temporary fee auto-expires at the selected timestamp.</p>
+				</form>
+				<p class="quick-links" id="pricing-message"></p>
+
+				<hr class="widget-divider">
+				<h4>Table Prices</h4>
+				<div id="admin-table-pricing-list" class="steward-scroll-list">Loading table prices...</div>
+
+				<hr class="widget-divider">
+				<h4>Game Prices</h4>
+				<div id="admin-game-pricing-list" class="steward-scroll-list">Loading game prices...</div>
 			</section>
 			<section class="card" id="reports">
 				<h3>Reports</h3>
@@ -176,13 +234,6 @@
 				<p class="quick-links">This will likely need a separate content model, since it is not part of steward operations.</p>
 			</section>
 		</div>
-		<aside class="card steward-side-panel">
-			<h3>Admin Notes</h3>
-			<p class="hero-copy">Use this dashboard as the main admin landing page. Steward actions stay in the operational console, while governance, reporting, and user control move here.</p>
-			<hr>
-			<h4>Implementation order</h4>
-			<p class="quick-links">1. User management. 2. Steward approvals. 3. Policies and fees. 4. Reports. 5. Content and promos.</p>
-		</aside>
 	</section>
 
 	<p class="steward-last-update" id="admin-last-updated">Last updated: --</p>
