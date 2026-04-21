@@ -63,4 +63,4 @@ def test_start_payment_route_returns_400_when_stripe_fails(client, app, monkeypa
     resp = client.post(f"/api/payments/start/{saved.id}")
     assert resp.status_code == 500
     body = resp.get_json()
-    assert "Failed to start payment" in body["error"]
+    assert "stripe down" in body["error"]

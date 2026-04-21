@@ -38,20 +38,3 @@ class PaymentProviderInterface(ABC):
     def refund(self, provider_ref: str) -> bool:
         """Request a refund for the given provider reference. Return True on success."""
         raise NotImplementedError
-
-    @abstractmethod
-    def capture(self, provider_ref: str, amount_cents: int | None = None, idempotency_key: str | None = None) -> bool:
-        """Capture (or partially capture) a reserved payment. Return True on success.
-
-        Accept an optional `idempotency_key` which is sent as `X-Request-Id` to the
-        provider for idempotent requests.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def cancel(self, provider_ref: str, should_release_remaining_funds: bool = False, idempotency_key: str | None = None) -> bool:
-        """Cancel a payment reservation. Return True on success.
-
-        Accept an optional `idempotency_key` sent as `X-Request-Id` when supported.
-        """
-        raise NotImplementedError
