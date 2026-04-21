@@ -22,6 +22,9 @@ class TableRepository(TableRepositoryInterface):
             floor=table.floor,
             zone=table.zone,
             features=table.features or {},
+            width=table.width,
+            height=table.height,
+            rotation=table.rotation,
             status=table.status,
         )
         self.session.add(db_table)
@@ -30,6 +33,12 @@ class TableRepository(TableRepositoryInterface):
 
     def get_by_id(self, table_id: int) -> Optional[Table]:
         db_table = self.session.get(CafeTableDB, table_id)
+        if db_table is None:
+            return None
+        return self._to_domain(db_table)
+
+    def get_by_number(self, number: int) -> Optional[Table]:
+        db_table = self.session.query(CafeTableDB).filter(CafeTableDB.table_nr == str(number)).first()
         if db_table is None:
             return None
         return self._to_domain(db_table)
@@ -56,6 +65,9 @@ class TableRepository(TableRepositoryInterface):
         db_table.floor = table.floor
         db_table.zone = table.zone
         db_table.features = table.features or {}
+        db_table.width = table.width
+        db_table.height = table.height
+        db_table.rotation = table.rotation
         db_table.status = table.status
         self.session.commit()
         return self._to_domain(db_table)
@@ -128,6 +140,9 @@ class TableRepository(TableRepositoryInterface):
             floor=getattr(db_table, "floor", 1),
             zone=db_table.zone,
             features=db_table.features or {},
+            width=getattr(db_table, "width", None),
+            height=getattr(db_table, "height", None),
+            rotation=getattr(db_table, "rotation", None),
             status=db_table.status,
         )
         # Domain model currently does not declare persistence metadata fields.

@@ -28,6 +28,10 @@ class TableRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_by_number(self, number: int) -> Optional[Table]:
+        raise NotImplementedError
+
+    @abstractmethod
     def list(self) -> Sequence[Table]:
         raise NotImplementedError
 

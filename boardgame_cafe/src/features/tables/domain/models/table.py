@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from shared.domain.exceptions import InvalidStatusTransition, ValidationError
+
 VALID_TABLE_STATUSES = {"available", "occupied", "reserved", "maintenance"}
 
 @dataclass
@@ -19,6 +20,9 @@ class Table:
     floor: int = 1
     zone: Optional[str] = None
     features: Optional[dict[str, bool]] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    rotation: Optional[int] = None
     status: str = "available"
 
     def __post_init__(self) -> None:
@@ -31,6 +35,15 @@ class Table:
             raise ValidationError("capacity must be a positive integer")
         if self.floor <= 0 or self.floor != int(self.floor):
             raise ValidationError("floor must be a positive integer")
+        if self.rotation is not None and self.rotation != int(self.rotation):
+            raise ValidationError("rotation must be an integer")
+        if self.rotation is not None and int(self.rotation) < 0:
+            raise ValidationError("rotation must be a non-negative integer")
+        for field_name, value in (("width", self.width), ("height", self.height)):
+            if value is not None and value != int(value):
+                raise ValidationError(f"{field_name} must be an integer")
+            if value is not None and int(value) <= 0:
+                raise ValidationError(f"{field_name} must be a positive integer")
         if self.status not in VALID_TABLE_STATUSES:
             raise ValidationError(
                 f"status must be one of: {', '.join(sorted(VALID_TABLE_STATUSES))}"

@@ -30,7 +30,7 @@ from features.payments.infrastructure.vipps import VippsAdapter, vipps_callbacks
 from features.payments.infrastructure.stripe.stripe_adapter import StripeAdapter
 from features.payments.infrastructure.stripe.stripe_webhook import bp as stripe_webhook_bp
 from features.reservations.presentation.api import reservation_routes
-from features.tables.presentation.api import table_routes
+from features.tables.presentation.api import table_routes, admin_routes as table_admin_routes
 from features.users.presentation.api import auth_routes, admin_routes, steward_routes
 from features.users.infrastructure import UserDB as User
 from ui import register_ui_pages
@@ -172,6 +172,7 @@ def register_blueprints(app: Flask):
     app.register_blueprint(payment_bp)
     app.register_blueprint(reservation_routes.bp)
     app.register_blueprint(table_routes.bp)
+    app.register_blueprint(table_admin_routes.bp)
     app.register_blueprint(steward_routes.bp)
     app.register_blueprint(events_bp)
 
