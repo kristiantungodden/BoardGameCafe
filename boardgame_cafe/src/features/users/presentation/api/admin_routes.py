@@ -471,6 +471,9 @@ def delete_catalogue_copy(copy_id: int):
     if row is None:
         return jsonify({"error": "Game copy not found"}), 404
 
+    # Delete dependent incidents first to avoid FK/NOT NULL constraint failure
+    db.session.query(IncidentDB).filter(IncidentDB.game_copy_id == copy_id).delete()
+
     db.session.delete(row)
     db.session.commit()
     return jsonify({"message": "Game copy deleted"}), 200

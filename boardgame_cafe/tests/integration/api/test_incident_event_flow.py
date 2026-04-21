@@ -15,6 +15,23 @@ def _register_and_login_staff(client, email="steward@example.com"):
     assert login.status_code == 200
 
 
+def _register_and_login_admin(client, email="admin@example.com"):
+    admin_payload = {
+        "name": "Admin",
+        "email": email,
+        "password": "Adminpw123!",
+        "role": "admin",
+    }
+    reg = client.post("/api/auth/register", json=admin_payload)
+    assert reg.status_code == 201
+
+    login = client.post(
+        "/api/auth/login",
+        json={"email": email, "password": "Adminpw123!"},
+    )
+    assert login.status_code == 200
+
+
 def test_creating_incident_triggers_realtime_publish(client, app, monkeypatch, test_data):
     # monkeypatch the infra realtime publish to capture calls
     published = []
@@ -51,6 +68,9 @@ def test_deleting_incident_triggers_realtime_publish(client, app, monkeypatch, t
     rep = client.post(f"/api/steward/game-copies/{copy_id}/incidents", json={"incident_type": "damage", "note": "broken"})
     assert rep.status_code == 201
     inc = rep.get_json()
+
+    # delete requires admin
+    _register_and_login_admin(client)
 
     # delete it
     d = client.delete(f"/api/steward/incidents/{inc['id']}")
