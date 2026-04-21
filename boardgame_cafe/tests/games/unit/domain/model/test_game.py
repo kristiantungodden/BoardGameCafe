@@ -32,6 +32,7 @@ def test_update_details_valid():
         min_players=3,
         max_players=5,
         playtime_min=45,
+        price_cents=5000,
         complexity=Decimal("2.0"),
         description="New description",
         image_url="new_url"
@@ -55,6 +56,7 @@ def test_update_details_invalid():
             min_players=5,  # min > max
             max_players=3,
             playtime_min=45,
+            price_cents=5000,
             complexity=Decimal("2.0"),
             description="desc",
             image_url="url"

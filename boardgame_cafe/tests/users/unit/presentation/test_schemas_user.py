@@ -144,6 +144,7 @@ class TestUserResponse:
             "phone": "555-1234",
             "role": "customer",
             "force_password_change": False,
+            "is_suspended": False,
         }
         response = UserResponse.model_validate(payload)
         assert response.id == 1
@@ -161,6 +162,7 @@ class TestUserResponse:
             "email": "john@example.com",
             "role": "customer",
             "force_password_change": False,
+            "is_suspended": False,
         }
         response = UserResponse.model_validate(payload)
         assert response.phone is None
@@ -309,6 +311,7 @@ class TestUserResponse:
                 "email": "john@example.com",
                 "role": role_str,
                 "force_password_change": False,
+                "is_suspended": False,
             }
             response = UserResponse.model_validate(payload)
             assert response.role == role_str
@@ -321,6 +324,7 @@ class TestUserResponse:
             "email": "john@example.com",
             "role": "customer",
             "force_password_change": True,
+            "is_suspended": False,
         }
         response = UserResponse.model_validate(payload)
         assert response.force_password_change is True
@@ -333,6 +337,7 @@ class TestUserResponse:
             "email": "john@example.com",
             "role": "customer",
             "force_password_change": False,
+            "is_suspended": False,
         }
         response = UserResponse.model_validate(payload)
         assert response.force_password_change is False
@@ -346,6 +351,7 @@ class TestUserResponse:
             "phone": "555-1234",
             "role": "customer",
             "force_password_change": False,
+            "is_suspended": False,
         }
         response = UserResponse.model_validate(payload)
         dumped = response.model_dump()
