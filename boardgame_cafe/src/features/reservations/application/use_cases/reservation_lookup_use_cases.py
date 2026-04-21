@@ -14,4 +14,5 @@ class GetReservationLookupUseCase:
             "tables": list(self.repository.list_tables()),
             "games": list(self.repository.list_games()),
             "game_copies": list(self.repository.list_game_copies()),
+            "pricing": dict(self.repository.get_pricing()),
         }

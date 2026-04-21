@@ -22,6 +22,7 @@ class GameRepository:
             min_players=game.min_players,
             max_players=game.max_players,
             playtime_min=game.playtime_min,
+            price_cents=game.price_cents,
             complexity=game.complexity,
             description=game.description,
             image_url=game.image_url,
@@ -124,6 +125,7 @@ class GameRepository:
             min_players=db_game.min_players,
             max_players=db_game.max_players,
             playtime_min=db_game.playtime_min,
+            price_cents=getattr(db_game, "price_cents", 0),
             complexity=db_game.complexity,
             description=db_game.description,
             image_url=db_game.image_url,
@@ -140,6 +142,7 @@ class GameRepository:
         db_game.min_players = game.min_players
         db_game.max_players = game.max_players
         db_game.playtime_min = game.playtime_min
+        db_game.price_cents = game.price_cents
         db_game.complexity = game.complexity
         db_game.description = game.description
         db_game.image_url = game.image_url

@@ -13,6 +13,7 @@ from features.payments.application.interfaces.payment_repository_interface impor
     PaymentRepositoryInterface,
 )
 from features.payments.application.use_cases.payment_use_cases import create_and_save_payment
+from features.games.infrastructure.database.game_db import GameDB
 from features.reservations.application.interfaces.available_game_copy_repository_interface import (
     AvailableGameCopyRepositoryInterface,
 )
@@ -24,6 +25,8 @@ from features.reservations.application.use_cases.reservation_game_use_cases impo
     AddGameToReservationUseCase,
 )
 from features.reservations.domain.models.table_reservation import TableReservation
+from features.tables.infrastructure.database.table_db import TableDB
+from features.users.infrastructure.pricing_settings import resolve_base_fee
 from shared.domain.exceptions import ValidationError
 from shared.infrastructure import db
 
@@ -181,10 +184,38 @@ class CreateBookingUseCase:
                     TableReservation(booking_id=booking.id, table_id=extra_table_id)
                 )
 
+            table_price_total = 0
+            if selected_table_ids:
+                table_rows = (
+                    session.query(TableDB)
+                    .filter(TableDB.id.in_(selected_table_ids))
+                    .all()
+                )
+                table_price_total = sum(int(getattr(row, "price_cents", 0) or 0) for row in table_rows)
+
+            requested_game_ids = [item.requested_game_id for item in created_games]
+            game_price_total = 0
+            if requested_game_ids:
+                game_rows = (
+                    session.query(GameDB)
+                    .filter(GameDB.id.in_(requested_game_ids))
+                    .all()
+                )
+                game_price_total = sum(int(getattr(row, "price_cents", 0) or 0) for row in game_rows)
+
+            fee_state = resolve_base_fee(session)
+            base_fee_cents = int(fee_state["effective_fee_cents"])
+
             billable_booking = type(
                 "BillableBooking",
                 (),
-                {"id": booking.id, "party_size": len(selected_table_ids)},
+                {
+                    "id": booking.id,
+                    "party_size": len(selected_table_ids),
+                    "table_price_cents_total": table_price_total,
+                    "game_price_cents_total": game_price_total,
+                    "base_fee_cents": base_fee_cents,
+                },
             )()
             payment = create_and_save_payment(billable_booking, payment_repo)
 

@@ -27,8 +27,18 @@ def _resolve_billable_units(booking: BillableBooking) -> int:
 
 
 def calculate_amount_cents(booking: BillableBooking) -> int:
-    billable_units = _resolve_billable_units(booking)
-    return (billable_units * PRICE_PER_CAPACITY_CENTS) + PRICE_BASE_TABLE
+    explicit_table_total = getattr(booking, "table_price_cents_total", None)
+    explicit_game_total = int(getattr(booking, "game_price_cents_total", 0) or 0)
+    explicit_base_fee = getattr(booking, "base_fee_cents", None)
+
+    if explicit_table_total is not None:
+        table_total = int(explicit_table_total)
+    else:
+        billable_units = _resolve_billable_units(booking)
+        table_total = billable_units * PRICE_PER_CAPACITY_CENTS
+
+    base_fee = int(PRICE_BASE_TABLE if explicit_base_fee is None else explicit_base_fee)
+    return table_total + explicit_game_total + base_fee
 
 
 def calculate_amount_kroner(booking: BillableBooking) -> float:

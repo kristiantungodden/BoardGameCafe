@@ -11,6 +11,7 @@ class GameBaseRequest(BaseModel):
 	min_players: int = Field(gt=0)
 	max_players: int = Field(gt=0)
 	playtime_min: int = Field(gt=0)
+	price_cents: int = Field(ge=0, default=0)
 	complexity: Decimal = Field(ge=0)
 	description: str | None = None
 	image_url: str | None = None
@@ -39,6 +40,7 @@ class GameUpdateRequest(BaseModel):
 	min_players: int | None = Field(default=None, gt=0)
 	max_players: int | None = Field(default=None, gt=0)
 	playtime_min: int | None = Field(default=None, gt=0)
+	price_cents: int | None = Field(default=None, ge=0)
 	complexity: Decimal | None = Field(default=None, ge=0)
 	description: str | None = None
 	image_url: str | None = None
@@ -70,6 +72,7 @@ class GameResponse(BaseModel):
 	min_players: int
 	max_players: int
 	playtime_min: int
+	price_cents: int
 	complexity: float
 	description: str | None = None
 	image_url: str | None = None

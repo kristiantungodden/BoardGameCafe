@@ -222,11 +222,9 @@ def test_steward_swap_and_game_copy_status_and_incident_flow(client, app, test_d
         assert old.status == "available"
         assert new.status == "reserved"
 
-    # Update new copy status to 'lost' via steward endpoint
+    # Staff can no longer update copy status directly
     status_resp = client.patch(f"/api/steward/game-copies/{copy_b}/status", json={"action": "lost"})
-    assert status_resp.status_code == 200
-    st = status_resp.get_json()
-    assert st["status"] == "lost"
+    assert status_resp.status_code == 403
 
     # Report an incident on copy_b
     incident_payload = {"incident_type": "damage", "note": "Edge broken"}
