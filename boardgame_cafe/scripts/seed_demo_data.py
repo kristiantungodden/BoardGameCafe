@@ -13,12 +13,15 @@ from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
 from features.games.infrastructure.database.game_tag_db import GameTagDB
 from features.games.infrastructure.database.game_tag_link_db import GameTagLinkDB
+from features.games.infrastructure.database.incident_db import IncidentDB
 from features.payments.infrastructure.database.payments_db import PaymentDB
 from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
+from features.reservations.infrastructure.database.waitlist_db import WaitlistDB
 from features.tables.infrastructure.database.table_db import TableDB
 from features.users.infrastructure.database.admin_policy_db import AdminPolicyDB
+from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from features.users.infrastructure.database.user_db import UserDB
 from shared.infrastructure import db
 from sqlalchemy import inspect, text
@@ -28,34 +31,19 @@ from seed_games import seed_games
 
 
 DEMO_USERS = [
-    {
-        "role": "customer",
-        "name": "a",
-        "email": "a@a.a",
-        "phone": None,
-        "password": "aaaaaaaa",
-    },
-    {
-        "role": "customer",
-        "name": "b",
-        "email": "b@b.b",
-        "phone": None,
-        "password": "bbbbbbbb",
-    },
-    {
-        "role": "staff",
-        "name": "steward",
-        "email": "steward@example.com",
-        "phone": None,
-        "password": "Stewardpw",
-    },
-    {
-        "role": "admin",
-        "name": "admin",
-        "email": "admin@example.com",
-        "phone": None,
-        "password": "Adminpw123",
-    },
+    # Quick-login dev shortcuts
+    {"role": "customer", "name": "a", "email": "a@a.a", "phone": None, "password": "aaaaaaaa"},
+    {"role": "customer", "name": "b", "email": "b@b.b", "phone": None, "password": "bbbbbbbb"},
+    # Realistic customers
+    {"role": "customer", "name": "Emma Hansen", "email": "emma.hansen@example.com", "phone": "+4791234567", "password": "Password1"},
+    {"role": "customer", "name": "Lars Olsen", "email": "lars.olsen@example.com", "phone": "+4798765432", "password": "Password1"},
+    {"role": "customer", "name": "Sofie Berg", "email": "sofie.berg@example.com", "phone": None, "password": "Password1"},
+    {"role": "customer", "name": "Jonas Vik", "email": "jonas.vik@example.com", "phone": "+4792345678", "password": "Password1"},
+    # Staff
+    {"role": "staff", "name": "steward", "email": "steward@example.com", "phone": None, "password": "Stewardpw"},
+    {"role": "staff", "name": "Maria Lund", "email": "maria.lund@example.com", "phone": "+4745678901", "password": "Stewardpw"},
+    # Admin
+    {"role": "admin", "name": "admin", "email": "admin@example.com", "phone": None, "password": "Adminpw123"},
 ]
 
 
@@ -317,6 +305,9 @@ def seed_tables() -> tuple[int, int]:
         {"table_nr": "T3", "capacity": 4, "price_cents": 16500, "floor": 1, "zone": "window", "status": "available"},
         {"table_nr": "T4", "capacity": 6, "price_cents": 21000, "floor": 2, "zone": "corner", "status": "available"},
         {"table_nr": "T5", "capacity": 8, "price_cents": 26000, "floor": 2, "zone": "main", "status": "available"},
+        {"table_nr": "T6", "capacity": 4, "price_cents": 15000, "floor": 1, "zone": "bar", "status": "maintenance"},
+        {"table_nr": "T7", "capacity": 6, "price_cents": 20000, "floor": 2, "zone": "window", "status": "available"},
+        {"table_nr": "T8", "capacity": 2, "price_cents": 11000, "floor": 1, "zone": "bar", "status": "available"},
     ]
 
     existing = {t.table_nr: t for t in TableDB.query.all()}
@@ -397,16 +388,27 @@ def seed_game_copies() -> tuple[int, int]:
         slug = re.sub(r"[^A-Z0-9]+", "-", ascii_only.upper()).strip("-")
         return slug or f"GAME{game_id}"
 
-    for game in games:
+    # copy_idx→status override: index 2 = maintenance, index 3 = lost (per-game first title only)
+    _special_status: dict[int, dict[int, str]] = {
+        0: {3: "maintenance"},  # first game: copy 3 is in maintenance
+        1: {3: "lost"},          # second game: copy 3 is lost
+    }
+
+    for game_idx, game in enumerate(games):
         prefix = _copy_code_prefix(game.title, game.id)
-        for copy_idx in (1, 2):
+        copy_range = (1, 2, 3) if game_idx < 3 else (1, 2)  # first 3 games get 3 copies
+        for copy_idx in copy_range:
             copy_code = f"{prefix}-{copy_idx:03d}"
             row = existing.get(copy_code)
+            default_status = (
+                _special_status.get(game_idx, {}).get(copy_idx, "available")
+            )
+            locations = ["shelf-a", "shelf-b", "shelf-c"]
             target = {
                 "game_id": game.id,
                 "copy_code": copy_code,
-                "status": "available",
-                "location": "shelf-a",
+                "status": default_status,
+                "location": locations[(copy_idx - 1) % len(locations)],
             }
 
             if row is None:
@@ -415,7 +417,7 @@ def seed_game_copies() -> tuple[int, int]:
                 continue
 
             changed = False
-            for field in ("game_id", "status", "location"):
+            for field in ("game_id", "location"):
                 if getattr(row, field) != target[field]:
                     setattr(row, field, target[field])
                     changed = True
@@ -514,38 +516,122 @@ def seed_users() -> tuple[int, int]:
     return inserted, updated
 
 
-def _booking_seed_rows(base_day: datetime) -> list[dict]:
+def _booking_seed_rows(now: datetime) -> list[dict]:
+    td = now
     return [
+        # ── Upcoming confirmed bookings ──────────────────────────────
         {
             "email": "a@a.a",
             "table_nr": "T2",
-            "start_ts": base_day.replace(hour=17, minute=0, second=0, microsecond=0),
-            "end_ts": base_day.replace(hour=19, minute=0, second=0, microsecond=0),
+            "start_ts": (td + timedelta(days=1)).replace(hour=17, minute=0, second=0, microsecond=0),
+            "end_ts": (td + timedelta(days=1)).replace(hour=19, minute=0, second=0, microsecond=0),
             "party_size": 4,
             "notes": "Demo booking with two game requests",
             "game_slots": [0, 1],
+            "final_status": "confirmed",
         },
         {
             "email": "b@b.b",
             "table_nr": "T4",
-            "start_ts": base_day.replace(hour=19, minute=30, second=0, microsecond=0),
-            "end_ts": base_day.replace(hour=21, minute=30, second=0, microsecond=0),
+            "start_ts": (td + timedelta(days=1)).replace(hour=19, minute=30, second=0, microsecond=0),
+            "end_ts": (td + timedelta(days=1)).replace(hour=21, minute=30, second=0, microsecond=0),
             "party_size": 5,
             "notes": "Demo booking with one game request",
             "game_slots": [2],
+            "final_status": "confirmed",
         },
+        {
+            "email": "emma.hansen@example.com",
+            "table_nr": "T7",
+            "start_ts": (td + timedelta(days=2)).replace(hour=16, minute=0, second=0, microsecond=0),
+            "end_ts": (td + timedelta(days=2)).replace(hour=18, minute=30, second=0, microsecond=0),
+            "party_size": 6,
+            "notes": "Birthday group",
+            "game_slots": [0, 2],
+            "final_status": "confirmed",
+        },
+        {
+            "email": "lars.olsen@example.com",
+            "table_nr": "T3",
+            "start_ts": (td + timedelta(days=3)).replace(hour=18, minute=0, second=0, microsecond=0),
+            "end_ts": (td + timedelta(days=3)).replace(hour=20, minute=0, second=0, microsecond=0),
+            "party_size": 3,
+            "notes": "Strategy game evening",
+            "game_slots": [1, 3],
+            "final_status": "confirmed",
+        },
+        # ── Currently seated (in progress) ───────────────────────────
+        {
+            "email": "sofie.berg@example.com",
+            "table_nr": "T5",
+            "start_ts": td.replace(hour=max(td.hour - 1, 0), minute=0, second=0, microsecond=0),
+            "end_ts": td.replace(hour=min(td.hour + 1, 23), minute=30, second=0, microsecond=0),
+            "party_size": 7,
+            "notes": "Currently playing — demo seated booking",
+            "game_slots": [0, 3],
+            "final_status": "seated",
+        },
+        # ── Past completed bookings ───────────────────────────────────
         {
             "email": "a@a.a",
             "table_nr": "T1",
-            "start_ts": (base_day + timedelta(days=1)).replace(
-                hour=15, minute=0, second=0, microsecond=0
-            ),
-            "end_ts": (base_day + timedelta(days=1)).replace(
-                hour=17, minute=0, second=0, microsecond=0
-            ),
+            "start_ts": (td - timedelta(days=3)).replace(hour=15, minute=0, second=0, microsecond=0),
+            "end_ts": (td - timedelta(days=3)).replace(hour=17, minute=0, second=0, microsecond=0),
             "party_size": 2,
-            "notes": "Follow-up booking next day",
+            "notes": "Past booking — completed",
             "game_slots": [3],
+            "final_status": "completed",
+        },
+        {
+            "email": "b@b.b",
+            "table_nr": "T2",
+            "start_ts": (td - timedelta(days=7)).replace(hour=19, minute=0, second=0, microsecond=0),
+            "end_ts": (td - timedelta(days=7)).replace(hour=21, minute=0, second=0, microsecond=0),
+            "party_size": 4,
+            "notes": "Past booking — completed",
+            "game_slots": [1, 2],
+            "final_status": "completed",
+        },
+        {
+            "email": "emma.hansen@example.com",
+            "table_nr": "T4",
+            "start_ts": (td - timedelta(days=14)).replace(hour=17, minute=0, second=0, microsecond=0),
+            "end_ts": (td - timedelta(days=14)).replace(hour=19, minute=30, second=0, microsecond=0),
+            "party_size": 5,
+            "notes": "Past booking — completed",
+            "game_slots": [0, 4],
+            "final_status": "completed",
+        },
+        {
+            "email": "jonas.vik@example.com",
+            "table_nr": "T3",
+            "start_ts": (td - timedelta(days=21)).replace(hour=18, minute=0, second=0, microsecond=0),
+            "end_ts": (td - timedelta(days=21)).replace(hour=20, minute=0, second=0, microsecond=0),
+            "party_size": 3,
+            "notes": "Past booking — completed",
+            "game_slots": [2],
+            "final_status": "completed",
+        },
+        # ── Cancelled / no-show ───────────────────────────────────────
+        {
+            "email": "lars.olsen@example.com",
+            "table_nr": "T1",
+            "start_ts": (td - timedelta(days=5)).replace(hour=16, minute=0, second=0, microsecond=0),
+            "end_ts": (td - timedelta(days=5)).replace(hour=18, minute=0, second=0, microsecond=0),
+            "party_size": 2,
+            "notes": "Past booking — cancelled by customer",
+            "game_slots": [],
+            "final_status": "cancelled",
+        },
+        {
+            "email": "sofie.berg@example.com",
+            "table_nr": "T2",
+            "start_ts": (td - timedelta(days=10)).replace(hour=20, minute=0, second=0, microsecond=0),
+            "end_ts": (td - timedelta(days=10)).replace(hour=22, minute=0, second=0, microsecond=0),
+            "party_size": 4,
+            "notes": "Past booking — no show",
+            "game_slots": [1],
+            "final_status": "no_show",
         },
     ]
 
@@ -566,8 +652,8 @@ def seed_bookings() -> tuple[int, int, int]:
     if not users_by_email or not tables_by_nr or not games:
         return inserted_bookings, inserted_game_links, inserted_payments
 
-    base_day = datetime.now() + timedelta(days=1)
-    seed_rows = _booking_seed_rows(base_day)
+    now = datetime.now()
+    seed_rows = _booking_seed_rows(now)
 
     existing_keys = {
         (row.customer_id, row.start_ts, row.end_ts)
@@ -576,10 +662,16 @@ def seed_bookings() -> tuple[int, int, int]:
 
     create_booking = get_create_booking_handler()
 
+    _PAID_STATUSES = {"completed", "seated"}  # bookings that should show as paid
+    _REFUNDED_STATUSES = {"cancelled", "no_show"}
+
     for row in seed_rows:
         customer = users_by_email.get(row["email"])
+        # Skip tables in maintenance for new bookings
         table = tables_by_nr.get(row["table_nr"])
         if customer is None or table is None:
+            continue
+        if table.status == "maintenance" and row["final_status"] == "confirmed":
             continue
 
         booking_key = (customer.id, row["start_ts"], row["end_ts"])
@@ -604,11 +696,137 @@ def seed_bookings() -> tuple[int, int, int]:
         )
         inserted_bookings += 1
         inserted_game_links += len(reservation_games)
-        inserted_payments += 1 if payment is not None else 0
+
+        # Advance booking to desired final status
+        final = row["final_status"]
+        if final != "confirmed":
+            db_booking = db.session.get(BookingDB, booking.id)
+            if db_booking is not None:
+                db_booking.status = final
+
+        # Adjust payment status to match reality
+        if payment is not None:
+            db_payment = db.session.get(PaymentDB, payment.id)
+            if db_payment is not None:
+                if final in _PAID_STATUSES:
+                    db_payment.status = "paid"
+                elif final in _REFUNDED_STATUSES:
+                    db_payment.status = "refunded"
+            inserted_payments += 1
 
         existing_keys.add(booking_key)
 
     return inserted_bookings, inserted_game_links, inserted_payments
+
+
+def seed_incidents() -> int:
+    """Seed one open and one resolved-ish incident on specific game copies."""
+    inserted = 0
+
+    steward = UserDB.query.filter_by(email="steward@example.com").first()
+    if steward is None:
+        return inserted
+
+    copies = GameCopyDB.query.order_by(GameCopyDB.id.asc()).all()
+    maintenance_copy = next((c for c in copies if c.status == "maintenance"), None)
+    available_copy = next((c for c in copies if c.status == "available"), None)
+
+    existing_copy_ids = {inc.game_copy_id for inc in IncidentDB.query.all()}
+
+    # Open incident on the maintenance copy
+    if maintenance_copy and maintenance_copy.id not in existing_copy_ids:
+        db.session.add(IncidentDB(
+            game_copy_id=maintenance_copy.id,
+            reported_by=steward.id,
+            incident_type="damage",
+            note="Box corner torn, pieces intact. Needs new box.",
+        ))
+        existing_copy_ids.add(maintenance_copy.id)
+        inserted += 1
+
+    # A second incident on a different available copy (resolved by not blocking it)
+    second_copy = next((c for c in copies if c.status == "available" and c != available_copy), None)
+    if second_copy and second_copy.id not in existing_copy_ids:
+        db.session.add(IncidentDB(
+            game_copy_id=second_copy.id,
+            reported_by=steward.id,
+            incident_type="damage",
+            note="Minor stain on board — still playable. Logged for tracking.",
+        ))
+        inserted += 1
+
+    return inserted
+
+
+def seed_waitlist() -> int:
+    """Seed a few waitlist entries for testing."""
+    inserted = 0
+
+    users_by_email = {u.email: u for u in UserDB.query.all()}
+    now = datetime.now()
+
+    entries = [
+        {"email": "jonas.vik@example.com", "party_size": 4, "notes": "Any table for Saturday evening"},
+        {"email": "lars.olsen@example.com", "party_size": 2, "notes": "Window seat preferred"},
+        {"email": "b@b.b", "party_size": 6, "notes": "Large group, floor 2 if possible"},
+    ]
+
+    existing_customer_ids = {w.customer_id for w in WaitlistDB.query.all()}
+
+    for entry in entries:
+        customer = users_by_email.get(entry["email"])
+        if customer is None or customer.id in existing_customer_ids:
+            continue
+        db.session.add(WaitlistDB(
+            customer_id=customer.id,
+            party_size=entry["party_size"],
+            notes=entry["notes"],
+        ))
+        existing_customer_ids.add(customer.id)
+        inserted += 1
+
+    return inserted
+
+
+def seed_announcements() -> int:
+    """Seed one published and one draft announcement."""
+    inserted = 0
+
+    admin = UserDB.query.filter_by(email="admin@example.com").first()
+    if admin is None:
+        return inserted
+
+    now = datetime.now()
+    existing_titles = {a.title for a in AnnouncementDB.query.all()}
+
+    seeds = [
+        {
+            "title": "Grand Opening Weekend — Special Rates!",
+            "body": "Join us this weekend for our grand opening celebration. All tables are 20% off and we have new games arriving Friday. Walk-ins welcome!",
+            "cta_label": "Book a table",
+            "cta_url": "/booking",
+            "is_published": True,
+            "published_at": now - timedelta(days=2),
+            "created_by": admin.id,
+        },
+        {
+            "title": "New Game Night — Every Thursday",
+            "body": "Starting next month we're hosting a structured game night every Thursday at 18:00. Beginners welcome — stewards will guide you through the rules.",
+            "cta_label": None,
+            "cta_url": None,
+            "is_published": False,
+            "published_at": None,
+            "created_by": admin.id,
+        },
+    ]
+
+    for seed in seeds:
+        if seed["title"] in existing_titles:
+            continue
+        db.session.add(AnnouncementDB(**seed))
+        inserted += 1
+
+    return inserted
 
 
 def _count_demo_records() -> tuple[int, int, int]:
@@ -661,28 +879,12 @@ def seed_demo_data() -> None:
         c_inserted, c_updated = seed_game_copies()
         u_inserted, u_updated = seed_users()
         b_inserted, bg_inserted, bp_inserted = seed_bookings()
+        db.session.flush()
+        i_inserted = seed_incidents()
+        w_inserted = seed_waitlist()
+        a_inserted = seed_announcements()
 
-        if any(
-            (
-                g_inserted,
-                g_updated,
-                gt_inserted,
-                gt_updated,
-                gtl_inserted,
-                t_inserted,
-                t_updated,
-                s_inserted,
-                s_updated,
-                c_inserted,
-                c_updated,
-                u_inserted,
-                u_updated,
-                b_inserted,
-                bg_inserted,
-                bp_inserted,
-            )
-        ):
-            db.session.commit()
+        db.session.commit()
 
         link_count, game_link_count, payment_count = _count_demo_records()
 
@@ -695,6 +897,9 @@ def seed_demo_data() -> None:
         f"copies inserted={c_inserted}, updated={c_updated}; "
         f"users inserted={u_inserted}, updated={u_updated}; "
         f"bookings inserted={b_inserted}, game-links inserted={bg_inserted}, payments inserted={bp_inserted}; "
+        f"incidents inserted={i_inserted}; "
+        f"waitlist inserted={w_inserted}; "
+        f"announcements inserted={a_inserted}; "
         f"demo table-links total={link_count}, demo game-links total={game_link_count}, demo payments total={payment_count}"
     )
 

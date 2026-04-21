@@ -36,6 +36,30 @@
 	</aside>
 </section>
 
+{% if announcements %}
+<section class="home-announcements" aria-label="Latest announcements">
+	<div class="home-preview-head">
+		<h2 class="section-title">Latest Announcements</h2>
+	</div>
+	<div class="home-announcement-list">
+		{% for announcement in announcements %}
+		<article class="home-announcement-card">
+			<div class="home-announcement-head">
+				<h3>{{ announcement.title }}</h3>
+				{% if announcement.published_at %}
+				<p>{{ announcement.published_at.strftime('%Y-%m-%d') }}</p>
+				{% endif %}
+			</div>
+			<p class="home-announcement-body">{{ announcement.body }}</p>
+			{% if announcement.cta_label and announcement.cta_url %}
+			<a class="button button-secondary" href="{{ announcement.cta_url }}">{{ announcement.cta_label }}</a>
+			{% endif %}
+		</article>
+		{% endfor %}
+	</div>
+</section>
+{% endif %}
+
 
 <section class="home-preview" aria-label="Game preview">
 	<div class="home-preview-head">
