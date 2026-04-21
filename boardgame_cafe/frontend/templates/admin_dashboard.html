@@ -184,7 +184,73 @@
 			<section class="card" id="floor">
 				<h3>Floor & Tables</h3>
 				<p class="hero-copy">Configure floors, zones, table sizes, and operational statuses for the café map.</p>
-				<p class="quick-links">This will build on the existing table and floorplan structure already used by bookings.</p>
+				<div class="steward-item-list">
+					<form class="form-stack steward-item" id="create-floor-form">
+						<h4>Create Floor</h4>
+						<label class="form-label" for="floor-number">Floor number</label>
+						<input class="form-input" id="floor-number" name="number" type="number" min="1" required>
+
+						<label class="form-label" for="floor-name">Floor name</label>
+						<input class="form-input" id="floor-name" name="name" required>
+
+						<div class="action-row">
+							<button class="button" type="submit">Create floor</button>
+						</div>
+					</form>
+					<p class="quick-links" id="create-floor-message"></p>
+				</div>
+
+				<div class="steward-item-list" style="margin-top: 1.5rem;">
+					<form class="form-stack steward-item" id="create-zone-form">
+						<h4>Create Zone</h4>
+						<label class="form-label" for="zone-floor">Floor</label>
+						<input class="form-input" id="zone-floor" name="floor" type="number" min="1" required>
+
+						<label class="form-label" for="zone-name">Zone name</label>
+						<input class="form-input" id="zone-name" name="name" required>
+
+						<label class="form-label" for="zone-notes">Notes</label>
+						<input class="form-input" id="zone-notes" name="notes">
+
+						<div class="action-row">
+							<button class="button" type="submit">Create zone</button>
+						</div>
+					</form>
+					<p class="quick-links" id="create-zone-message"></p>
+				</div>
+
+				<div class="steward-item-list" style="margin-top: 1.5rem;">
+					<form class="form-stack steward-item" id="create-table-form">
+						<h4>Create Table</h4>
+						<label class="form-label" for="table-number">Table number</label>
+						<input class="form-input" id="table-number" name="number" type="number" min="1" required>
+
+						<label class="form-label" for="table-capacity">Capacity</label>
+						<input class="form-input" id="table-capacity" name="capacity" type="number" min="1" required>
+
+						<label class="form-label" for="table-floor">Floor</label>
+						<input class="form-input" id="table-floor" name="floor" type="number" min="1" required>
+
+						<label class="form-label" for="table-zone">Zone</label>
+						<input class="form-input" id="table-zone" name="zone" required>
+
+						<div class="action-row">
+							<button class="button" type="submit">Create table</button>
+						</div>
+					</form>
+					<p class="quick-links" id="create-table-message"></p>
+				</div>
+				<div class="card" style="margin-top: 1.5rem;">
+					<div class="steward-floorplan-head">
+						<h4>Floorplan</h4>
+						<div>
+							<label class="form-label" for="admin-floor-select">Floor</label>
+							<select class="form-input" id="admin-floor-select"></select>
+						</div>
+					</div>
+					<div id="admin-floorplan"></div>
+				</div>
+				<p class="quick-links">Use the forms above to add records, then edit or delete them directly from the floorplan view.</p>
 			</section>
 			<section class="card" id="policies">
 				<h3>Policies & Fees</h3>
