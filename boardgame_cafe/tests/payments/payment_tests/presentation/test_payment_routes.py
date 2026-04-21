@@ -6,6 +6,7 @@ from features.payments.domain.models.payment import Payment
 from features.payments.presentation.api import payment_routes
 from features.payments.presentation.api.payment_routes import (
     configure_booking_repository,
+    configure_payment_provider,
     configure_payment_routes,
     payment_bp,
 )
@@ -34,12 +35,30 @@ class StubBookingRepository:
         return SimpleNamespace(id=booking_id, customer_id=1)
 
 
+class StubProvider:
+    def start_payment(self, payment):
+        return SimpleNamespace(
+            provider_ref="cs_test",
+            redirect_url="https://stripe.example/checkout",
+            provider_name="stripe",
+        )
+
+    def fetch_status(self, provider_ref: str):
+        return "pending"
+
+    def refund(self, provider_ref: str) -> bool:
+        return True
+
+
 def create_test_client(repository=None):
     app = Flask(__name__)
     app.register_blueprint(payment_bp)
 
     from features.payments.presentation.api import payment_routes
-    payment_routes._payment_repository = None
+    payment_routes._payment_service = None
+    payment_routes._pending_repository = None
+    payment_routes._pending_provider = None
+    payment_routes._pending_booking_repository = None
     payment_routes.current_user = SimpleNamespace(
         id=1,
         is_authenticated=True,
@@ -48,6 +67,7 @@ def create_test_client(repository=None):
         is_admin=True,
     )
     configure_booking_repository(StubBookingRepository())
+    configure_payment_provider(StubProvider())
     
     if repository is not None:
         configure_payment_routes(repository)
@@ -55,7 +75,7 @@ def create_test_client(repository=None):
 
 
 def test_calculate_payment_route_returns_calculated_values():
-    client = create_test_client()
+    client = create_test_client(StubRepository())
 
     response = client.post(
         "/api/payments/calculate",
@@ -73,7 +93,7 @@ def test_calculate_payment_route_returns_calculated_values():
 
 
 def test_calculate_payment_route_returns_400_for_invalid_party_size():
-    client = create_test_client()
+    client = create_test_client(StubRepository())
 
     response = client.post(
         "/api/payments/calculate",
@@ -93,7 +113,7 @@ def test_create_payment_route_returns_500_when_repository_not_configured():
     )
 
     assert response.status_code == 500
-    assert response.get_json() == {"error": "Payment repository is not configured"}
+    assert response.get_json() == {"error": "Payment service is not configured"}
 
 
 def test_create_payment_route_saves_payment_and_returns_created():

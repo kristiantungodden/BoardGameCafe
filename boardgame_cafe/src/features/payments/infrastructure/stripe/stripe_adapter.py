@@ -67,9 +67,3 @@ class StripeAdapter(PaymentProviderInterface):
 
         refund = stripe.Refund.create(payment_intent=payment_intent)
         return getattr(refund, "status", "") in {"succeeded", "pending"}
-
-    def capture(self, provider_ref: str, amount_cents=None, idempotency_key=None) -> bool:
-        return False
-
-    def cancel(self, provider_ref: str, should_release_remaining_funds=False, idempotency_key=None) -> bool:
-        return self.refund(provider_ref)

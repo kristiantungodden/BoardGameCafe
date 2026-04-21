@@ -112,9 +112,23 @@ def test_refund_returns_false_without_payment_intent(monkeypatch):
     assert adapter.refund("cs_missing") is False
 
 
-def test_cancel_delegates_to_refund(monkeypatch):
+def test_refund_returns_true_for_pending_status(monkeypatch):
+    def fake_retrieve(provider_ref):
+        assert provider_ref == "cs_pending"
+        return SimpleNamespace(payment_intent="pi_456")
+
+    def fake_refund_create(**kwargs):
+        assert kwargs["payment_intent"] == "pi_456"
+        return SimpleNamespace(status="pending")
+
+    monkeypatch.setattr(
+        "features.payments.infrastructure.stripe.stripe_adapter.stripe.checkout.Session.retrieve",
+        fake_retrieve,
+    )
+    monkeypatch.setattr(
+        "features.payments.infrastructure.stripe.stripe_adapter.stripe.Refund.create",
+        fake_refund_create,
+    )
+
     adapter = StripeAdapter("sk_test_123", "https://boardgamecafe.example")
-
-    monkeypatch.setattr(adapter, "refund", lambda provider_ref: provider_ref == "cs_paid")
-
-    assert adapter.cancel("cs_paid") is True
+    assert adapter.refund("cs_pending") is True

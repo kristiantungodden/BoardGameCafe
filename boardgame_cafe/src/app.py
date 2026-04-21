@@ -22,11 +22,9 @@ from features.games.presentation.api import games_routes, game_copy_routes, game
 from features.bookings.infrastructure.repositories.booking_repository import SqlAlchemyBookingRepository
 from features.payments.infrastructure.repositories.payment_repository import PaymentRepository
 from features.payments.presentation.api.payment_routes import (
-    configure_payment_routes,
+    configure_payment_service,
     payment_bp,
 )
-from features.payments.presentation.api.payment_routes import configure_payment_provider
-from features.payments.infrastructure.vipps import VippsAdapter, vipps_callbacks
 from features.payments.infrastructure.stripe.stripe_adapter import StripeAdapter
 from features.payments.infrastructure.stripe.stripe_webhook import bp as stripe_webhook_bp
 from features.reservations.presentation.api import reservation_routes
@@ -128,10 +126,7 @@ def create_app(config_name: str = None):
     # Register error handlers
     register_error_handlers(app)
 
-    if os.getenv("FLASK_ENV") == "development":
-        from features.payments.infrastructure.vipps.mock_vipps import mock_vipps
-        app.register_blueprint(mock_vipps)
-        # development-only mock vipps blueprint registered above
+
 
     
     # `/api/events/stream` is provided by the presentation blueprint
@@ -151,18 +146,15 @@ def register_blueprints(app: Flask):
     """Register all API blueprints."""
     repo = PaymentRepository()
     booking_repo = SqlAlchemyBookingRepository()
-    from features.payments.presentation.api.payment_routes import configure_booking_repository
 
-    configure_booking_repository(booking_repo)
-    configure_payment_routes(repo)
-    vipps = VippsAdapter()
     stripe_key = (app.config.get("STRIPE_SECRET_KEY") or "").strip()
-    if stripe_key:
-        configure_payment_provider(StripeAdapter(stripe_key, app.config["APP_BASE_URL"]))
-    else:
-        app.logger.warning("STRIPE_SECRET_KEY is missing; using VippsAdapter as payment provider fallback")
-        configure_payment_provider(vipps)
-    app.register_blueprint(vipps_callbacks)
+    if not stripe_key:
+        raise ValueError("STRIPE_SECRET_KEY environment variable is required")
+    configure_payment_service(
+        repository=repo,
+        provider=StripeAdapter(stripe_key, app.config["APP_BASE_URL"]),
+        booking_repository=booking_repo,
+    )
 
     app.register_blueprint(auth_routes.bp)
     app.register_blueprint(admin_routes.bp)
