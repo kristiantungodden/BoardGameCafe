@@ -2,11 +2,6 @@ from flask import Blueprint, current_app, request
 from flask_login import current_user, login_required
 
 from features.reservations.application.use_cases.reservation_game_use_cases import SwapGameCopyUseCase
-from features.reservations.application.use_cases.reservation_use_cases import (
-    ListActiveReservationsUseCase,
-    ListConfirmedReservationsUseCase,
-    ListSeatedReservationsUseCase,
-)
 from features.reservations.application.use_cases.steward_reservation_browse_use_cases import (
     BrowseStewardReservationsQuery,
     BrowseStewardReservationsUseCase,
@@ -17,7 +12,6 @@ from features.bookings.application.use_cases.booking_lifecycle_use_cases import 
     SeatBookingUseCase,
 )
 from features.games.application.use_cases.game_copy_use_cases import (
-    ListGameCopiesUseCase,
     UpdateGameCopyStatusUseCase,
 )
 from features.games.application.use_cases.game_copy_browse_use_cases import (
@@ -40,14 +34,10 @@ from shared.application.services.reservation_transition_event_publisher import (
 from shared.domain.exceptions import DomainError
 from features.users.composition.steward_use_case_factories import (
     get_complete_reservation_use_case,
-    get_list_active_reservations_use_case,
     get_browse_steward_reservations_use_case,
-    get_list_confirmed_reservations_use_case,
-    get_list_game_copies_use_case,
     get_browse_game_copies_use_case,
     get_list_incidents_for_game_copy_use_case,
     get_list_incidents_use_case,
-    get_list_seated_reservations_use_case,
     get_no_show_reservation_use_case,
     get_report_incident_use_case,
     get_delete_incident_use_case,
@@ -128,6 +118,30 @@ def _serialize_waitlist_entry(entry):
     }
 
 
+def _parse_reservation_date_arg():
+    date_str = request.args.get("date")
+    if not date_str:
+        return None
+
+    try:
+        from datetime import datetime
+
+        return datetime.fromisoformat(date_str).date()
+    except Exception:
+        return None
+
+
+def _list_reservations_by_statuses(statuses: tuple[str, ...]):
+    use_case: BrowseStewardReservationsUseCase = get_browse_steward_reservations_use_case()
+    items = use_case.execute(
+        BrowseStewardReservationsQuery(
+            statuses=statuses,
+            reservation_date=_parse_reservation_date_arg(),
+        )
+    )
+    return [_serialize_reservation(r) for r in items], 200
+
+
 # -----------------------------------------------------------------------
 # Workflow 2 — View reservations
 # -----------------------------------------------------------------------
@@ -139,24 +153,7 @@ def list_active_reservations():
     if err:
         return err
 
-    date_str = request.args.get("date")
-    reservation_date = None
-    if date_str:
-        try:
-            from datetime import datetime
-
-            reservation_date = datetime.fromisoformat(date_str).date()
-        except Exception:
-            reservation_date = None
-
-    use_case: BrowseStewardReservationsUseCase = get_browse_steward_reservations_use_case()
-    items = use_case.execute(
-        BrowseStewardReservationsQuery(
-            statuses=("confirmed",),
-            reservation_date=reservation_date,
-        )
-    )
-    return [_serialize_reservation(r) for r in items], 200
+    return _list_reservations_by_statuses(("confirmed",))
 
 
 @bp.get("/reservations/confirmed")
@@ -166,24 +163,8 @@ def list_confirmed_reservations():
     if err:
         return err
 
-    date_str = request.args.get("date")
-    reservation_date = None
-    if date_str:
-        try:
-            from datetime import datetime
-
-            reservation_date = datetime.fromisoformat(date_str).date()
-        except Exception:
-            reservation_date = None
-
-    use_case: BrowseStewardReservationsUseCase = get_browse_steward_reservations_use_case()
-    items = use_case.execute(
-        BrowseStewardReservationsQuery(
-            statuses=("confirmed",),
-            reservation_date=reservation_date,
-        )
-    )
-    return [_serialize_reservation(r) for r in items], 200
+    # Backward-compatible alias for clients still using this explicit path.
+    return _list_reservations_by_statuses(("confirmed",))
 
 
 @bp.get("/reservations/seated")
@@ -193,24 +174,7 @@ def list_seated_reservations():
     if err:
         return err
 
-    date_str = request.args.get("date")
-    reservation_date = None
-    if date_str:
-        try:
-            from datetime import datetime
-
-            reservation_date = datetime.fromisoformat(date_str).date()
-        except Exception:
-            reservation_date = None
-
-    use_case: BrowseStewardReservationsUseCase = get_browse_steward_reservations_use_case()
-    items = use_case.execute(
-        BrowseStewardReservationsQuery(
-            statuses=("seated",),
-            reservation_date=reservation_date,
-        )
-    )
-    return [_serialize_reservation(r) for r in items], 200
+    return _list_reservations_by_statuses(("seated",))
 
 
 # -----------------------------------------------------------------------
