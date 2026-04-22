@@ -518,6 +518,11 @@ def seed_users() -> tuple[int, int]:
 
 def _booking_seed_rows(now: datetime) -> list[dict]:
     td = now
+    # Keep the seeded "currently seated" booking inside opening hours (09:00-23:00).
+    seated_start = td.replace(
+        hour=max(min(td.hour - 1, 21), 9), minute=0, second=0, microsecond=0
+    )
+    seated_end = seated_start + timedelta(hours=2)
     return [
         # ── Upcoming confirmed bookings ──────────────────────────────
         {
@@ -564,8 +569,8 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
         {
             "email": "sofie.berg@example.com",
             "table_nr": "T5",
-            "start_ts": td.replace(hour=max(td.hour - 1, 0), minute=0, second=0, microsecond=0),
-            "end_ts": td.replace(hour=min(td.hour + 1, 23), minute=30, second=0, microsecond=0),
+            "start_ts": seated_start,
+            "end_ts": seated_end,
             "party_size": 7,
             "notes": "Currently playing — demo seated booking",
             "game_slots": [0, 3],
