@@ -108,11 +108,10 @@ def login():
     try:
         user = use_case.execute(LoginCommand(**payload.model_dump()))
     except DomainValidationError as exc:
-        message = str(exc)
+        status = 403 if str(exc) == "Account suspended" else 401
         if is_json_request:
-            status = 403 if message == "Account suspended" else 401
-            return {"error": message}, status
-        flash(message, "error")
+            return {"error": str(exc)}, status
+        flash(str(exc), "error")
         if login_area == "admin":
             return redirect(url_for("admin_login_page"))
         return redirect(url_for("login_page"))

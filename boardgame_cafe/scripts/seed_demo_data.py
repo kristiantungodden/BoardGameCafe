@@ -1,5 +1,7 @@
 import os
+import re
 import sys
+import unicodedata
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -11,11 +13,14 @@ from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
 from features.games.infrastructure.database.game_tag_db import GameTagDB
 from features.games.infrastructure.database.game_tag_link_db import GameTagLinkDB
+from features.games.infrastructure.database.incident_db import IncidentDB
 from features.payments.infrastructure.database.payments_db import PaymentDB
 from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
+from features.reservations.infrastructure.database.waitlist_db import WaitlistDB
 from features.tables.infrastructure.database.table_db import TableDB
+from features.users.infrastructure.database.admin_policy_db import AdminPolicyDB
 from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from features.users.infrastructure.database.user_db import UserDB
 from shared.infrastructure import db
@@ -94,8 +99,8 @@ def ensure_floor_column_for_tables() -> None:
     db.session.commit()
 
 
-def ensure_price_columns() -> None:
-    """Add pricing columns for legacy databases before ORM table queries."""
+def ensure_pricing_schema() -> None:
+    """Add pricing columns/settings table for legacy local databases before seeding."""
     inspector = inspect(db.engine)
     dialect = db.engine.dialect.name
 
@@ -131,6 +136,9 @@ def ensure_price_columns() -> None:
             else:
                 db.session.execute(text("ALTER TABLE users ADD COLUMN is_suspended BOOLEAN"))
                 db.session.execute(text("UPDATE users SET is_suspended = 0 WHERE is_suspended IS NULL"))
+
+    if not inspector.has_table("admin_policies"):
+        AdminPolicyDB.__table__.create(bind=db.engine)
 
     db.session.commit()
 
@@ -602,7 +610,7 @@ def seed_demo_data() -> None:
 
     with app.app_context():
         ensure_floor_column_for_tables()
-        ensure_price_columns()
+        ensure_pricing_schema()
         ensure_booking_link_columns()
         clear_database()
         g_inserted, g_updated, g_total = seed_games()

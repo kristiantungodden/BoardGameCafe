@@ -9,7 +9,7 @@ class GameDB(db.Model):
     min_players = db.Column(db.Integer, nullable=False)
     max_players = db.Column(db.Integer, nullable=False)
     playtime_min = db.Column(db.Integer, nullable=False)
-    price_cents = db.Column(db.Integer, nullable=False, default=0)
+    price_cents = db.Column(db.Integer, nullable=False, server_default="0")
     complexity = db.Column(db.Numeric(3, 2), nullable=False)
     description = db.Column(db.Text)
     image_url = db.Column(db.Text)

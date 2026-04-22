@@ -1,3 +1,4 @@
+from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from datetime import datetime, timedelta, timezone
 
 from features.users.infrastructure import UserDB, hash_password
@@ -351,6 +352,50 @@ def test_admin_can_get_and_update_pricing(app, client):
     assert after_high_priority_override["booking_base_fee_default_cents"] == 3600
     assert after_high_priority_override["booking_base_fee_cents"] == 1500
     assert after_high_priority_override["booking_base_fee_has_temporary_override"] is True
+
+
+def test_admin_can_manage_announcements(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Content Admin",
+            email="admin-announcements@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="admin-announcements@example.com", password="AdminPass123")
+
+    create_response = client.post(
+        "/api/admin/content/announcements",
+        json={
+            "title": "Weekly update",
+            "body": "New games are now available for demo play.",
+            "cta_label": "View games",
+            "cta_url": "/games",
+            "publish_now": False,
+        },
+    )
+    assert create_response.status_code == 201
+    announcement_id = create_response.get_json()["id"]
+
+    list_response = client.get("/api/admin/content/announcements")
+    assert list_response.status_code == 200
+    announcements = list_response.get_json()
+    assert any(item["id"] == announcement_id for item in announcements)
+
+    publish_response = client.post(f"/api/admin/content/announcements/{announcement_id}/publish")
+    assert publish_response.status_code == 200
+    assert publish_response.get_json()["is_published"] is True
+
+    unpublish_response = client.post(f"/api/admin/content/announcements/{announcement_id}/unpublish")
+    assert unpublish_response.status_code == 200
+    assert unpublish_response.get_json()["is_published"] is False
+
+    delete_response = client.delete(f"/api/admin/content/announcements/{announcement_id}")
+    assert delete_response.status_code == 200
+
+    with app.app_context():
+        assert db.session.get(AnnouncementDB, announcement_id) is None
 
 
 def test_admin_can_manage_catalogue_and_copies(app, client):

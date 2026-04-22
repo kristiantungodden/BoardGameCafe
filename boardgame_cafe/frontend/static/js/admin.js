@@ -37,6 +37,10 @@ const ADMIN_ANNOUNCEMENTS = {
     items: [],
 };
 
+const ADMIN_USERS = {
+    all: [],
+};
+
 const ADMIN_LOCATION_STATE = {
     floors: [],
     zones: [],
@@ -100,6 +104,13 @@ function setAnnouncementMessage(message, isError = false) {
     if (!node) return;
     node.textContent = message;
     node.style.color = isError ? '#8d2430' : '';
+}
+
+function _userMatchesSearch(user, query) {
+    const haystack = [user.name, user.email, user.role, user.phone, user.force_password_change, user.is_suspended]
+        .map((value) => String(value ?? '').toLowerCase())
+        .join(' ');
+    return haystack.includes(query);
 }
 
 function widgetCollapseStorageKey(groupId) {
@@ -305,7 +316,8 @@ function renderUsers(users) {
 async function loadUsers() {
     try {
         const users = await fetchJson('/api/admin/users');
-        renderUsers(users);
+        ADMIN_USERS.all = Array.isArray(users) ? users : [];
+        renderUsers(ADMIN_USERS.all);
     } catch (error) {
         console.error(error);
         const container = document.getElementById('admin-user-list');
@@ -1882,6 +1894,12 @@ function bindAdminDashboard() {
     const copySearchInput = document.getElementById('admin-catalogue-copy-search');
     copySearchInput?.addEventListener('input', () => {
         renderCatalogueCopies(ADMIN_CATALOGUE.copies);
+    });
+
+    const userSearch = document.getElementById('admin-user-search');
+    userSearch?.addEventListener('input', () => {
+        const query = userSearch.value.trim().toLowerCase();
+        renderUsers(query ? ADMIN_USERS.all.filter((user) => _userMatchesSearch(user, query)) : ADMIN_USERS.all);
     });
 
     const announcementForm = document.getElementById('admin-announcement-form');
