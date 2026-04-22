@@ -29,8 +29,6 @@ async function fetchJson(path, opts={}){
     return res.json();
 }
 
-function el(tag, text){ const d=document.createElement(tag); if(text!==undefined) d.textContent=text; return d }
-
 const DASHBOARD_SUMMARY = {
     pending: 0,
     seated: 0,
@@ -211,13 +209,14 @@ function showRealtimeNotice(message, tone='info'){
 }
 
 async function loadPending(){
+    const container = document.getElementById('pending-list');
+    if (!container) return;
     try{
         const date = (document.getElementById('live-date') || {}).value;
         const q = date ? `?date=${encodeURIComponent(date)}` : '';
         const data = await fetchJson('/api/steward/reservations' + q);
         const searchText = String((document.getElementById('pending-search') || {}).value || '');
         const filtered = data.filter((r) => reservationMatchesSearch(r, searchText));
-        const container = document.getElementById('pending-list');
         container.innerHTML='';
         DASHBOARD_SUMMARY.pending = data.length;
         if(!filtered.length) { container.textContent='No pending reservations match this search.'; updateSummaryUI(); return }
@@ -277,17 +276,21 @@ async function loadPending(){
         });
         container.appendChild(list);
         updateSummaryUI();
-    }catch(e){ console.error(e); document.getElementById('pending-list').textContent='Error loading'; }
+    }catch(e){
+        console.error(e);
+        if (container) container.textContent='Error loading';
+    }
 }
 
 async function loadSeated(){
+    const container = document.getElementById('seated-list');
+    if (!container) return;
     try{
         const date = (document.getElementById('live-date') || {}).value;
         const q = date ? `?date=${encodeURIComponent(date)}` : '';
         const data = await fetchJson('/api/steward/reservations/seated' + q);
         const searchText = String((document.getElementById('seated-search') || {}).value || '');
         const filtered = data.filter((r) => reservationMatchesSearch(r, searchText));
-        const container = document.getElementById('seated-list');
         container.innerHTML='';
         DASHBOARD_SUMMARY.seated = data.length;
         if(!filtered.length) { container.textContent='No seated reservations match this search.'; updateSummaryUI(); return }
@@ -334,10 +337,15 @@ async function loadSeated(){
         });
         container.appendChild(list);
         updateSummaryUI();
-    }catch(e){ console.error(e); document.getElementById('seated-list').textContent='Error loading'; }
+    }catch(e){
+        console.error(e);
+        if (container) container.textContent='Error loading';
+    }
 }
 
 async function loadGameCopies(){
+    const container = document.getElementById('game-copy-list');
+    if (!container) return;
     try{
         // Game copies are global (no date filter)
         const data = await fetchJson('/api/steward/game-copies');
@@ -353,7 +361,6 @@ async function loadGameCopies(){
             return title.includes(searchText) || code.includes(searchText);
         });
 
-        const container = document.getElementById('game-copy-list');
         container.innerHTML='';
         DASHBOARD_SUMMARY.lostCopies = data.filter((c)=>c.status === 'lost').length;
         if(!filtered.length) { container.textContent='No game copies match this filter.'; updateSummaryUI(); return }
@@ -385,10 +392,16 @@ async function loadGameCopies(){
         });
         container.appendChild(list);
         updateSummaryUI();
-    }catch(e){ console.error(e); document.getElementById('game-copy-list').textContent='Error loading'; }
+    }catch(e){
+        console.error(e);
+        if (container) container.textContent='Error loading';
+    }
 }
 
 async function loadFloorplan(){
+    const floorSelect = document.getElementById('floor-select');
+    const floorplan = document.getElementById('floorplan');
+    if (!floorSelect || !floorplan) return;
     try{
         const date = (document.getElementById('live-date') || {}).value;
         if(!date) return;
@@ -398,8 +411,6 @@ async function loadFloorplan(){
         const qs = `?start_ts=${encodeURIComponent(start.toISOString())}&end_ts=${encodeURIComponent(end.toISOString())}&party_size=1`;
         const resp = await fetchJson('/api/tables/availability' + qs);
 
-        const floorSelect = document.getElementById('floor-select');
-        const floorplan = document.getElementById('floorplan');
         floorplan.innerHTML = '';
         floorSelect.innerHTML = '';
 
@@ -440,15 +451,19 @@ async function loadFloorplan(){
 
         floorSelect.addEventListener('change', ()=>render(floorSelect.value));
         render(floorSelect.value || floors[0].floor);
-    }catch(e){ console.error(e); document.getElementById('floorplan').textContent='Error loading floorplan'; }
+    }catch(e){
+        console.error(e);
+        if (floorplan) floorplan.textContent='Error loading floorplan';
+    }
 }
 
 async function loadIncidents(){
+    const container = document.getElementById('incident-list');
+    if (!container) return;
     try{
         const date = (document.getElementById('live-date') || {}).value;
         const q = date ? `?date=${encodeURIComponent(date)}` : '';
         const data = await fetchJson('/api/steward/incidents' + q);
-        const container = document.getElementById('incident-list');
         container.innerHTML='';
         DASHBOARD_SUMMARY.incidents = data.length;
         if(!data.length) { container.textContent='No incidents.'; updateSummaryUI(); return }
@@ -472,11 +487,22 @@ async function loadIncidents(){
         });
         container.appendChild(list);
         updateSummaryUI();
-    }catch(e){ console.error(e); document.getElementById('incident-list').textContent='Error loading'; }
+    }catch(e){
+        console.error(e);
+        if (container) container.textContent='Error loading';
+    }
 }
 
 async function reloadAll(){
-    await Promise.all([loadPending(), loadSeated(), loadGameCopies(), loadIncidents(), loadFloorplan()]);
+    const loaders = [];
+    if (document.getElementById('pending-list')) loaders.push(loadPending());
+    if (document.getElementById('seated-list')) loaders.push(loadSeated());
+    if (document.getElementById('game-copy-list')) loaders.push(loadGameCopies());
+    if (document.getElementById('incident-list')) loaders.push(loadIncidents());
+    if (document.getElementById('floorplan') && document.getElementById('floor-select')) loaders.push(loadFloorplan());
+
+    if (!loaders.length) return;
+    await Promise.all(loaders);
     DASHBOARD_SUMMARY.lastUpdated = new Date();
     updateSummaryUI();
 }
