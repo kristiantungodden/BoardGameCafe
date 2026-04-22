@@ -27,6 +27,12 @@ class TableRepository(ABC):
     def get_by_id(self, table_id: int) -> Optional[Table]:
         raise NotImplementedError
 
+    def get_by_number(self, number: int) -> Optional[Table]:
+        for table in self.list():
+            if table.number == number:
+                return table
+        return None
+
     @abstractmethod
     def list(self) -> Sequence[Table]:
         raise NotImplementedError
