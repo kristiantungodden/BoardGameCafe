@@ -63,7 +63,7 @@ _lookup_repo = SqlAlchemyReservationLookupRepository()
 _payment_repo = PaymentRepository()
 _stripe_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
 _stripe_provider = (
-    StripeAdapter(_stripe_key, os.getenv("APP_BASE_URL") or "http://localhost:5000")
+    StripeAdapter(_stripe_key, os.getenv("APP_BASE_URL") or "http://127.0.0.1:5000")
     if _stripe_key
     else None
 )

@@ -34,14 +34,8 @@ class StripeAdapter(PaymentProviderInterface):
             metadata={
                 "payment_id": str(payment.id),
             },
-            success_url=(
-                f"{self.app_base_url}/payments/success"
-                f"?payment_id={payment.id}&booking_id={payment.booking_id}&session_id={{CHECKOUT_SESSION_ID}}"
-            ),
-            cancel_url=(
-                f"{self.app_base_url}/payments/cancel"
-                f"?payment_id={payment.id}&booking_id={payment.booking_id}"
-            ),
+            success_url=f"{self.app_base_url}/payments/success/{payment.id}",
+            cancel_url=f"{self.app_base_url}/payments/cancel/{payment.id}",
         )
 
         return StartPaymentResult(

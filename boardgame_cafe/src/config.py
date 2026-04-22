@@ -28,7 +28,7 @@ class Config:
 
     STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-    APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5000")
+    APP_BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:5001")
 
     # Email (Flask-Mail / SMTP)
     # Support both MAIL_* and legacy SMTP_* variable names.
