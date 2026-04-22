@@ -90,7 +90,7 @@
         <div id="booking-summary" class="mini-list">
             <div class="mini-list-row"><span>Date</span><strong id="summary-date">Not selected</strong></div>
             <div class="mini-list-row"><span>Timeslot</span><strong id="summary-timeslot">Not selected</strong></div>
-            <div class="mini-list-row"><span>Selected table</span><strong id="summary-table">None selected</strong></div>
+            <div class="mini-list-row"><span>Selected tables</span><strong id="summary-table">None selected</strong></div>
             <div class="mini-list-row"><span>Party size</span><strong id="summary-party-size">0</strong></div>
             <div class="mini-list-row"><span>Estimated payment</span><strong id="summary-payment">0.00 NOK</strong></div>
         </div>
@@ -255,6 +255,33 @@
         return selected;
     }
 
+    function isTableSelectable(table) {
+        if (!table) {
+            return false;
+        }
+
+        const reasons = Array.isArray(table.unavailable_reasons)
+            ? table.unavailable_reasons
+            : [];
+
+        if (typeof table.selectable === "boolean") {
+            return table.selectable;
+        }
+
+        return Boolean(table.available) || reasons.every((reason) => reason === "capacity");
+    }
+
+    function getSelectedTableCapacity() {
+        return getSelectedTables().reduce((sum, table) => sum + Number(table.capacity || 0), 0);
+    }
+
+    function hasEnoughSelectedCapacity(partySize) {
+        if (partySize <= 0) {
+            return false;
+        }
+        return getSelectedTableCapacity() >= partySize;
+    }
+
     function renderGameSelectOptions() {
         const gameSelect = document.getElementById("requested-game-id");
         if (!gameSelect) {
@@ -310,13 +337,29 @@
             return;
         }
 
+        const partySize = Number(document.getElementById("party-size")?.value || 0);
         const selectedTables = getSelectedTables();
         if (selectedTables.length === 0) {
             box.textContent = "No table selected.";
             return;
         }
 
-        box.textContent = `Selected tables: ${selectedTables.map((table) => `#${table.id} (T${table.table_nr})`).join(", ")}`;
+        const totalCapacity = getSelectedTableCapacity();
+        const selectedLabel = selectedTables
+            .map((table) => `#${table.id} (T${table.table_nr}, cap ${table.capacity})`)
+            .join(", ");
+
+        if (partySize > 0 && totalCapacity < partySize) {
+            box.textContent = `Selected tables: ${selectedLabel}. Total capacity ${totalCapacity}/${partySize} (add more seats).`;
+            return;
+        }
+
+        if (partySize > 0) {
+            box.textContent = `Selected tables: ${selectedLabel}. Total capacity ${totalCapacity}/${partySize}.`;
+            return;
+        }
+
+        box.textContent = `Selected tables: ${selectedLabel}. Total capacity ${totalCapacity}.`;
     }
 
     function ensureSelectedFloor() {
@@ -334,7 +377,7 @@
     function syncSelectedTableToAvailability() {
         state.selectedTableIds = state.selectedTableIds.filter((selectedId) => {
             const selected = flattenAvailableTables().find((table) => table.id === selectedId);
-            return Boolean(selected && selected.available);
+            return isTableSelectable(selected);
         });
     }
 
@@ -382,7 +425,8 @@
             .map((zone) => {
                 const tablesMarkup = (zone.tables || [])
                     .map((table) => {
-                        const unavailable = !table.available;
+                        const selectable = isTableSelectable(table);
+                        const unavailable = !selectable;
                         const selected = state.selectedTableIds.includes(table.id);
                         const classes = ["table-tile"];
                         if (unavailable) {
@@ -397,6 +441,9 @@
                         const reasons = table.unavailable_reasons && table.unavailable_reasons.length
                             ? `Unavailable: ${table.unavailable_reasons.join(", ")}`
                             : "Available";
+                        const statusLabel = table.available
+                            ? "Available"
+                            : (selectable ? "Combinable" : "Unavailable");
 
                         return `
                             <button
@@ -408,7 +455,7 @@
                             >
                                 <span class="table-tile-name">T${table.table_nr}</span>
                                 <span class="table-tile-cap">Cap ${table.capacity}</span>
-                                <span class="table-tile-status">${table.available ? "Available" : "Unavailable"}</span>
+                                <span class="table-tile-status">${statusLabel}</span>
                             </button>
                         `;
                     })
@@ -759,10 +806,20 @@
             return;
         }
 
+        const partySize = Number(form.party_size.value);
+        const totalCapacity = getSelectedTableCapacity();
+        if (!hasEnoughSelectedCapacity(partySize)) {
+            setFeedback(
+                `Selected tables have capacity ${totalCapacity}, but party size is ${partySize}. Add more seats or reduce party size.`,
+                "error"
+            );
+            return;
+        }
+
         const payload = {
             table_id: selectedTables[0].id,
             table_ids: selectedTables.map((table) => table.id),
-            party_size: Number(form.party_size.value),
+            party_size: partySize,
             start_ts: composeDateTime(bookingDate, startSlot),
             end_ts: composeDateTime(bookingDate, endSlot),
             notes: form.notes.value || null,

@@ -68,7 +68,7 @@ def test_create_reservation_from_customer_order():
     assert reservation.table_id == 2
     assert reservation.party_size == 4
     assert reservation.notes == "Bursdag"
-    assert reservation.status == "confirmed"
+    assert reservation.status == "created"
 
 
 def test_cancel_reservation_use_case_updates_status():
@@ -83,6 +83,9 @@ def test_cancel_reservation_use_case_updates_status():
         )
     )
     use_case = CancelReservationUseCase(repo)
+
+    created.confirm()
+    repo.update(created)
 
     updated = use_case.execute(created.id)
 
@@ -101,6 +104,9 @@ def test_seat_and_complete_reservation_use_case_updates_status():
             party_size=4,
         )
     )
+
+    created.confirm()
+    repo.update(created)
 
     seated = SeatReservationUseCase(repo).execute(created.id)
     assert seated is not None
@@ -123,6 +129,9 @@ def test_mark_no_show_reservation_use_case_updates_status():
             party_size=4,
         )
     )
+
+    created.confirm()
+    repo.update(created)
 
     updated = MarkReservationNoShowUseCase(repo).execute(created.id)
 
@@ -186,7 +195,7 @@ def test_create_reservation_allows_overlap_with_cancelled_reservation():
     )
 
     assert reservation.id is not None
-    assert reservation.status == "confirmed"
+    assert reservation.status == "created"
 
 
 def test_create_reservation_rejects_overnight_booking():

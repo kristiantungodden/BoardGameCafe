@@ -20,7 +20,7 @@ class TestBookingCreation:
 
         assert booking.customer_id == 1
         assert booking.party_size == 4
-        assert booking.status == "confirmed"
+        assert booking.status == "created"
         assert booking.notes is None
         assert booking.id is None
         assert booking.created_at is not None
@@ -75,6 +75,7 @@ class TestBookingStatusTransitions:
             end_ts=datetime(2026, 4, 10, 20, 0, tzinfo=timezone.utc),
             party_size=4,
         )
+        booking.confirm()
         booking.seat()
         assert booking.status == "seated"
 
@@ -84,6 +85,7 @@ class TestBookingStatusTransitions:
             end_ts=datetime(2026, 4, 10, 20, 0, tzinfo=timezone.utc),
             party_size=4,
         )
+        booking.confirm()
         booking.cancel()
         assert booking.status == "cancelled"
 
@@ -103,6 +105,7 @@ class TestBookingStatusTransitions:
             end_ts=datetime(2026, 4, 10, 20, 0, tzinfo=timezone.utc),
             party_size=4,
         )
+        booking.confirm()
         booking.mark_no_show()
         assert booking.status == "no_show"
 

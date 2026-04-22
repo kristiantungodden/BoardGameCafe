@@ -29,6 +29,7 @@ def test_booking_status_lifecycle_is_aggregate_owned():
         party_size=4,
     )
 
+    booking.confirm()
     booking.seat()
     booking.complete()
 

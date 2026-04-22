@@ -34,6 +34,7 @@ class BookingRepositoryContract:
             party_size=4,
         )
         saved = repo.save(booking)
+        saved.confirm()
         saved.seat()
         updated = repo.update(saved)
         assert updated.status == "seated"

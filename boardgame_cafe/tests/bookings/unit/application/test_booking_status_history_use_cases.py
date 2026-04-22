@@ -101,7 +101,7 @@ def test_create_booking_records_initial_status_history():
     entries = history_repo.list_for_booking(created.id)
     assert len(entries) == 1
     assert entries[0].from_status is None
-    assert entries[0].to_status == "confirmed"
+    assert entries[0].to_status == "created"
 
 
 def test_cancel_booking_records_status_history_transition():

@@ -166,7 +166,7 @@ def test_post_reservations_creates_booking_with_real_logic(app, test_data):
                 data = response.get_json()
                 assert data["customer_id"] == user_id
                 assert data["party_size"] == 4
-                assert data["status"] == "confirmed"
+                assert data["status"] == "created"
                 assert len(data["games"]) == 1
                 assert data["payment"] is not None
                 # Table should be auto-selected (the smallest one fitting the party)
@@ -225,6 +225,36 @@ def test_post_reservations_accepts_multiple_selected_tables(app, test_data):
                 data = response.get_json()
                 assert data["table_id"] == table_ids[0]
                 assert data["table_ids"] == table_ids
+
+
+def test_post_reservations_rejects_selected_tables_with_insufficient_combined_capacity(app, test_data):
+    user_id = test_data["user"]["id"]
+    # table capacities in shared fixture: 4 and 6
+    table_ids = [test_data["tables"][0]["id"], test_data["tables"][1]["id"]]
+
+    monkeypatch_user = FakeCurrentUser(user_id=user_id, is_authenticated=True)
+
+    with app.app_context():
+        with app.test_client() as client:
+            import features.reservations.presentation.api.reservation_routes as reservations_module
+            from unittest.mock import patch
+
+            with patch.object(reservations_module, "current_user", monkeypatch_user):
+                response = client.post(
+                    "/api/reservations",
+                    json={
+                        "table_id": table_ids[0],
+                        "table_ids": table_ids,
+                        "start_ts": "2026-03-30T18:00:00",
+                        "end_ts": "2026-03-30T20:00:00",
+                        "party_size": 11,
+                        "games": [],
+                    },
+                )
+
+                assert response.status_code == 400
+                data = response.get_json()
+                assert "combined capacity" in data["error"]
 
 
 def test_get_reservation_availability_returns_suggestions(monkeypatch):

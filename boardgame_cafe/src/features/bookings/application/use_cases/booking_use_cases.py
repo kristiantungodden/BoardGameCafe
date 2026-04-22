@@ -96,14 +96,31 @@ class CreateBookingUseCase:
                 if selected_table_id is not None and selected_table_id not in selected_table_ids:
                     selected_table_ids.insert(0, selected_table_id)
 
-                minimum_party = party_size if len(selected_table_ids) == 1 else 1
                 for selected_id in selected_table_ids:
                     if not available_table_repo.validate_table_selection(
-                        selected_id, minimum_party, start_ts, end_ts
+                        selected_id, 1, start_ts, end_ts
                     ):
                         raise ValidationError(
                             "One or more selected tables are unavailable for the selected timeslot"
                         )
+
+                selected_table_rows = (
+                    session.query(TableDB)
+                    .filter(TableDB.id.in_(selected_table_ids))
+                    .all()
+                )
+                if len(selected_table_rows) != len(selected_table_ids):
+                    raise ValidationError(
+                        "One or more selected tables are unavailable for the selected timeslot"
+                    )
+
+                total_capacity = sum(
+                    int(getattr(row, "capacity", 0) or 0) for row in selected_table_rows
+                )
+                if total_capacity < party_size:
+                    raise ValidationError(
+                        "Selected tables do not provide enough combined capacity for the party size"
+                    )
                 selected_table_id = selected_table_ids[0]
             elif selected_table_id is None:
                 selected_table_id = available_table_repo.find_best_available_table(

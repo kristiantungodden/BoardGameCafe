@@ -8,6 +8,7 @@ from shared.domain.exceptions import InvalidStatusTransition, ValidationError
 
 
 VALID_BOOKING_STATUSES = {
+    "created",
     "confirmed",
     "seated",
     "completed",
@@ -22,7 +23,7 @@ class Booking:
     start_ts: datetime
     end_ts: datetime
     party_size: int
-    status: str = "confirmed"
+    status: str = "created"
     notes: Optional[str] = None
     id: Optional[int] = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -48,6 +49,13 @@ class Booking:
                 f"Cannot seat booking in status '{self.status}'"
             )
         self.status = "seated"
+
+    def confirm(self) -> None:
+        if self.status != "created":
+            raise InvalidStatusTransition(
+                f"Cannot confirm booking in status '{self.status}'"
+            )
+        self.status = "confirmed"
 
     def cancel(self) -> None:
         if self.status != "confirmed":
