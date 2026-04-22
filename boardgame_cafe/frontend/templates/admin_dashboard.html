@@ -222,11 +222,7 @@
 				<h4>Game Prices</h4>
 				<div id="admin-game-pricing-list" class="steward-scroll-list">Loading game prices...</div>
 			</section>
-			<section class="card" id="reports">
-				<h3>Reports</h3>
-				<p class="hero-copy">Track revenue, utilization, and game popularity with admin-level reporting views.</p>
-				<p class="quick-links">This should be read-only analytics backed by query services, not CRUD screens.</p>
-			</section>
+			
 			<section class="card" id="content">
 				<h3>Content & Promos</h3>
 				<p class="hero-copy">Publish homepage announcements and promotions visible to customers on the landing page.</p>
@@ -271,5 +267,44 @@
 	<p class="steward-last-update" id="admin-last-updated">Last updated: --</p>
 </section>
 
+<details class="reports-panel" id="admin-reports-panel">
+	<summary class="reports-panel__toggle">
+		<span>Reports</span>
+		<span class="reports-panel__caret"></span>
+	</summary>
+	<div class="reports-panel__body">
+		<div class="reports-span-selector" id="reports-span-selector">
+			<button class="reports-span-btn" data-days="7">7D</button>
+			<button class="reports-span-btn reports-span-btn--active" data-days="30">30D</button>
+			<button class="reports-span-btn" data-days="90">90D</button>
+			<button class="reports-span-btn" data-days="365">1Y</button>
+		</div>
+		<div class="reports-charts">
+			<div class="reports-chart-card">
+				<h4 class="reports-chart-card__title">Registered Users</h4>
+				<canvas id="chart-registrations" height="220"></canvas>
+			</div>
+			<div class="reports-chart-card">
+				<h4 class="reports-chart-card__title">Revenue (NOK)</h4>
+				<canvas id="chart-revenue" height="220"></canvas>
+				<div class="reports-csv-row">
+					<button class="button button-secondary" id="btn-download-csv">Download CSV</button>
+				</div>
+			</div>
+		</div>
+		<div class="reports-top-games">
+			<div class="reports-top-games__col">
+				<h4>Top 3 by Avg Rating</h4>
+				<ol id="top-games-by-rating" class="reports-rank-list"><li class="reports-rank-list__empty">Loading...</li></ol>
+			</div>
+			<div class="reports-top-games__col">
+				<h4>Top 3 Most Booked</h4>
+				<ol id="top-games-by-bookings" class="reports-rank-list"><li class="reports-rank-list__empty">Loading...</li></ol>
+			</div>
+		</div>
+	</div>
+</details>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
 <script src="/static/js/admin.js"></script>
 {% endblock %}

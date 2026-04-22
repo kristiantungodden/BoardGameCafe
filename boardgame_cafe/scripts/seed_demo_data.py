@@ -11,6 +11,7 @@ from features.bookings.application.use_cases.booking_lifecycle_use_cases import 
 from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
+from features.games.infrastructure.database.game_rating_db import GameRatingDB
 from features.games.infrastructure.database.game_tag_db import GameTagDB
 from features.games.infrastructure.database.game_tag_link_db import GameTagLinkDB
 from features.games.infrastructure.database.incident_db import IncidentDB
@@ -24,27 +25,111 @@ from features.users.infrastructure.database.admin_policy_db import AdminPolicyDB
 from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from features.users.infrastructure.database.user_db import UserDB
 from shared.infrastructure import db
+from shared.domain.exceptions import ValidationError
 from sqlalchemy import inspect, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from seed_games import seed_games
 
 
-DEMO_USERS = [
-    # Quick-login dev shortcuts
-    {"role": "customer", "name": "a", "email": "a@a.a", "phone": None, "password": "aaaaaaaa"},
-    {"role": "customer", "name": "b", "email": "b@b.b", "phone": None, "password": "bbbbbbbb"},
-    # Realistic customers
-    {"role": "customer", "name": "Emma Hansen", "email": "emma.hansen@example.com", "phone": "+4791234567", "password": "Password1"},
-    {"role": "customer", "name": "Lars Olsen", "email": "lars.olsen@example.com", "phone": "+4798765432", "password": "Password1"},
-    {"role": "customer", "name": "Sofie Berg", "email": "sofie.berg@example.com", "phone": None, "password": "Password1"},
-    {"role": "customer", "name": "Jonas Vik", "email": "jonas.vik@example.com", "phone": "+4792345678", "password": "Password1"},
-    # Staff
-    {"role": "staff", "name": "steward", "email": "steward@example.com", "phone": None, "password": "Stewardpw"},
-    {"role": "staff", "name": "Maria Lund", "email": "maria.lund@example.com", "phone": "+4745678901", "password": "Stewardpw"},
-    # Admin
-    {"role": "admin", "name": "admin", "email": "admin@example.com", "phone": None, "password": "Adminpw123"},
-]
+def _build_demo_users() -> list[dict]:
+    now = datetime.now()
+    users: list[dict] = [
+        # Quick-login dev shortcuts
+        {
+            "role": "customer",
+            "name": "a",
+            "email": "a@a.a",
+            "phone": None,
+            "password": "aaaaaaaa",
+            "created_at": now - timedelta(days=320),
+        },
+        {
+            "role": "customer",
+            "name": "b",
+            "email": "b@b.b",
+            "phone": None,
+            "password": "bbbbbbbb",
+            "created_at": now - timedelta(days=300),
+        },
+        # Realistic customers
+        {
+            "role": "customer",
+            "name": "Emma Hansen",
+            "email": "emma.hansen@example.com",
+            "phone": "+4791234567",
+            "password": "Password1",
+            "created_at": now - timedelta(days=240),
+        },
+        {
+            "role": "customer",
+            "name": "Lars Olsen",
+            "email": "lars.olsen@example.com",
+            "phone": "+4798765432",
+            "password": "Password1",
+            "created_at": now - timedelta(days=210),
+        },
+        {
+            "role": "customer",
+            "name": "Sofie Berg",
+            "email": "sofie.berg@example.com",
+            "phone": None,
+            "password": "Password1",
+            "created_at": now - timedelta(days=180),
+        },
+        {
+            "role": "customer",
+            "name": "Jonas Vik",
+            "email": "jonas.vik@example.com",
+            "phone": "+4792345678",
+            "password": "Password1",
+            "created_at": now - timedelta(days=160),
+        },
+        # Staff
+        {
+            "role": "staff",
+            "name": "steward",
+            "email": "steward@example.com",
+            "phone": None,
+            "password": "Stewardpw",
+            "created_at": now - timedelta(days=340),
+        },
+        {
+            "role": "staff",
+            "name": "Maria Lund",
+            "email": "maria.lund@example.com",
+            "phone": "+4745678901",
+            "password": "Stewardpw",
+            "created_at": now - timedelta(days=260),
+        },
+        # Admin
+        {
+            "role": "admin",
+            "name": "admin",
+            "email": "admin@example.com",
+            "phone": None,
+            "password": "Adminpw123",
+            "created_at": now - timedelta(days=365),
+        },
+    ]
+
+    # Extra historical customers to create a meaningful registration trend line.
+    for idx in range(1, 25):
+        users.append(
+            {
+                "role": "customer",
+                "name": f"Report User {idx:02d}",
+                "email": f"report.user{idx:02d}@example.com",
+                "phone": None,
+                "password": "Password1",
+                "created_at": now - timedelta(days=max(5, 350 - idx * 13)),
+            }
+        )
+
+    return users
+
+
+DEMO_USERS = _build_demo_users()
 
 
 DEMO_GAME_TAGS = {
@@ -56,30 +141,72 @@ DEMO_GAME_TAGS = {
 
 
 def ensure_floor_column_for_tables() -> None:
-    """Add `floor` column for legacy databases before ORM table queries."""
+    """Add missing cafe_tables columns for legacy databases before ORM queries."""
     inspector = inspect(db.engine)
     if not inspector.has_table("cafe_tables"):
         return
 
     existing_columns = {col["name"] for col in inspector.get_columns("cafe_tables")}
-    if "floor" in existing_columns:
+    missing = {
+        "floor",
+        "features",
+        "width",
+        "height",
+        "rotation",
+    } - existing_columns
+    if not missing:
         return
 
     dialect = db.engine.dialect.name
-    if dialect == "sqlite":
-        db.session.execute(
-            text("ALTER TABLE cafe_tables ADD COLUMN floor INTEGER NOT NULL DEFAULT 1")
-        )
-    elif dialect == "postgresql":
-        db.session.execute(
-            text(
-                "ALTER TABLE cafe_tables "
-                "ADD COLUMN IF NOT EXISTS floor INTEGER NOT NULL DEFAULT 1"
+    if "floor" in missing:
+        if dialect == "sqlite":
+            db.session.execute(
+                text("ALTER TABLE cafe_tables ADD COLUMN floor INTEGER NOT NULL DEFAULT 1")
             )
-        )
-    else:
-        db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN floor INTEGER"))
-        db.session.execute(text("UPDATE cafe_tables SET floor = 1 WHERE floor IS NULL"))
+        elif dialect == "postgresql":
+            db.session.execute(
+                text(
+                    "ALTER TABLE cafe_tables "
+                    "ADD COLUMN IF NOT EXISTS floor INTEGER NOT NULL DEFAULT 1"
+                )
+            )
+        else:
+            db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN floor INTEGER"))
+            db.session.execute(text("UPDATE cafe_tables SET floor = 1 WHERE floor IS NULL"))
+
+    if "features" in missing:
+        if dialect == "sqlite":
+            db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN features JSON"))
+        elif dialect == "postgresql":
+            db.session.execute(
+                text("ALTER TABLE cafe_tables ADD COLUMN IF NOT EXISTS features JSON")
+            )
+        else:
+            db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN features JSON"))
+
+    if "width" in missing:
+        if dialect == "postgresql":
+            db.session.execute(
+                text("ALTER TABLE cafe_tables ADD COLUMN IF NOT EXISTS width INTEGER")
+            )
+        else:
+            db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN width INTEGER"))
+
+    if "height" in missing:
+        if dialect == "postgresql":
+            db.session.execute(
+                text("ALTER TABLE cafe_tables ADD COLUMN IF NOT EXISTS height INTEGER")
+            )
+        else:
+            db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN height INTEGER"))
+
+    if "rotation" in missing:
+        if dialect == "postgresql":
+            db.session.execute(
+                text("ALTER TABLE cafe_tables ADD COLUMN IF NOT EXISTS rotation INTEGER")
+            )
+        else:
+            db.session.execute(text("ALTER TABLE cafe_tables ADD COLUMN rotation INTEGER"))
 
     db.session.commit()
 
@@ -492,6 +619,7 @@ def seed_users() -> tuple[int, int]:
                     phone=user_data["phone"],
                     password_hash=target_password_hash,
                     force_password_change=False,
+                    created_at=user_data.get("created_at"),
                 )
             )
             inserted += 1
@@ -509,6 +637,10 @@ def seed_users() -> tuple[int, int]:
         if row.force_password_change:
             row.force_password_change = False
             changed = True
+        target_created_at = user_data.get("created_at")
+        if target_created_at is not None and row.created_at != target_created_at:
+            row.created_at = target_created_at
+            changed = True
 
         if changed:
             updated += 1
@@ -523,7 +655,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
         hour=max(min(td.hour - 1, 21), 9), minute=0, second=0, microsecond=0
     )
     seated_end = seated_start + timedelta(hours=2)
-    return [
+    rows = [
         # ── Upcoming confirmed bookings ──────────────────────────────
         {
             "email": "a@a.a",
@@ -534,6 +666,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Demo booking with two game requests",
             "game_slots": [0, 1],
             "final_status": "confirmed",
+            "created_at": td - timedelta(days=4),
         },
         {
             "email": "b@b.b",
@@ -544,6 +677,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Demo booking with one game request",
             "game_slots": [2],
             "final_status": "confirmed",
+            "created_at": td - timedelta(days=5),
         },
         {
             "email": "emma.hansen@example.com",
@@ -554,6 +688,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Birthday group",
             "game_slots": [0, 2],
             "final_status": "confirmed",
+            "created_at": td - timedelta(days=3),
         },
         {
             "email": "lars.olsen@example.com",
@@ -564,6 +699,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Strategy game evening",
             "game_slots": [1, 3],
             "final_status": "confirmed",
+            "created_at": td - timedelta(days=2),
         },
         # ── Currently seated (in progress) ───────────────────────────
         {
@@ -575,6 +711,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Currently playing — demo seated booking",
             "game_slots": [0, 3],
             "final_status": "seated",
+            "created_at": td - timedelta(days=1),
         },
         # ── Past completed bookings ───────────────────────────────────
         {
@@ -586,6 +723,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Past booking — completed",
             "game_slots": [3],
             "final_status": "completed",
+            "created_at": td - timedelta(days=5),
         },
         {
             "email": "b@b.b",
@@ -596,6 +734,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Past booking — completed",
             "game_slots": [1, 2],
             "final_status": "completed",
+            "created_at": td - timedelta(days=9),
         },
         {
             "email": "emma.hansen@example.com",
@@ -606,6 +745,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Past booking — completed",
             "game_slots": [0, 4],
             "final_status": "completed",
+            "created_at": td - timedelta(days=17),
         },
         {
             "email": "jonas.vik@example.com",
@@ -616,6 +756,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Past booking — completed",
             "game_slots": [2],
             "final_status": "completed",
+            "created_at": td - timedelta(days=23),
         },
         # ── Cancelled / no-show ───────────────────────────────────────
         {
@@ -627,6 +768,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Past booking — cancelled by customer",
             "game_slots": [],
             "final_status": "cancelled",
+            "created_at": td - timedelta(days=8),
         },
         {
             "email": "sofie.berg@example.com",
@@ -637,19 +779,80 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Past booking — no show",
             "game_slots": [1],
             "final_status": "no_show",
+            "created_at": td - timedelta(days=12),
         },
     ]
 
+    # Historical timeline data for reports (revenue + most booked games).
+    timeline_users = [
+        "a@a.a",
+        "b@b.b",
+        "emma.hansen@example.com",
+        "lars.olsen@example.com",
+        "sofie.berg@example.com",
+        "jonas.vik@example.com",
+    ] + [f"report.user{i:02d}@example.com" for i in range(1, 25)]
+    table_cycle = ["T1", "T2", "T3", "T4", "T5", "T7", "T8"]
+    table_capacity = {
+        "T1": 2,
+        "T2": 4,
+        "T3": 4,
+        "T4": 6,
+        "T5": 8,
+        "T7": 6,
+        "T8": 2,
+    }
 
-def _uses_legacy_table_reservation_shape() -> bool:
-    inspector = inspect(db.engine)
-    if not inspector.has_table("table_reservations"):
-        return False
+    for idx in range(1, 61):
+        day_ago = 5 + idx * 5  # spans roughly 10 months
+        table_nr = table_cycle[idx % len(table_cycle)]
+        capacity = table_capacity[table_nr]
+        party_size = max(2, min(capacity, 2 + (idx % 4)))
+        start = (td - timedelta(days=day_ago)).replace(
+            hour=12 + (idx % 7), minute=0, second=0, microsecond=0
+        )
+        end = start + timedelta(hours=2)
+        created_at = start - timedelta(days=(idx % 4) + 1)
+
+        if idx % 13 == 0:
+            final_status = "cancelled"
+        elif idx % 11 == 0:
+            final_status = "no_show"
+        else:
+            final_status = "completed"
+
+        # Game 0 and 1 are requested most frequently to make "most booked" visible.
+        if idx % 2 == 0:
+            game_slots = [0, 1]
+        elif idx % 3 == 0:
+            game_slots = [0, 2]
+        elif idx % 5 == 0:
+            game_slots = [1, 3]
+        else:
+            game_slots = [1]
+
+        rows.append(
+            {
+                "email": timeline_users[idx % len(timeline_users)],
+                "table_nr": table_nr,
+                "start_ts": start,
+                "end_ts": end,
+                "party_size": party_size,
+                "notes": f"Historical booking #{idx:02d}",
+                "game_slots": game_slots,
+                "final_status": final_status,
+                "created_at": created_at,
+            }
+        )
+
+    return rows
+
 
 def seed_bookings() -> tuple[int, int, int]:
     inserted_bookings = 0
     inserted_game_links = 0
     inserted_payments = 0
+    skipped = 0
 
     users_by_email = {user.email: user for user in UserDB.query.all()}
     tables_by_nr = {table.table_nr: table for table in TableDB.query.all()}
@@ -688,24 +891,31 @@ def seed_bookings() -> tuple[int, int, int]:
             for idx in row["game_slots"]
         ]
 
-        booking, reservation_games, payment = create_booking(
-            BookingCommand(
-                customer_id=customer.id,
-                table_id=table.id,
-                start_ts=row["start_ts"],
-                end_ts=row["end_ts"],
-                party_size=row["party_size"],
-                notes=row["notes"],
-            ),
-            games=game_requests,
-        )
+        try:
+            booking, reservation_games, payment = create_booking(
+                BookingCommand(
+                    customer_id=customer.id,
+                    table_id=table.id,
+                    start_ts=row["start_ts"],
+                    end_ts=row["end_ts"],
+                    party_size=row["party_size"],
+                    notes=row["notes"],
+                ),
+                games=game_requests,
+            )
+        except ValidationError:
+            skipped += 1
+            continue
         inserted_bookings += 1
         inserted_game_links += len(reservation_games)
+
+        db_booking = db.session.get(BookingDB, booking.id)
+        if db_booking is not None and row.get("created_at") is not None:
+            db_booking.created_at = row["created_at"]
 
         # Advance booking to desired final status
         final = row["final_status"]
         if final != "confirmed":
-            db_booking = db.session.get(BookingDB, booking.id)
             if db_booking is not None:
                 db_booking.status = final
 
@@ -717,11 +927,73 @@ def seed_bookings() -> tuple[int, int, int]:
                     db_payment.status = "paid"
                 elif final in _REFUNDED_STATUSES:
                     db_payment.status = "refunded"
+                if row.get("created_at") is not None:
+                    db_payment.created_at = row["created_at"]
             inserted_payments += 1
 
         existing_keys.add(booking_key)
 
+    if skipped:
+        print(f"Skipped {skipped} booking seeds due to availability/capacity validation.")
     return inserted_bookings, inserted_game_links, inserted_payments
+
+
+def seed_game_ratings() -> int:
+    inserted = 0
+
+    games = GameDB.query.order_by(GameDB.id.asc()).all()
+    customers = (
+        UserDB.query.filter(UserDB.role == "customer")
+        .order_by(UserDB.id.asc())
+        .all()
+    )
+    if not games or not customers:
+        return inserted
+
+    existing = {
+        (row.customer_id, row.game_id)
+        for row in GameRatingDB.query.order_by(GameRatingDB.id.asc()).all()
+    }
+
+    now = datetime.now()
+    top_game_ids = [g.id for g in games[: min(3, len(games))]]
+
+    for idx, customer in enumerate(customers):
+        # Every customer rates one "top" game to make report trends obvious.
+        top_game_id = top_game_ids[idx % len(top_game_ids)]
+        top_key = (customer.id, top_game_id)
+        if top_key not in existing:
+            stars = 5 if idx % 3 != 0 else 4
+            db.session.add(
+                GameRatingDB(
+                    customer_id=customer.id,
+                    game_id=top_game_id,
+                    stars=stars,
+                    comment="Great for café sessions.",
+                    created_at=now - timedelta(days=(idx * 7) % 330 + 1),
+                )
+            )
+            existing.add(top_key)
+            inserted += 1
+
+        # Secondary rating to diversify averages.
+        secondary_game = games[(idx + 2) % len(games)]
+        secondary_key = (customer.id, secondary_game.id)
+        if secondary_key not in existing:
+            stars = 4 if (idx % 4) else 3
+            db.session.add(
+                GameRatingDB(
+                    customer_id=customer.id,
+                    game_id=secondary_game.id,
+                    stars=stars,
+                    comment="Solid pick.",
+                    created_at=now - timedelta(days=(idx * 5) % 300 + 2),
+                )
+            )
+            existing.add(secondary_key)
+            inserted += 1
+
+    return inserted
 
 
 def seed_incidents() -> int:
@@ -884,6 +1156,7 @@ def seed_demo_data() -> None:
         c_inserted, c_updated = seed_game_copies()
         u_inserted, u_updated = seed_users()
         b_inserted, bg_inserted, bp_inserted = seed_bookings()
+        gr_inserted = seed_game_ratings()
         db.session.flush()
         i_inserted = seed_incidents()
         w_inserted = seed_waitlist()
@@ -902,6 +1175,7 @@ def seed_demo_data() -> None:
         f"copies inserted={c_inserted}, updated={c_updated}; "
         f"users inserted={u_inserted}, updated={u_updated}; "
         f"bookings inserted={b_inserted}, game-links inserted={bg_inserted}, payments inserted={bp_inserted}; "
+        f"game-ratings inserted={gr_inserted}; "
         f"incidents inserted={i_inserted}; "
         f"waitlist inserted={w_inserted}; "
         f"announcements inserted={a_inserted}; "

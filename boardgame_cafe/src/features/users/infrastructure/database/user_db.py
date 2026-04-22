@@ -13,6 +13,7 @@ class UserDB(db.Model, UserMixin):
     password_hash = db.Column(db.Text, nullable=False)
     force_password_change = db.Column(db.Boolean, nullable=False, default=False)
     is_suspended = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text("0"))
+    created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=True)
 
     def to_dict(self):
         return {

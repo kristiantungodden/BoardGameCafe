@@ -12,10 +12,12 @@ def init_db(app=None):
             db.create_all()
             _ensure_booking_status_history_actor_columns()
             _ensure_users_suspension_column()
+            _ensure_users_created_at_column()
     else:
         db.create_all()
         _ensure_booking_status_history_actor_columns()
         _ensure_users_suspension_column()
+        _ensure_users_created_at_column()
 
 
 def _ensure_booking_status_history_actor_columns() -> None:
@@ -62,4 +64,25 @@ def _ensure_users_suspension_column() -> None:
     with db.engine.begin() as connection:
         connection.execute(
             text("ALTER TABLE users ADD COLUMN is_suspended BOOLEAN NOT NULL DEFAULT 0")
+        )
+
+
+def _ensure_users_created_at_column() -> None:
+    inspector = inspect(db.engine)
+    table_names = set(inspector.get_table_names())
+    if "users" not in table_names:
+        return
+
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("users")
+    }
+    if "created_at" in existing_columns:
+        return
+
+    with db.engine.begin() as connection:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN created_at DATETIME")
+        )
+        connection.execute(
+            text("UPDATE users SET created_at = datetime('now') WHERE created_at IS NULL")
         )

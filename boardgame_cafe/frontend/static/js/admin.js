@@ -1241,3 +1241,148 @@ function bindAdminDashboard() {
 }
 
 document.addEventListener('DOMContentLoaded', bindAdminDashboard);
+
+// ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+const ADMIN_REPORTS = {
+    days: 30,
+    registrationsChart: null,
+    revenueChart: null,
+    _loaded: false,
+};
+
+function _chartColors() {
+    const style = getComputedStyle(document.documentElement);
+    return {
+        accent: style.getPropertyValue('--accent').trim() || '#3a6f63',
+        muted: style.getPropertyValue('--muted').trim() || '#666055',
+    };
+}
+
+async function loadReports() {
+    const days = ADMIN_REPORTS.days;
+    try {
+        const [regData, revData, topData] = await Promise.all([
+            fetchJson(`/api/admin/reports/registrations?days=${days}`),
+            fetchJson(`/api/admin/reports/revenue?days=${days}`),
+            fetchJson(`/api/admin/reports/top-games?days=${days}`),
+        ]);
+        _renderRegistrationsChart(regData);
+        _renderRevenueChart(revData);
+        _renderTopGames(topData);
+    } catch (err) {
+        console.error('Failed to load reports:', err);
+    }
+}
+
+function _renderRegistrationsChart(data) {
+    const ctx = document.getElementById('chart-registrations');
+    if (!ctx) return;
+    const c = _chartColors();
+    if (ADMIN_REPORTS.registrationsChart) ADMIN_REPORTS.registrationsChart.destroy();
+    ADMIN_REPORTS.registrationsChart = new Chart(ctx, {
+        data: {
+            labels: data.map((d) => d.date),
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'New registrations',
+                    data: data.map((d) => d.new_users),
+                    backgroundColor: (c.accent || '#e8632a') + 'cc',
+                    yAxisID: 'yNew',
+                    order: 2,
+                },
+                {
+                    type: 'line',
+                    label: 'Cumulative users',
+                    data: data.map((d) => d.cumulative),
+                    borderColor: c.muted || '#6b7280',
+                    backgroundColor: 'transparent',
+                    pointRadius: 2,
+                    tension: 0.3,
+                    yAxisID: 'yCumulative',
+                    order: 1,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                yNew: { type: 'linear', position: 'left', beginAtZero: true, ticks: { precision: 0 } },
+                yCumulative: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } },
+            },
+            plugins: { legend: { position: 'bottom' } },
+        },
+    });
+}
+
+function _renderRevenueChart(data) {
+    const ctx = document.getElementById('chart-revenue');
+    if (!ctx) return;
+    const c = _chartColors();
+    if (ADMIN_REPORTS.revenueChart) ADMIN_REPORTS.revenueChart.destroy();
+    ADMIN_REPORTS.revenueChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.map((d) => d.date),
+            datasets: [{
+                label: 'Revenue (NOK)',
+                data: data.map((d) => +(d.total_cents / 100).toFixed(2)),
+                backgroundColor: (c.accent || '#e8632a') + 'cc',
+            }],
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { callback: (v) => `${v} kr` } } },
+        },
+    });
+}
+
+function _renderTopGames(data) {
+    function buildList(listId, items, renderItem) {
+        const el = document.getElementById(listId);
+        if (!el) return;
+        if (!items || items.length === 0) {
+            el.innerHTML = '<li class="reports-rank-list__empty">No data for this period.</li>';
+            return;
+        }
+        el.innerHTML = items.map((item) => `<li class="reports-rank-list__item">${renderItem(item)}</li>`).join('');
+    }
+    buildList('top-games-by-rating', data.by_rating, (g) =>
+        `<span class="reports-rank-badge">${g.avg_rating.toFixed(1)} &#9733;</span> ${g.title} <small>(${g.rating_count} rating${g.rating_count !== 1 ? 's' : ''})</small>`
+    );
+    buildList('top-games-by-bookings', data.by_bookings, (g) =>
+        `<span class="reports-rank-badge">${g.booking_count}</span> ${g.title} <small>booking${g.booking_count !== 1 ? 's' : ''}</small>`
+    );
+}
+
+function bindReports() {
+    const panel = document.getElementById('admin-reports-panel');
+    if (!panel) return;
+
+    panel.addEventListener('toggle', () => {
+        if (panel.open && !ADMIN_REPORTS._loaded) {
+            ADMIN_REPORTS._loaded = true;
+            loadReports();
+        }
+    });
+
+    document.getElementById('reports-span-selector')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.reports-span-btn');
+        if (!btn) return;
+        document.querySelectorAll('.reports-span-btn').forEach((b) => b.classList.remove('reports-span-btn--active'));
+        btn.classList.add('reports-span-btn--active');
+        ADMIN_REPORTS.days = parseInt(btn.dataset.days, 10);
+        loadReports();
+    });
+
+    document.getElementById('btn-download-csv')?.addEventListener('click', () => {
+        window.location.href = `/api/admin/reports/revenue/csv?days=${ADMIN_REPORTS.days}`;
+    });
+}
+
+document.addEventListener('DOMContentLoaded', bindReports);

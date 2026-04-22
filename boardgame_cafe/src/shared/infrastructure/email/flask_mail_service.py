@@ -12,7 +12,11 @@ class FlaskMailService(EmailServiceInterface):
         sender = current_app.config.get("MAIL_DEFAULT_SENDER")
         return sender or "no-reply@localhost"
     
-    def send_email(self, subject, sender, recipients, body):
+    def send_email(self, subject, sender, recipients, body, html=None, attachments=None):
         msg = Message(subject, sender=sender, recipients=recipients)
         msg.body = body
+        if html:
+            msg.html = html
+        for filename, content_type, payload in (attachments or []):
+            msg.attach(filename=filename, content_type=content_type, data=payload)
         self.mail.send(msg)

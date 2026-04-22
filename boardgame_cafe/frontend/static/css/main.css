@@ -590,6 +590,11 @@ footer {
     align-items: start;
 }
 
+/* Admin page currently renders only the main widget column; do not reserve empty side space. */
+#admin-data .steward-layout {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .steward-main-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -641,7 +646,8 @@ footer {
 #catalogue,
 #copy-incidents,
 #floor,
-#policies {
+#policies,
+#content {
     grid-column: 1 / -1;
 }
 
@@ -1620,6 +1626,7 @@ body.modal-open {
     .pricing-compact-grid {
         grid-template-columns: 1fr;
     }
+}
 
 
 @media (max-width: 1080px) {
@@ -1630,7 +1637,7 @@ body.modal-open {
     .pricing-field-actions {
         grid-column: 1 / -1;
     }
-}
+
     .landing-shell,
     .value-grid,
     .profile-grid,
@@ -1665,4 +1672,148 @@ body.modal-open {
     .steward-side-panel {
         position: static;
     }
+}
+
+/* ============================================================
+   Reports panel
+   ============================================================ */
+
+.reports-panel {
+    --reports-accent: #3a6f63;
+    --reports-accent-soft: #e8f2ef;
+    margin: 1.5rem auto;
+    max-width: 1200px;
+    border: 1px solid #d8e2dd;
+    border-radius: 0.75rem;
+    background: #fdfefd;
+    overflow: hidden;
+}
+
+.reports-panel__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1rem;
+    list-style: none;
+    user-select: none;
+}
+
+.reports-panel__toggle::-webkit-details-marker { display: none; }
+
+.reports-panel[open] .reports-panel__caret { transform: rotate(180deg); }
+.reports-panel__caret { transition: transform 0.2s; display: inline-block; }
+
+.reports-panel__body {
+    padding: 1rem 1.25rem 1.5rem;
+    border-top: 1px solid #d8e2dd;
+}
+
+/* Span selector */
+.reports-span-selector {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.reports-span-btn {
+    padding: 0.3rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid #c9d8d2;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+}
+
+.reports-span-btn--active,
+.reports-span-btn:hover {
+    background: var(--reports-accent);
+    color: #fff;
+    border-color: var(--reports-accent);
+}
+
+/* Charts */
+.reports-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .reports-charts { grid-template-columns: 1fr; }
+}
+
+.reports-chart-card {
+    border: 1px solid #dbe7e3;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    padding: 1rem;
+}
+
+.reports-chart-card__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.reports-csv-row {
+    margin-top: 0.75rem;
+    text-align: right;
+}
+
+/* Top games */
+.reports-top-games {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+@media (max-width: 768px) {
+    .reports-top-games { grid-template-columns: 1fr; }
+}
+
+.reports-top-games__col h4 {
+    margin: 0 0 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.reports-rank-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.reports-rank-list__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.reports-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 3rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.35rem;
+    background: var(--reports-accent);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.reports-rank-list__empty {
+    color: var(--muted);
+    font-size: 0.875rem;
 }

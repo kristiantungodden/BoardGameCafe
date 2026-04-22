@@ -1,17 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import csv
+import io
+from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 from flask_login import current_user
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 
 from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
+from features.games.infrastructure.database.game_rating_db import GameRatingDB
 from features.games.infrastructure.database.incident_db import IncidentDB
+from features.payments.infrastructure.database.payments_db import PaymentDB
+from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
 from features.tables.infrastructure.database.table_db import TableDB
 from features.users.infrastructure.pricing_settings import (
     configure_base_fee,
@@ -956,6 +961,199 @@ def update_table_price(table_id: int):
     row.price_cents = value
     db.session.commit()
     return jsonify({"id": row.id, "price_cents": int(row.price_cents)}), 200
+
+
+# ---------------------------------------------------------------------------
+# Reports
+# ---------------------------------------------------------------------------
+
+def _days_param() -> int:
+    try:
+        days = int(request.args.get("days", 30))
+    except (ValueError, TypeError):
+        days = 30
+    return max(1, min(days, 365))
+
+
+def _date_range(days: int):
+    end_dt = datetime.now(timezone.utc)
+    start_dt = end_dt - timedelta(days=days - 1)
+    start_dt = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    return start_dt, end_dt
+
+
+@bp.get("/reports/registrations")
+def reports_registrations():
+    err = _require_admin()
+    if err:
+        return err
+
+    days = _days_param()
+    start_dt, end_dt = _date_range(days)
+    spine = [(start_dt + timedelta(days=i)).date() for i in range(days)]
+
+    rows = (
+        db.session.query(
+            func.date(UserDB.created_at).label("day"),
+            func.count(UserDB.id).label("new_users"),
+        )
+        .filter(UserDB.created_at >= start_dt, UserDB.created_at <= end_dt)
+        .group_by(func.date(UserDB.created_at))
+        .all()
+    )
+    counts_by_day = {r.day: r.new_users for r in rows}
+
+    baseline = (
+        db.session.query(func.count(UserDB.id))
+        .filter(or_(UserDB.created_at < start_dt, UserDB.created_at.is_(None)))
+        .scalar()
+        or 0
+    )
+
+    result = []
+    cumulative = baseline
+    for d in spine:
+        new = counts_by_day.get(str(d), 0)
+        cumulative += new
+        result.append({"date": str(d), "new_users": new, "cumulative": cumulative})
+    return jsonify(result), 200
+
+
+@bp.get("/reports/revenue")
+def reports_revenue():
+    err = _require_admin()
+    if err:
+        return err
+
+    days = _days_param()
+    start_dt, end_dt = _date_range(days)
+    spine = [(start_dt + timedelta(days=i)).date() for i in range(days)]
+
+    rows = (
+        db.session.query(
+            func.date(PaymentDB.created_at).label("day"),
+            func.sum(PaymentDB.amount_cents).label("total_cents"),
+        )
+        .filter(
+            PaymentDB.status == "paid",
+            PaymentDB.created_at >= start_dt,
+            PaymentDB.created_at <= end_dt,
+        )
+        .group_by(func.date(PaymentDB.created_at))
+        .all()
+    )
+    totals_by_day = {r.day: int(r.total_cents) for r in rows}
+
+    result = [
+        {"date": str(d), "total_cents": totals_by_day.get(str(d), 0)}
+        for d in spine
+    ]
+    return jsonify(result), 200
+
+
+@bp.get("/reports/top-games")
+def reports_top_games():
+    err = _require_admin()
+    if err:
+        return err
+
+    days = _days_param()
+    start_dt, end_dt = _date_range(days)
+
+    rating_rows = (
+        db.session.query(
+            GameDB.id.label("game_id"),
+            GameDB.title.label("title"),
+            func.round(func.avg(GameRatingDB.stars), 2).label("avg_rating"),
+            func.count(GameRatingDB.id).label("rating_count"),
+        )
+        .join(GameRatingDB, GameRatingDB.game_id == GameDB.id)
+        .filter(GameRatingDB.created_at >= start_dt, GameRatingDB.created_at <= end_dt)
+        .group_by(GameDB.id, GameDB.title)
+        .order_by(func.avg(GameRatingDB.stars).desc())
+        .limit(3)
+        .all()
+    )
+
+    booking_rows = (
+        db.session.query(
+            GameDB.id.label("game_id"),
+            GameDB.title.label("title"),
+            func.count(GameReservationDB.id).label("booking_count"),
+        )
+        .join(GameReservationDB, GameReservationDB.requested_game_id == GameDB.id)
+        .join(BookingDB, BookingDB.id == GameReservationDB.booking_id)
+        .filter(BookingDB.created_at >= start_dt, BookingDB.created_at <= end_dt)
+        .group_by(GameDB.id, GameDB.title)
+        .order_by(func.count(GameReservationDB.id).desc())
+        .limit(3)
+        .all()
+    )
+
+    return jsonify({
+        "by_rating": [
+            {"game_id": r.game_id, "title": r.title, "avg_rating": float(r.avg_rating), "rating_count": r.rating_count}
+            for r in rating_rows
+        ],
+        "by_bookings": [
+            {"game_id": r.game_id, "title": r.title, "booking_count": r.booking_count}
+            for r in booking_rows
+        ],
+    }), 200
+
+
+@bp.get("/reports/revenue/csv")
+def reports_revenue_csv():
+    err = _require_admin()
+    if err:
+        return err
+
+    days = _days_param()
+    start_dt, end_dt = _date_range(days)
+
+    daily_rows = (
+        db.session.query(
+            func.date(PaymentDB.created_at).label("day"),
+            func.sum(PaymentDB.amount_cents).label("total_cents"),
+            func.count(PaymentDB.id).label("transactions"),
+        )
+        .filter(PaymentDB.status == "paid", PaymentDB.created_at >= start_dt, PaymentDB.created_at <= end_dt)
+        .group_by(func.date(PaymentDB.created_at))
+        .order_by(func.date(PaymentDB.created_at))
+        .all()
+    )
+
+    txn_rows = (
+        db.session.query(PaymentDB)
+        .filter(PaymentDB.status == "paid", PaymentDB.created_at >= start_dt, PaymentDB.created_at <= end_dt)
+        .order_by(PaymentDB.created_at)
+        .all()
+    )
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([f"Revenue Report - last {days} days"])
+    writer.writerow([])
+    writer.writerow(["DAILY SUMMARY"])
+    writer.writerow(["Date", "Transactions", "Total (NOK)"])
+    for r in daily_rows:
+        writer.writerow([r.day, r.transactions, f"{r.total_cents / 100:.2f}"])
+    writer.writerow([])
+    writer.writerow(["TRANSACTION LOG"])
+    writer.writerow(["Payment ID", "Booking ID", "Amount (NOK)", "Status", "Date"])
+    for p in txn_rows:
+        writer.writerow([
+            p.id, p.booking_id, f"{p.amount_cents / 100:.2f}", p.status,
+            p.created_at.strftime("%Y-%m-%d %H:%M:%S") if p.created_at else "",
+        ])
+
+    buf.seek(0)
+    filename = f"revenue_{start_dt.date()}_{end_dt.date()}.csv"
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @bp.put("/pricing/games/<int:game_id>")
