@@ -24,12 +24,17 @@ const ADMIN_SUMMARY = {
     tables: 0,
     openBookings: 0,
     openIncidents: 0,
+    publishedAnnouncements: 0,
     lastUpdated: null,
 };
 
 const ADMIN_CATALOGUE = {
     games: [],
     copies: [],
+};
+
+const ADMIN_ANNOUNCEMENTS = {
+    items: [],
 };
 
 const ADMIN_LOCATION_STATE = {
@@ -85,6 +90,13 @@ function setAdminConnection(text) {
 
 function setUserManagementMessage(message, isError = false) {
     const node = document.getElementById('admin-user-message');
+    if (!node) return;
+    node.textContent = message;
+    node.style.color = isError ? '#8d2430' : '';
+}
+
+function setAnnouncementMessage(message, isError = false) {
+    const node = document.getElementById('admin-announcement-message');
     if (!node) return;
     node.textContent = message;
     node.style.color = isError ? '#8d2430' : '';
@@ -180,6 +192,7 @@ function updateAdminSummaryUI() {
         ['metric-tables', ADMIN_SUMMARY.tables],
         ['metric-open-bookings', ADMIN_SUMMARY.openBookings],
         ['metric-open-incidents', ADMIN_SUMMARY.openIncidents],
+        ['metric-published-announcements', ADMIN_SUMMARY.publishedAnnouncements],
     ];
 
     map.forEach(([id, value]) => {
@@ -343,6 +356,7 @@ async function loadAdminStats() {
         ADMIN_SUMMARY.tables = data.tables_total || 0;
         ADMIN_SUMMARY.openBookings = data.open_bookings || 0;
         ADMIN_SUMMARY.openIncidents = data.open_incidents || 0;
+        ADMIN_SUMMARY.publishedAnnouncements = data.published_announcements || 0;
         ADMIN_SUMMARY.lastUpdated = new Date();
 
         updateAdminSummaryUI();
@@ -350,6 +364,125 @@ async function loadAdminStats() {
     } catch (error) {
         console.error(error);
         setAdminConnection('Error loading admin stats');
+    }
+}
+
+function renderAnnouncements(announcements) {
+    const container = document.getElementById('admin-announcements-list');
+    if (!container) return;
+
+    if (!Array.isArray(announcements) || announcements.length === 0) {
+        container.textContent = 'No announcements yet.';
+        return;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'steward-item-list';
+
+    announcements.forEach((announcement) => {
+        const item = document.createElement('article');
+        item.className = 'steward-item';
+
+        const publishMeta = announcement.is_published
+            ? `Published ${announcement.published_at ? new Date(announcement.published_at).toLocaleString() : ''}`
+            : 'Draft';
+
+        item.innerHTML = `
+            <div class="steward-item-head">
+                <p class="steward-item-title">${announcement.title}</p>
+                <span class="steward-item-meta">${publishMeta}</span>
+            </div>
+            <p class="steward-item-meta">${announcement.body}</p>
+            <p class="steward-item-meta">CTA: ${announcement.cta_label && announcement.cta_url ? `${announcement.cta_label} -> ${announcement.cta_url}` : 'none'}</p>
+            <div class="steward-item-actions">
+                <button class="button button-secondary" type="button" data-announcement-toggle="${announcement.id}">${announcement.is_published ? 'Unpublish' : 'Publish'}</button>
+                <button class="button button-subtle" type="button" data-announcement-delete="${announcement.id}">Delete</button>
+            </div>
+        `;
+
+        list.appendChild(item);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(list);
+
+    container.querySelectorAll('[data-announcement-toggle]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const announcementId = Number(button.getAttribute('data-announcement-toggle'));
+            const row = ADMIN_ANNOUNCEMENTS.items.find((item) => item.id === announcementId);
+            if (!row) return;
+
+            const endpoint = row.is_published
+                ? `/api/admin/content/announcements/${announcementId}/unpublish`
+                : `/api/admin/content/announcements/${announcementId}/publish`;
+
+            try {
+                await fetchJson(endpoint, { method: 'POST' });
+                await loadAnnouncements();
+                await loadAdminStats();
+            } catch (error) {
+                console.error(error);
+                setAnnouncementMessage('Could not update announcement state.', true);
+            }
+        });
+    });
+
+    container.querySelectorAll('[data-announcement-delete]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const announcementId = Number(button.getAttribute('data-announcement-delete'));
+            if (!window.confirm(`Delete announcement #${announcementId}?`)) return;
+
+            try {
+                await fetchJson(`/api/admin/content/announcements/${announcementId}`, { method: 'DELETE' });
+                setAnnouncementMessage('Announcement deleted.');
+                await loadAnnouncements();
+                await loadAdminStats();
+            } catch (error) {
+                console.error(error);
+                setAnnouncementMessage('Could not delete announcement.', true);
+            }
+        });
+    });
+}
+
+async function loadAnnouncements() {
+    try {
+        const items = await fetchJson('/api/admin/content/announcements');
+        ADMIN_ANNOUNCEMENTS.items = Array.isArray(items) ? items : [];
+        renderAnnouncements(ADMIN_ANNOUNCEMENTS.items);
+    } catch (error) {
+        console.error(error);
+        setAnnouncementMessage('Could not load announcements.', true);
+        const container = document.getElementById('admin-announcements-list');
+        if (container) container.textContent = 'Could not load announcements.';
+    }
+}
+
+async function createAnnouncementFromAdminForm(form) {
+    const payload = {
+        title: form.elements.namedItem('title')?.value,
+        body: form.elements.namedItem('body')?.value,
+        cta_label: form.elements.namedItem('cta_label')?.value || null,
+        cta_url: form.elements.namedItem('cta_url')?.value || null,
+        publish_now: Boolean(form.elements.namedItem('publish_now')?.checked),
+    };
+
+    try {
+        await fetchJson('/api/admin/content/announcements', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        form.reset();
+        const publishNowInput = form.elements.namedItem('publish_now');
+        if (publishNowInput) publishNowInput.checked = true;
+        setAnnouncementMessage('Announcement saved.');
+        await loadAnnouncements();
+        await loadAdminStats();
+    } catch (error) {
+        console.error(error);
+        setAnnouncementMessage('Could not save announcement.', true);
     }
 }
 
@@ -1751,11 +1884,18 @@ function bindAdminDashboard() {
         renderCatalogueCopies(ADMIN_CATALOGUE.copies);
     });
 
+    const announcementForm = document.getElementById('admin-announcement-form');
+    announcementForm?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        createAnnouncementFromAdminForm(announcementForm);
+    });
+
     loadAdminStats();
     loadUsers();
     loadPricing();
     loadCatalogue();
     loadLocationOverview();
+    loadAnnouncements();
 }
 
 document.addEventListener('DOMContentLoaded', bindAdminDashboard);

@@ -53,6 +53,10 @@
 			<p class="steward-metric-label">Open incidents</p>
 			<p class="steward-metric-value" id="metric-open-incidents">0</p>
 		</article>
+		<article class="steward-metric-card">
+			<p class="steward-metric-label">Live announcements</p>
+			<p class="steward-metric-value" id="metric-published-announcements">0</p>
+		</article>
 	</section>
 
 	<section class="steward-layout">
@@ -297,7 +301,39 @@
 			<section class="card" id="content">
 				<h3>Content & Promos</h3>
 				<p class="hero-copy">Publish promotions, announcements, and homepage content for customers.</p>
-				<p class="quick-links">This will likely need a separate content model, since it is not part of steward operations.</p>
+				<form class="form-stack" id="admin-announcement-form">
+					<label class="form-label" for="announcement-title">Title</label>
+					<input class="form-input" id="announcement-title" name="title" maxlength="160" required>
+
+					<label class="form-label" for="announcement-body">Message</label>
+					<textarea class="form-input" id="announcement-body" name="body" rows="4" required></textarea>
+
+					<div class="form-grid-two">
+						<div>
+							<label class="form-label" for="announcement-cta-label">Button label (optional)</label>
+							<input class="form-input" id="announcement-cta-label" name="cta_label" maxlength="80">
+						</div>
+						<div>
+							<label class="form-label" for="announcement-cta-url">Button URL (optional)</label>
+							<input class="form-input" id="announcement-cta-url" name="cta_url" placeholder="/booking or https://...">
+						</div>
+					</div>
+
+					<label class="form-label content-promo-checkbox">
+						<input type="checkbox" id="announcement-publish-now" name="publish_now" checked>
+						Publish immediately
+					</label>
+
+					<div class="action-row">
+						<button class="button" type="submit">Publish announcement</button>
+					</div>
+				</form>
+
+				<p class="quick-links" id="admin-announcement-message"></p>
+
+				<hr class="widget-divider">
+				<h4>Published & Draft Announcements</h4>
+				<div id="admin-announcements-list" class="steward-scroll-list">Loading announcements...</div>
 			</section>
 		</div>
 	</section>

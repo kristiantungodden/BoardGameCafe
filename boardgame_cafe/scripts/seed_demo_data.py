@@ -16,6 +16,7 @@ from features.reservations.infrastructure.database.game_reservations_db import G
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
 from features.tables.infrastructure.database.table_db import TableDB
+from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from features.users.infrastructure.database.user_db import UserDB
 from shared.infrastructure import db
 from sqlalchemy import inspect, text
@@ -521,6 +522,47 @@ def seed_bookings() -> tuple[int, int, int]:
     return inserted_bookings, inserted_game_links, inserted_payments
 
 
+def seed_announcements() -> int:
+    """Seed one published and one draft announcement."""
+    inserted = 0
+
+    admin = UserDB.query.filter_by(email="admin@example.com").first()
+    if admin is None:
+        return inserted
+
+    now = datetime.now()
+    existing_titles = {announcement.title for announcement in AnnouncementDB.query.all()}
+
+    seeds = [
+        {
+            "title": "Grand Opening Weekend — Special Rates!",
+            "body": "Join us this weekend for our grand opening celebration. All tables are 20% off and we have new games arriving Friday. Walk-ins welcome!",
+            "cta_label": "Book a table",
+            "cta_url": "/booking",
+            "is_published": True,
+            "published_at": now - timedelta(days=2),
+            "created_by": admin.id,
+        },
+        {
+            "title": "New Game Night — Every Thursday",
+            "body": "Starting next month we're hosting a structured game night every Thursday at 18:00. Beginners welcome — stewards will guide you through the rules.",
+            "cta_label": None,
+            "cta_url": None,
+            "is_published": False,
+            "published_at": None,
+            "created_by": admin.id,
+        },
+    ]
+
+    for seed in seeds:
+        if seed["title"] in existing_titles:
+            continue
+        db.session.add(AnnouncementDB(**seed))
+        inserted += 1
+
+    return inserted
+
+
 def _count_demo_records() -> tuple[int, int, int]:
     booking_ids = [
         booking.id
@@ -569,6 +611,7 @@ def seed_demo_data() -> None:
         c_inserted, c_updated = seed_game_copies()
         u_inserted, u_updated = seed_users()
         b_inserted, bg_inserted, bp_inserted = seed_bookings()
+        a_inserted = seed_announcements()
 
         if any(
             (
@@ -586,6 +629,7 @@ def seed_demo_data() -> None:
                 b_inserted,
                 bg_inserted,
                 bp_inserted,
+                a_inserted,
             )
         ):
             db.session.commit()
@@ -600,6 +644,7 @@ def seed_demo_data() -> None:
         f"copies inserted={c_inserted}, updated={c_updated}; "
         f"users inserted={u_inserted}, updated={u_updated}; "
         f"bookings inserted={b_inserted}, game-links inserted={bg_inserted}, payments inserted={bp_inserted}; "
+        f"announcements inserted={a_inserted}; "
         f"demo table-links total={link_count}, demo game-links total={game_link_count}, demo payments total={payment_count}"
     )
 
