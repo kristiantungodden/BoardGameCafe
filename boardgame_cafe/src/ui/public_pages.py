@@ -1,12 +1,21 @@
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, flash, redirect, render_template, url_for
 from flask_login import login_required, logout_user
+from features.users.infrastructure.database.announcement_db import AnnouncementDB
+from shared.infrastructure import db
 
 
 
 def register_public_pages(app: Flask) -> None:
     @app.route("/", methods=["GET"])
     def home():
-        return render_template("index.html")
+        announcements = (
+            db.session.query(AnnouncementDB)
+            .filter(AnnouncementDB.is_published.is_(True))
+            .order_by(AnnouncementDB.published_at.desc(), AnnouncementDB.id.desc())
+            .limit(5)
+            .all()
+        )
+        return render_template("index.html", announcements=announcements)
 
     @app.route("/games", methods=["GET"])
     def games_page():
