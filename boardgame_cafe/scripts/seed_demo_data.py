@@ -32,7 +32,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from seed_games import seed_games
 
 
-<<<<<<< HEAD
 def _build_demo_users() -> list[dict]:
     now = datetime.now()
     users: list[dict] = [
@@ -131,28 +130,6 @@ def _build_demo_users() -> list[dict]:
 
 
 DEMO_USERS = _build_demo_users()
-=======
-DEMO_USERS = [
-    # Quick-login dev shortcuts
-    {"role": "customer", "name": "a", "email": "a@a.a", "phone": None, "password": "aaaaaaaa"},
-    {"role": "customer", "name": "b", "email": "b@b.b", "phone": None, "password": "bbbbbbbb"},
-    # Realistic customers
-    {"role": "customer", "name": "Emma Hansen", "email": "emma.hansen@example.com", "phone": "+4791234567", "password": "Password1"},
-    {"role": "customer", "name": "Lars Olsen", "email": "lars.olsen@example.com", "phone": "+4798765432", "password": "Password1"},
-    {"role": "customer", "name": "Sofie Berg", "email": "sofie.berg@example.com", "phone": None, "password": "Password1"},
-    {"role": "customer", "name": "Jonas Vik", "email": "jonas.vik@example.com", "phone": "+4792345678", "password": "Password1"},
-    {"role": "customer", "name": "Ingrid Andersen", "email": "ingrid.andersen@example.com", "phone": "+4793456789", "password": "Password1"},
-    {"role": "customer", "name": "Magnus Kristensen", "email": "magnus.kristensen@example.com", "phone": "+4791111111", "password": "Password1"},
-    {"role": "customer", "name": "Nora Solstad", "email": "nora.solstad@example.com", "phone": "+4792222222", "password": "Password1"},
-    {"role": "customer", "name": "Erik Svendsen", "email": "erik.svendsen@example.com", "phone": "+4793333333", "password": "Password1"},
-    # Staff
-    {"role": "staff", "name": "steward", "email": "steward@example.com", "phone": None, "password": "Stewardpw"},
-    {"role": "staff", "name": "Maria Lund", "email": "maria.lund@example.com", "phone": "+4745678901", "password": "Stewardpw"},
-    {"role": "staff", "name": "Petter Johnsen", "email": "petter.johnsen@example.com", "phone": "+4745678902", "password": "Stewardpw"},
-    # Admin
-    {"role": "admin", "name": "admin", "email": "admin@example.com", "phone": None, "password": "Adminpw123"},
-]
->>>>>>> a3bd93c4806023ef595faee63d80f3cd92adcd1f
 
 
 DEMO_GAME_TAGS = {
@@ -691,7 +668,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
         hour=max(min(td.hour - 1, 21), 9), minute=0, second=0, microsecond=0
     )
     seated_end = seated_start + timedelta(hours=2)
-    return [
+    rows = [
         # ── Upcoming confirmed bookings (next 1-7 days) ──────────────────────────────
         {
             "email": "a@a.a",
