@@ -23,8 +23,8 @@ def register_all_models() -> None:
     """
     # Import all ORM model classes. Order does not matter; imports are idempotent.
     # pylint: disable=unused-import
-    from features.users.infrastructure.database import AdminPolicyDB, UserDB, AnnouncementDB
-    from features.tables.infrastructure.database import TableDB, FloorDB, ZoneDB
+    from features.users.infrastructure.database import UserDB, AdminPolicyDB, AnnouncementDB
+    from features.tables.infrastructure.database import TableDB
     from features.reservations.infrastructure.database import (
         TableReservationDB,
         GameReservationDB,
@@ -46,8 +46,6 @@ def register_all_models() -> None:
         AdminPolicyDB,
         AnnouncementDB,
         TableDB,
-        FloorDB,
-        ZoneDB,
         TableReservationDB,
         GameReservationDB,
         ReservationQRCodeDB,

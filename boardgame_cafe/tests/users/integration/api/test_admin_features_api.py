@@ -1,4 +1,3 @@
-from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from datetime import datetime, timedelta, timezone
 
 from features.users.infrastructure import UserDB, hash_password
@@ -6,6 +5,7 @@ from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
 from features.games.infrastructure.database.incident_db import IncidentDB
 from features.tables.infrastructure.database.table_db import TableDB
+from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from shared.infrastructure import db
 
 
@@ -354,50 +354,6 @@ def test_admin_can_get_and_update_pricing(app, client):
     assert after_high_priority_override["booking_base_fee_has_temporary_override"] is True
 
 
-def test_admin_can_manage_announcements(app, client):
-    with app.app_context():
-        _create_user(
-            role="admin",
-            name="Content Admin",
-            email="admin-announcements@example.com",
-            password="AdminPass123",
-        )
-
-    _login(client, email="admin-announcements@example.com", password="AdminPass123")
-
-    create_response = client.post(
-        "/api/admin/content/announcements",
-        json={
-            "title": "Weekly update",
-            "body": "New games are now available for demo play.",
-            "cta_label": "View games",
-            "cta_url": "/games",
-            "publish_now": False,
-        },
-    )
-    assert create_response.status_code == 201
-    announcement_id = create_response.get_json()["id"]
-
-    list_response = client.get("/api/admin/content/announcements")
-    assert list_response.status_code == 200
-    announcements = list_response.get_json()
-    assert any(item["id"] == announcement_id for item in announcements)
-
-    publish_response = client.post(f"/api/admin/content/announcements/{announcement_id}/publish")
-    assert publish_response.status_code == 200
-    assert publish_response.get_json()["is_published"] is True
-
-    unpublish_response = client.post(f"/api/admin/content/announcements/{announcement_id}/unpublish")
-    assert unpublish_response.status_code == 200
-    assert unpublish_response.get_json()["is_published"] is False
-
-    delete_response = client.delete(f"/api/admin/content/announcements/{announcement_id}")
-    assert delete_response.status_code == 200
-
-    with app.app_context():
-        assert db.session.get(AnnouncementDB, announcement_id) is None
-
-
 def test_admin_can_manage_catalogue_and_copies(app, client):
     with app.app_context():
         _create_user(
@@ -621,3 +577,65 @@ def test_admin_cannot_set_copy_available_with_unresolved_incident(app, client):
     resolved = client.post(f"/api/admin/catalogue/incidents/{incident_id}/resolve")
     assert resolved.status_code == 200
     assert resolved.get_json()["copy"]["status"] == "available"
+
+
+def test_admin_can_manage_announcements_and_home_shows_only_published(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Content Admin",
+            email="admin-content@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="admin-content@example.com", password="AdminPass123")
+
+    create_draft = client.post(
+        "/api/admin/content/announcements",
+        json={
+            "title": "Draft Promo",
+            "body": "This draft should not show on the homepage.",
+            "publish_now": False,
+        },
+    )
+    assert create_draft.status_code == 201
+    draft_id = create_draft.get_json()["id"]
+
+    create_published = client.post(
+        "/api/admin/content/announcements",
+        json={
+            "title": "Friday Event",
+            "body": "Join our Friday board game night.",
+            "cta_label": "Book now",
+            "cta_url": "/booking",
+            "publish_now": True,
+        },
+    )
+    assert create_published.status_code == 201
+    published_id = create_published.get_json()["id"]
+
+    listing = client.get("/api/admin/content/announcements")
+    assert listing.status_code == 200
+    payload = listing.get_json()
+    assert any(item["id"] == draft_id and item["is_published"] is False for item in payload)
+    assert any(item["id"] == published_id and item["is_published"] is True for item in payload)
+
+    publish_draft = client.post(f"/api/admin/content/announcements/{draft_id}/publish")
+    assert publish_draft.status_code == 200
+    assert publish_draft.get_json()["is_published"] is True
+
+    unpublish_draft = client.post(f"/api/admin/content/announcements/{draft_id}/unpublish")
+    assert unpublish_draft.status_code == 200
+    assert unpublish_draft.get_json()["is_published"] is False
+
+    home_response = client.get("/")
+    assert home_response.status_code == 200
+    html = home_response.get_data(as_text=True)
+    assert "Friday Event" in html
+    assert "Draft Promo" not in html
+
+    delete_published = client.delete(f"/api/admin/content/announcements/{published_id}")
+    assert delete_published.status_code == 200
+
+    with app.app_context():
+        assert db.session.get(AnnouncementDB, published_id) is None

@@ -5,28 +5,20 @@
 {% block content %}
 <section class="steward-dashboard admin-dashboard" id="admin-data">
 	<header class="steward-hero">
-		<div>
-			<p class="hero-kicker">Administration</p>
-			<h1 class="page-header">Admin Dashboard</h1>
-			<p class="page-intro compact">Govern users, policies, floor setup, catalogue content, and reporting from one control center.</p>
-		</div>
-		<div class="steward-hero-actions">
-			<a class="button" href="#user-management">Users</a>
-			<a class="button button-secondary" href="#stewards">Create steward</a>
-			<a class="button button-subtle" href="#reports">Reports</a>
-		</div>
+		<p class="hero-kicker">WELCOME TO THE ADMIN DASHBOARD</p>
+		<h1 class="page-header">Admin Dashboard</h1>
+		<p class="page-intro compact">In here you can govern users, policies, floor setup, catalogue content, and reporting from one control center.</p>
+		<section class="steward-toolbar card">
+			<div class="steward-toolbar-left">
+				<label class="form-label" for="admin-snapshot-date">Snapshot date</label>
+				<input class="form-input" type="date" id="admin-snapshot-date" />
+			</div>
+			<div class="steward-toolbar-right">
+				<button class="button button-subtle" type="button" id="admin-refresh">Refresh stats</button>
+				<span class="steward-connection" id="admin-connection-status">Loading admin stats...</span>
+			</div>
+		</section>
 	</header>
-
-	<section class="steward-toolbar card">
-		<div class="steward-toolbar-left">
-			<label class="form-label" for="admin-snapshot-date">Snapshot date</label>
-			<input class="form-input" type="date" id="admin-snapshot-date" />
-		</div>
-		<div class="steward-toolbar-right">
-			<button class="button button-subtle" type="button" id="admin-refresh">Refresh stats</button>
-			<span class="steward-connection" id="admin-connection-status">Loading admin stats...</span>
-		</div>
-	</section>
 
 	<section class="steward-metrics" aria-label="Admin summary">
 		<article class="steward-metric-card">
@@ -191,73 +183,7 @@
 			<section class="card" id="floor">
 				<h3>Floor & Tables</h3>
 				<p class="hero-copy">Configure floors, zones, table sizes, and operational statuses for the café map.</p>
-				<div class="steward-item-list">
-					<form class="form-stack steward-item" id="create-floor-form">
-						<h4>Create Floor</h4>
-						<label class="form-label" for="floor-number">Floor number</label>
-						<input class="form-input" id="floor-number" name="number" type="number" min="1" required>
-
-						<label class="form-label" for="floor-name">Floor name</label>
-						<input class="form-input" id="floor-name" name="name" required>
-
-						<div class="action-row">
-							<button class="button" type="submit">Create floor</button>
-						</div>
-					</form>
-					<p class="quick-links" id="create-floor-message"></p>
-				</div>
-
-				<div class="steward-item-list" style="margin-top: 1.5rem;">
-					<form class="form-stack steward-item" id="create-zone-form">
-						<h4>Create Zone</h4>
-						<label class="form-label" for="zone-floor">Floor</label>
-						<input class="form-input" id="zone-floor" name="floor" type="number" min="1" required>
-
-						<label class="form-label" for="zone-name">Zone name</label>
-						<input class="form-input" id="zone-name" name="name" required>
-
-						<label class="form-label" for="zone-notes">Notes</label>
-						<input class="form-input" id="zone-notes" name="notes">
-
-						<div class="action-row">
-							<button class="button" type="submit">Create zone</button>
-						</div>
-					</form>
-					<p class="quick-links" id="create-zone-message"></p>
-				</div>
-
-				<div class="steward-item-list" style="margin-top: 1.5rem;">
-					<form class="form-stack steward-item" id="create-table-form">
-						<h4>Create Table</h4>
-						<label class="form-label" for="table-number">Table number</label>
-						<input class="form-input" id="table-number" name="number" type="number" min="1" required>
-
-						<label class="form-label" for="table-capacity">Capacity</label>
-						<input class="form-input" id="table-capacity" name="capacity" type="number" min="1" required>
-
-						<label class="form-label" for="table-floor">Floor</label>
-						<input class="form-input" id="table-floor" name="floor" type="number" min="1" required>
-
-						<label class="form-label" for="table-zone">Zone</label>
-						<input class="form-input" id="table-zone" name="zone" required>
-
-						<div class="action-row">
-							<button class="button" type="submit">Create table</button>
-						</div>
-					</form>
-					<p class="quick-links" id="create-table-message"></p>
-				</div>
-				<div class="card" style="margin-top: 1.5rem;">
-					<div class="steward-floorplan-head">
-						<h4>Floorplan</h4>
-						<div>
-							<label class="form-label" for="admin-floor-select">Floor</label>
-							<select class="form-input" id="admin-floor-select"></select>
-						</div>
-					</div>
-					<div id="admin-floorplan"></div>
-				</div>
-				<p class="quick-links">Use the forms above to add records, then edit or delete them directly from the floorplan view.</p>
+				<p class="quick-links">This will build on the existing table and floorplan structure already used by bookings.</p>
 			</section>
 			<section class="card" id="policies">
 				<h3>Policies & Fees</h3>
@@ -303,7 +229,8 @@
 			</section>
 			<section class="card" id="content">
 				<h3>Content & Promos</h3>
-				<p class="hero-copy">Publish promotions, announcements, and homepage content for customers.</p>
+				<p class="hero-copy">Publish homepage announcements and promotions visible to customers on the landing page.</p>
+
 				<form class="form-stack" id="admin-announcement-form">
 					<label class="form-label" for="announcement-title">Title</label>
 					<input class="form-input" id="announcement-title" name="title" maxlength="160" required>

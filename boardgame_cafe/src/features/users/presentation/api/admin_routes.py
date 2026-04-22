@@ -13,12 +13,12 @@ from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
 from features.games.infrastructure.database.incident_db import IncidentDB
 from features.tables.infrastructure.database.table_db import TableDB
-from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from features.users.infrastructure.pricing_settings import (
     configure_base_fee,
     resolve_base_fee,
     set_cancel_time_limit_hours,
 )
+from features.users.infrastructure.database.announcement_db import AnnouncementDB
 from features.users.application.use_cases.user_use_cases import (
     CreateStewardCommand,
     ForcePasswordResetCommand,
@@ -471,7 +471,9 @@ def delete_catalogue_copy(copy_id: int):
     if row is None:
         return jsonify({"error": "Game copy not found"}), 404
 
-    db.session.query(IncidentDB).filter(IncidentDB.game_copy_id == copy_id).delete(synchronize_session=False)
+    # Delete dependent incidents first to avoid FK/NOT NULL constraint failure
+    db.session.query(IncidentDB).filter(IncidentDB.game_copy_id == copy_id).delete()
+
     db.session.delete(row)
     db.session.commit()
     return jsonify({"message": "Game copy deleted"}), 200
