@@ -585,8 +585,9 @@ footer {
 
 .steward-layout {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
     gap: 0.8rem;
+    align-items: start;
 }
 
 .steward-main-grid {

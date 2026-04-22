@@ -5,6 +5,7 @@ from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.bookings.infrastructure.database.booking_status_history_db import BookingStatusHistoryDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 from shared.domain.events import ReservationCompleted, ReservationSeated
+from shared.domain.events import ReservationUpdated
 
 
 def _register_and_login_staff(client, email="steward@example.com"):
@@ -415,3 +416,56 @@ def test_steward_status_transitions_publish_domain_events(client, app, test_data
     completed_event = next(event for event in app.event_bus.events if isinstance(event, ReservationCompleted))
     assert completed_event.reservation_id == reservation_id
     assert completed_event.completed_by_role == "staff"
+
+
+def test_update_reservation_publishes_realtime_event(client, app, test_data, monkeypatch):
+    class FakeEventBus:
+        def __init__(self):
+            self.events = []
+
+        def publish(self, event):
+            self.events.append(event)
+
+    app.event_bus = FakeEventBus()
+
+    with app.app_context():
+        user_id = test_data["user"]["id"]
+        table_id = test_data["tables"][0]["id"]
+        start_ts = datetime.now(timezone.utc)
+        end_ts = start_ts + timedelta(hours=2)
+        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
+        db.session.add(booking)
+        db.session.commit()
+
+        reservation = TableReservationDB(
+            booking_id=booking.id,
+            table_id=table_id,
+            customer_id=user_id,
+            start_ts=start_ts,
+            end_ts=end_ts,
+            party_size=2,
+            status="confirmed",
+            notes="Initial",
+        )
+        db.session.add(reservation)
+        db.session.commit()
+        reservation_id = reservation.id
+
+    _register_and_login_staff(client, email="stewardrealtime@example.com")
+
+    updated_start = (datetime.now(timezone.utc) + timedelta(hours=1)).replace(second=0, microsecond=0, tzinfo=None)
+    updated_end = updated_start + timedelta(hours=2)
+    payload = {
+        "table_id": table_id,
+        "start_ts": updated_start.isoformat(timespec="minutes"),
+        "end_ts": updated_end.isoformat(timespec="minutes"),
+        "party_size": 4,
+        "notes": "Updated by steward",
+    }
+    resp = client.patch(f"/api/steward/reservations/{reservation_id}", json=payload)
+
+    assert resp.status_code == 200
+    assert any(isinstance(event, ReservationUpdated) for event in app.event_bus.events)
+    updated_event = next(event for event in app.event_bus.events if isinstance(event, ReservationUpdated))
+    assert updated_event.reservation_id == reservation_id
+    assert updated_event.updated_by_role == "staff"

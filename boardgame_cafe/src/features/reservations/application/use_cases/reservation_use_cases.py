@@ -198,10 +198,18 @@ class UpdateReservationUseCase:
         # Update allowed fields if present
         from datetime import datetime
 
+        def _parse_local_timestamp(value: str, field_name: str):
+            parsed = datetime.fromisoformat(value)
+            if parsed.tzinfo is not None:
+                raise ValueError(
+                    f"{field_name} must be a local timestamp without timezone (YYYY-MM-DDTHH:MM)"
+                )
+            return parsed
+
         if 'start_ts' in data and data['start_ts']:
-            reservation.start_ts = datetime.fromisoformat(data['start_ts'])
+            reservation.start_ts = _parse_local_timestamp(data['start_ts'], 'start_ts')
         if 'end_ts' in data and data['end_ts']:
-            reservation.end_ts = datetime.fromisoformat(data['end_ts'])
+            reservation.end_ts = _parse_local_timestamp(data['end_ts'], 'end_ts')
         if 'party_size' in data and data['party_size'] is not None:
             reservation.party_size = int(data['party_size'])
         if 'notes' in data:

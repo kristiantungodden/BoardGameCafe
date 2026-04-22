@@ -6,6 +6,7 @@ from shared.domain.events import (
     ReservationCreated,
     ReservationPaymentCompleted,
     ReservationSeated,
+    ReservationUpdated,
 )
 from shared.infrastructure.email.event_bus import EventBus
 from shared.application.event_handlers.realtime_event_handler import (
@@ -61,6 +62,20 @@ def _sample_reservation_completed_event() -> ReservationCompleted:
         party_size=2,
         completed_by_user_id=9,
         completed_by_role="staff",
+    )
+
+
+def _sample_reservation_updated_event() -> ReservationUpdated:
+    return ReservationUpdated(
+        reservation_id=55,
+        user_id=12,
+        table_numbers=[3],
+        start_ts="2026-04-18T17:30:00",
+        end_ts="2026-04-18T19:30:00",
+        party_size=3,
+        updated_by_user_id=9,
+        updated_by_role="staff",
+        notes="Adjusted for delay",
     )
 
 
@@ -204,3 +219,26 @@ def test_register_realtime_event_handlers_publishes_reservation_completed(monkey
     assert payload["event_type"] == "reservation.completed"
     assert payload["data"]["reservation_id"] == 66
     assert payload["data"]["completed_by_role"] == "staff"
+
+
+def test_register_realtime_event_handlers_publishes_reservation_updated(monkeypatch):
+    published_payloads = []
+
+    def fake_publish_realtime_event(payload):
+        published_payloads.append(payload)
+
+    monkeypatch.setattr(
+        "shared.application.event_handlers.realtime_event_handler.publish_realtime_event",
+        fake_publish_realtime_event,
+    )
+
+    event_bus = EventBus()
+    register_realtime_event_handlers(event_bus)
+
+    event_bus.publish(_sample_reservation_updated_event())
+
+    assert len(published_payloads) == 1
+    payload = published_payloads[0]
+    assert payload["event_type"] == "reservation.updated"
+    assert payload["data"]["reservation_id"] == 55
+    assert payload["data"]["updated_by_role"] == "staff"

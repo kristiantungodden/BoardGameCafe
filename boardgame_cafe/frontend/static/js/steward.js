@@ -607,6 +607,18 @@ window.addEventListener('DOMContentLoaded', ()=>{
                     return;
                 }
 
+                if (et === 'reservation.updated') {
+                    const data = payload.data || {};
+                    const reservationId = data.id || data.reservation_id || 'unknown';
+                    const eventKey = `reservation.updated:${reservationId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    const updatedBy = data.updated_by_role ? ` by ${data.updated_by_role}` : '';
+                    showRealtimeNotice(`Booking #${reservationId} was updated${updatedBy}.`, 'info');
+                    reloadAll();
+                    return;
+                }
+
                 if (et.startsWith('incident')) {
                     const data = payload.data || {};
                     const incidentId = data.id || 'unknown';
@@ -698,15 +710,16 @@ window.addEventListener('DOMContentLoaded', ()=>{
         saveBtn.onclick = async () => {
             const payload = {
                 table_id: tableInput.value ? Number(tableInput.value) : null,
-                start_ts: startInput.value ? new Date(startInput.value).toISOString() : null,
-                end_ts: endInput.value ? new Date(endInput.value).toISOString() : null,
+                // Keep datetime-local values as typed to avoid timezone shifts.
+                start_ts: startInput.value || null,
+                end_ts: endInput.value || null,
                 party_size: partyInput.value ? Number(partyInput.value) : null,
                 notes: notesInput.value,
             };
             try {
-                const updated = await fetchJson(`/api/steward/reservations/${reservation.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-                // reflect update
-                showReservationPanel(updated);
+                await fetchJson(`/api/steward/reservations/${reservation.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+                panel.innerHTML = 'Select a reservation to view/edit.';
+                showRealtimeNotice(`Booking #${reservation.id} updated.`, 'success');
                 await reloadAll();
             } catch (err) {
                 alert('Failed to save: ' + err);

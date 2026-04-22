@@ -31,6 +31,8 @@ from features.reservations.application.use_cases.waitlist_use_cases import (
 from shared.application.services.reservation_transition_event_publisher import (
     publish_reservation_transition_event,
 )
+from shared.application.event_handlers.realtime_event_handler import publish_realtime_event
+from shared.domain.events import ReservationUpdated
 from shared.domain.exceptions import DomainError
 from features.users.composition.steward_use_case_factories import (
     get_complete_reservation_use_case,
@@ -267,6 +269,30 @@ def update_reservation(reservation_id: int):
 
     if reservation is None:
         return {"error": "Reservation not found"}, 404
+
+    actor_role = getattr(current_user, "role", None)
+    if hasattr(actor_role, "value"):
+        actor_role = actor_role.value
+    if actor_role is None and getattr(current_user, "is_staff", False):
+        actor_role = "staff"
+    if actor_role is None and getattr(current_user, "is_authenticated", False):
+        actor_role = "customer"
+
+    event_bus = getattr(current_app, "event_bus", None)
+    if event_bus is not None:
+        event_bus.publish(
+            ReservationUpdated(
+                reservation_id=reservation.id,
+                user_id=reservation.customer_id,
+                table_numbers=[reservation.table_id] if getattr(reservation, "table_id", None) is not None else [],
+                start_ts=reservation.start_ts.isoformat() if hasattr(reservation.start_ts, "isoformat") else reservation.start_ts,
+                end_ts=reservation.end_ts.isoformat() if hasattr(reservation.end_ts, "isoformat") else reservation.end_ts,
+                party_size=reservation.party_size,
+                updated_by_user_id=getattr(current_user, "id", None),
+                updated_by_role=actor_role or "unknown",
+                notes=reservation.notes,
+            )
+        )
 
     return _serialize_reservation(reservation), 200
 
