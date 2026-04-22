@@ -5,6 +5,9 @@ import pytest
 from features.reservations.application.use_cases.reservation_use_cases import (
     CreateReservationCommand,
 )
+from features.payments.application.services.booking_payment_lifecycle import (
+    confirm_booking_after_success,
+)
 from features.reservations.presentation.api import reservation_routes
 from features.reservations.composition.reservation_use_case_factories import (
     get_cancel_reservation_use_case,
@@ -39,7 +42,7 @@ def test_owner_can_read_reservation_status_history(client, app, test_data):
         owner_id = owner.id
 
         handler = get_create_booking_handler()
-        reservation, _, _ = handler(
+        reservation, _, payment = handler(
             CreateReservationCommand(
                 customer_id=owner.id,
                 table_id=1,
@@ -49,10 +52,11 @@ def test_owner_can_read_reservation_status_history(client, app, test_data):
                 notes="",
             )
         )
+        confirm_booking_after_success(payment_id=payment.id, booking_id=reservation.id)
 
     original_current_user = reservation_routes.current_user
     reservation_routes.current_user = FakeCurrentUser(
-        user_id=owner.id, is_authenticated=True, is_staff=False
+        user_id=owner_id, is_authenticated=True, is_staff=False
     )
 
     try:
@@ -69,7 +73,7 @@ def test_owner_can_read_reservation_status_history(client, app, test_data):
     assert "confirmed" in statuses
     assert "cancelled" in statuses
     cancelled_entry = next(entry for entry in payload["history"] if entry["to_status"] == "cancelled")
-    assert cancelled_entry["actor_user_id"] == owner.id
+    assert cancelled_entry["actor_user_id"] == owner_id
     assert cancelled_entry["actor_role"] == "customer"
 
 

@@ -33,6 +33,7 @@ def test_reservation_seat_changes_status_to_seated():
 		party_size=4,
 	)
 
+	reservation.confirm()
 	reservation.seat()
 
 	assert reservation.status == "seated"
@@ -49,6 +50,7 @@ def test_reservation_complete_changes_status_to_completed():
 		party_size=4,
 	)
 
+	reservation.confirm()
 	reservation.seat()
 	reservation.complete()
 
@@ -66,6 +68,7 @@ def test_reservation_no_show_changes_status_to_no_show():
 		party_size=4,
 	)
 
+	reservation.confirm()
 	reservation.mark_no_show()
 
 	assert reservation.status == "no_show"
@@ -150,7 +153,7 @@ def test_reservation_rejects_end_time_equals_start_time():
 
 def test_reservation_rejects_invalid_status():
 	"""INVARIANT: status MUST be from VALID_RESERVATION_STATUSES."""
-	valid_statuses = {"confirmed", "seated", "completed", "cancelled", "no_show"}
+	valid_statuses = {"created", "confirmed", "seated", "completed", "cancelled", "no_show"}
 	invalid_statuses = ["draft", "pending", "pending_payment", "unknown_status", ""]
 	
 	for invalid_status in invalid_statuses:

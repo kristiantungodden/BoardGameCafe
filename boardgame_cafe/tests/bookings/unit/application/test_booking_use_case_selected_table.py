@@ -4,6 +4,8 @@ import pytest
 
 import features.bookings.application.use_cases.booking_use_cases as booking_module
 from features.bookings.application.use_cases.booking_use_cases import CreateBookingUseCase
+from features.tables.infrastructure.database.table_db import TableDB
+from shared.infrastructure import db
 from shared.domain.exceptions import ValidationError
 
 
@@ -81,6 +83,19 @@ def _stub_create_and_save_payment(booking, payment_repo):
     return DummyPayment()
 
 
+def _create_test_table(table_nr: str, capacity: int) -> int:
+    table = TableDB(
+        table_nr=table_nr,
+        capacity=capacity,
+        floor=1,
+        zone="Test",
+        status="available",
+    )
+    db.session.add(table)
+    db.session.commit()
+    return table.id
+
+
 class _FakeAddGameUseCase:
     def __init__(self, bookings, reservation_games):
         self._next_id = 1
@@ -114,10 +129,11 @@ def test_create_booking_rejects_unavailable_selected_table(app, monkeypatch):
     )
 
     with app.app_context():
+        selected_table_id = _create_test_table("UT-1", 4)
         with pytest.raises(ValidationError, match="Selected table is unavailable"):
             use_case.execute(
                 customer_id=1,
-                table_id=7,
+                table_id=selected_table_id,
                 start_ts=datetime(2026, 4, 10, 18, 0),
                 end_ts=datetime(2026, 4, 10, 20, 0),
                 party_size=4,
@@ -139,9 +155,10 @@ def test_create_booking_accepts_valid_selected_table(app, monkeypatch):
     )
 
     with app.app_context():
+        selected_table_id = _create_test_table("UT-2", 4)
         booking, created_games, payment = use_case.execute(
             customer_id=1,
-            table_id=7,
+            table_id=selected_table_id,
             start_ts=datetime(2026, 4, 10, 18, 0),
             end_ts=datetime(2026, 4, 10, 20, 0),
             party_size=4,
@@ -169,10 +186,11 @@ def test_create_booking_rejects_more_than_two_games_per_selected_table(app, monk
     )
 
     with app.app_context():
+        selected_table_id = _create_test_table("UT-3", 4)
         with pytest.raises(ValidationError, match="maximum number of games"):
             use_case.execute(
                 customer_id=1,
-                table_id=7,
+                table_id=selected_table_id,
                 start_ts=datetime(2026, 4, 10, 18, 0),
                 end_ts=datetime(2026, 4, 10, 20, 0),
                 party_size=4,
@@ -199,13 +217,15 @@ def test_create_booking_allows_two_games_per_table_across_multiple_tables(app, m
     )
 
     with app.app_context():
+        table_one_id = _create_test_table("UT-4", 4)
+        table_two_id = _create_test_table("UT-5", 6)
         booking, created_games, _ = use_case.execute(
             customer_id=1,
             table_id=None,
-            table_ids=[5, 6],
+            table_ids=[table_one_id, table_two_id],
             start_ts=datetime(2026, 4, 10, 18, 0),
             end_ts=datetime(2026, 4, 10, 20, 0),
-            party_size=4,
+            party_size=10,
             games=[
                 booking_module.BookingGameRequest(requested_game_id=1),
                 booking_module.BookingGameRequest(requested_game_id=2),
@@ -216,3 +236,32 @@ def test_create_booking_allows_two_games_per_table_across_multiple_tables(app, m
 
     assert booking.id is not None
     assert len(created_games) == 4
+
+
+def test_create_booking_rejects_multiple_tables_when_combined_capacity_too_small(app, monkeypatch):
+    FakeAvailableTableRepo.should_validate = True
+    monkeypatch.setattr(booking_module, "create_and_save_payment", _stub_create_and_save_payment)
+
+    use_case = CreateBookingUseCase(
+        booking_repo=FakeBookingRepo(),
+        table_reservation_repo=FakeTableReservationRepo(),
+        game_repo=FakeGameRepo(),
+        available_table_repo=FakeAvailableTableRepo(),
+        available_copy_repo=FakeAvailableCopyRepo(),
+        payment_repo=None,
+    )
+
+    with app.app_context():
+        table_one_id = _create_test_table("UT-6", 2)
+        table_two_id = _create_test_table("UT-7", 2)
+
+        with pytest.raises(ValidationError, match="combined capacity"):
+            use_case.execute(
+                customer_id=1,
+                table_id=table_one_id,
+                table_ids=[table_one_id, table_two_id],
+                start_ts=datetime(2026, 4, 10, 18, 0),
+                end_ts=datetime(2026, 4, 10, 20, 0),
+                party_size=5,
+                games=[],
+            )

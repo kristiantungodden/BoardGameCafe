@@ -32,7 +32,7 @@ def test_steward_list_and_seat_flow(client, app, test_data):
         table_id = test_data["tables"][0]["id"]
         start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
-        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=3)
+        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=3, status="confirmed")
         db.session.add(booking)
         db.session.commit()
 
@@ -96,7 +96,7 @@ def test_steward_complete_flow(client, app, test_data):
         table_id = test_data["tables"][0]["id"]
         start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
-        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
+        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2, status="confirmed")
         db.session.add(booking)
         db.session.commit()
 
@@ -145,7 +145,7 @@ def test_steward_no_show_flow(client, app, test_data):
         table_id = test_data["tables"][0]["id"]
         start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
-        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
+        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2, status="confirmed")
         db.session.add(booking)
         db.session.commit()
 
@@ -189,7 +189,7 @@ def test_steward_swap_and_game_copy_status_and_incident_flow(client, app, test_d
         table_id = test_data["tables"][0]["id"]
         start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
-        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
+        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2, status="confirmed")
         db.session.add(booking)
         db.session.commit()
 
@@ -286,6 +286,7 @@ def test_steward_reservation_lists_enforce_status_boundaries(client, app, test_d
             start_ts=start_a,
             end_ts=start_a + timedelta(hours=2),
             party_size=2,
+            status="confirmed",
         )
         db.session.add(booking_a)
         db.session.commit()
@@ -307,6 +308,7 @@ def test_steward_reservation_lists_enforce_status_boundaries(client, app, test_d
             start_ts=start_b,
             end_ts=start_b + timedelta(hours=2),
             party_size=3,
+            status="confirmed",
         )
         db.session.add(booking_b)
         db.session.commit()
@@ -328,6 +330,7 @@ def test_steward_reservation_lists_enforce_status_boundaries(client, app, test_d
             start_ts=start_c,
             end_ts=start_c + timedelta(hours=2),
             party_size=4,
+            status="confirmed",
         )
         db.session.add(booking_c)
         db.session.commit()
@@ -383,7 +386,7 @@ def test_steward_status_transitions_publish_domain_events(client, app, test_data
         table_id = test_data["tables"][0]["id"]
         start_ts = datetime.now(timezone.utc)
         end_ts = start_ts + timedelta(hours=2)
-        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2)
+        booking = BookingDB(customer_id=user_id, start_ts=start_ts, end_ts=end_ts, party_size=2, status="confirmed")
         db.session.add(booking)
         db.session.commit()
 

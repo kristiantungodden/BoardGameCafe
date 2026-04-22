@@ -70,11 +70,12 @@ class GetTableAvailabilityUseCase:
                 "zone": table.zone,
                 "status": table.status,
                 "available": len(reasons) == 0,
+                "selectable": len(reasons) == 0 or reasons == ["capacity"],
                 "unavailable_reasons": reasons,
             }
             floor_groups[table.floor][table.zone or "Unzoned"].append(table_payload)
 
-            if table_payload["available"] or table_payload["unavailable_reasons"] == ["capacity"]:
+            if table_payload["selectable"]:
                 combinable_tables.append(table_payload)
 
         floors = []

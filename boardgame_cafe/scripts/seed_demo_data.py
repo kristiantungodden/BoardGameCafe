@@ -39,9 +39,14 @@ DEMO_USERS = [
     {"role": "customer", "name": "Lars Olsen", "email": "lars.olsen@example.com", "phone": "+4798765432", "password": "Password1"},
     {"role": "customer", "name": "Sofie Berg", "email": "sofie.berg@example.com", "phone": None, "password": "Password1"},
     {"role": "customer", "name": "Jonas Vik", "email": "jonas.vik@example.com", "phone": "+4792345678", "password": "Password1"},
+    {"role": "customer", "name": "Ingrid Andersen", "email": "ingrid.andersen@example.com", "phone": "+4793456789", "password": "Password1"},
+    {"role": "customer", "name": "Magnus Kristensen", "email": "magnus.kristensen@example.com", "phone": "+4791111111", "password": "Password1"},
+    {"role": "customer", "name": "Nora Solstad", "email": "nora.solstad@example.com", "phone": "+4792222222", "password": "Password1"},
+    {"role": "customer", "name": "Erik Svendsen", "email": "erik.svendsen@example.com", "phone": "+4793333333", "password": "Password1"},
     # Staff
     {"role": "staff", "name": "steward", "email": "steward@example.com", "phone": None, "password": "Stewardpw"},
     {"role": "staff", "name": "Maria Lund", "email": "maria.lund@example.com", "phone": "+4745678901", "password": "Stewardpw"},
+    {"role": "staff", "name": "Petter Johnsen", "email": "petter.johnsen@example.com", "phone": "+4745678902", "password": "Stewardpw"},
     # Admin
     {"role": "admin", "name": "admin", "email": "admin@example.com", "phone": None, "password": "Adminpw123"},
 ]
@@ -300,14 +305,27 @@ def seed_tables() -> tuple[int, int]:
     updated = 0
 
     table_seed = [
+        # Floor 1 - Main area
         {"table_nr": "T1", "capacity": 2, "price_cents": 12000, "floor": 1, "zone": "main", "status": "available"},
         {"table_nr": "T2", "capacity": 4, "price_cents": 15000, "floor": 1, "zone": "main", "status": "available"},
-        {"table_nr": "T3", "capacity": 4, "price_cents": 16500, "floor": 1, "zone": "window", "status": "available"},
-        {"table_nr": "T4", "capacity": 6, "price_cents": 21000, "floor": 2, "zone": "corner", "status": "available"},
-        {"table_nr": "T5", "capacity": 8, "price_cents": 26000, "floor": 2, "zone": "main", "status": "available"},
-        {"table_nr": "T6", "capacity": 4, "price_cents": 15000, "floor": 1, "zone": "bar", "status": "maintenance"},
-        {"table_nr": "T7", "capacity": 6, "price_cents": 20000, "floor": 2, "zone": "window", "status": "available"},
-        {"table_nr": "T8", "capacity": 2, "price_cents": 11000, "floor": 1, "zone": "bar", "status": "available"},
+        {"table_nr": "T3", "capacity": 4, "price_cents": 16500, "floor": 1, "zone": "main", "status": "available"},
+        {"table_nr": "T4", "capacity": 6, "price_cents": 18000, "floor": 1, "zone": "main", "status": "available"},
+        # Floor 1 - Window area
+        {"table_nr": "T5", "capacity": 2, "price_cents": 13500, "floor": 1, "zone": "window", "status": "available"},
+        {"table_nr": "T6", "capacity": 4, "price_cents": 16500, "floor": 1, "zone": "window", "status": "available"},
+        # Floor 1 - Bar area
+        {"table_nr": "T7", "capacity": 2, "price_cents": 11000, "floor": 1, "zone": "bar", "status": "available"},
+        {"table_nr": "T8", "capacity": 4, "price_cents": 15000, "floor": 1, "zone": "bar", "status": "maintenance"},
+        # Floor 2 - Main area
+        {"table_nr": "T9", "capacity": 6, "price_cents": 20000, "floor": 2, "zone": "main", "status": "available"},
+        {"table_nr": "T10", "capacity": 8, "price_cents": 25000, "floor": 2, "zone": "main", "status": "available"},
+        {"table_nr": "T11", "capacity": 4, "price_cents": 16500, "floor": 2, "zone": "main", "status": "available"},
+        # Floor 2 - Corner area
+        {"table_nr": "T12", "capacity": 6, "price_cents": 21000, "floor": 2, "zone": "corner", "status": "available"},
+        {"table_nr": "T13", "capacity": 8, "price_cents": 26000, "floor": 2, "zone": "corner", "status": "available"},
+        # Floor 2 - Window area
+        {"table_nr": "T14", "capacity": 4, "price_cents": 17000, "floor": 2, "zone": "window", "status": "available"},
+        {"table_nr": "T15", "capacity": 6, "price_cents": 20000, "floor": 2, "zone": "window", "status": "available"},
     ]
 
     existing = {t.table_nr: t for t in TableDB.query.all()}
@@ -524,7 +542,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
     )
     seated_end = seated_start + timedelta(hours=2)
     return [
-        # ── Upcoming confirmed bookings ──────────────────────────────
+        # ── Upcoming confirmed bookings (next 1-7 days) ──────────────────────────────
         {
             "email": "a@a.a",
             "table_nr": "T2",
@@ -537,7 +555,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
         },
         {
             "email": "b@b.b",
-            "table_nr": "T4",
+            "table_nr": "T9",
             "start_ts": (td + timedelta(days=1)).replace(hour=19, minute=30, second=0, microsecond=0),
             "end_ts": (td + timedelta(days=1)).replace(hour=21, minute=30, second=0, microsecond=0),
             "party_size": 5,
@@ -547,11 +565,11 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
         },
         {
             "email": "emma.hansen@example.com",
-            "table_nr": "T7",
+            "table_nr": "T15",
             "start_ts": (td + timedelta(days=2)).replace(hour=16, minute=0, second=0, microsecond=0),
             "end_ts": (td + timedelta(days=2)).replace(hour=18, minute=30, second=0, microsecond=0),
             "party_size": 6,
-            "notes": "Birthday group",
+            "notes": "Birthday group celebration",
             "game_slots": [0, 2],
             "final_status": "confirmed",
         },
@@ -565,21 +583,61 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "game_slots": [1, 3],
             "final_status": "confirmed",
         },
-        # ── Currently seated (in progress) ───────────────────────────
         {
             "email": "sofie.berg@example.com",
+            "table_nr": "T10",
+            "start_ts": (td + timedelta(days=4)).replace(hour=17, minute=30, second=0, microsecond=0),
+            "end_ts": (td + timedelta(days=4)).replace(hour=20, minute=0, second=0, microsecond=0),
+            "party_size": 7,
+            "notes": "Weekend gaming session",
+            "game_slots": [0, 3],
+            "final_status": "confirmed",
+        },
+        {
+            "email": "ingrid.andersen@example.com",
             "table_nr": "T5",
+            "start_ts": (td + timedelta(days=5)).replace(hour=14, minute=0, second=0, microsecond=0),
+            "end_ts": (td + timedelta(days=5)).replace(hour=16, minute=0, second=0, microsecond=0),
+            "party_size": 2,
+            "notes": "Afternoon gaming",
+            "game_slots": [2],
+            "final_status": "confirmed",
+        },
+        {
+            "email": "magnus.kristensen@example.com",
+            "table_nr": "T12",
+            "start_ts": (td + timedelta(days=6)).replace(hour=18, minute=30, second=0, microsecond=0),
+            "end_ts": (td + timedelta(days=6)).replace(hour=21, minute=0, second=0, microsecond=0),
+            "party_size": 6,
+            "notes": "Board game tournament",
+            "game_slots": [1, 4],
+            "final_status": "confirmed",
+        },
+        {
+            "email": "nora.solstad@example.com",
+            "table_nr": "T6",
+            "start_ts": (td + timedelta(days=7)).replace(hour=19, minute=0, second=0, microsecond=0),
+            "end_ts": (td + timedelta(days=7)).replace(hour=21, minute=0, second=0, microsecond=0),
+            "party_size": 4,
+            "notes": "Casual Friday night",
+            "game_slots": [0],
+            "final_status": "confirmed",
+        },
+        # ── Currently seated (in progress) ───────────────────────────
+        {
+            "email": "erik.svendsen@example.com",
+            "table_nr": "T1",
             "start_ts": seated_start,
             "end_ts": seated_end,
-            "party_size": 7,
+            "party_size": 2,
             "notes": "Currently playing — demo seated booking",
-            "game_slots": [0, 3],
+            "game_slots": [1],
             "final_status": "seated",
         },
         # ── Past completed bookings ───────────────────────────────────
         {
             "email": "a@a.a",
-            "table_nr": "T1",
+            "table_nr": "T4",
             "start_ts": (td - timedelta(days=3)).replace(hour=15, minute=0, second=0, microsecond=0),
             "end_ts": (td - timedelta(days=3)).replace(hour=17, minute=0, second=0, microsecond=0),
             "party_size": 2,
@@ -599,7 +657,7 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
         },
         {
             "email": "emma.hansen@example.com",
-            "table_nr": "T4",
+            "table_nr": "T9",
             "start_ts": (td - timedelta(days=14)).replace(hour=17, minute=0, second=0, microsecond=0),
             "end_ts": (td - timedelta(days=14)).replace(hour=19, minute=30, second=0, microsecond=0),
             "party_size": 5,
@@ -617,19 +675,29 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "game_slots": [2],
             "final_status": "completed",
         },
-        # ── Cancelled / no-show ───────────────────────────────────────
         {
             "email": "lars.olsen@example.com",
-            "table_nr": "T1",
+            "table_nr": "T12",
+            "start_ts": (td - timedelta(days=2)).replace(hour=17, minute=0, second=0, microsecond=0),
+            "end_ts": (td - timedelta(days=2)).replace(hour=19, minute=0, second=0, microsecond=0),
+            "party_size": 3,
+            "notes": "Past booking — completed",
+            "game_slots": [1],
+            "final_status": "completed",
+        },
+        # ── Cancelled / no-show ───────────────────────────────────────
+        {
+            "email": "sofie.berg@example.com",
+            "table_nr": "T11",
             "start_ts": (td - timedelta(days=5)).replace(hour=16, minute=0, second=0, microsecond=0),
             "end_ts": (td - timedelta(days=5)).replace(hour=18, minute=0, second=0, microsecond=0),
-            "party_size": 2,
+            "party_size": 4,
             "notes": "Past booking — cancelled by customer",
             "game_slots": [],
             "final_status": "cancelled",
         },
         {
-            "email": "sofie.berg@example.com",
+            "email": "ingrid.andersen@example.com",
             "table_nr": "T2",
             "start_ts": (td - timedelta(days=10)).replace(hour=20, minute=0, second=0, microsecond=0),
             "end_ts": (td - timedelta(days=10)).replace(hour=22, minute=0, second=0, microsecond=0),
@@ -637,6 +705,16 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
             "notes": "Past booking — no show",
             "game_slots": [1],
             "final_status": "no_show",
+        },
+        {
+            "email": "magnus.kristensen@example.com",
+            "table_nr": "T15",
+            "start_ts": (td - timedelta(days=1)).replace(hour=15, minute=0, second=0, microsecond=0),
+            "end_ts": (td - timedelta(days=1)).replace(hour=17, minute=0, second=0, microsecond=0),
+            "party_size": 2,
+            "notes": "Past booking — completed",
+            "game_slots": [3],
+            "final_status": "completed",
         },
     ]
 

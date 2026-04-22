@@ -78,8 +78,10 @@ def test_table_availability_groups_by_floor_and_zone_and_marks_blocked_tables():
 
     table_one, table_two = floor_one["zones"][0]["tables"]
     assert table_one["available"] is True
+    assert table_one["selectable"] is True
     assert table_one["unavailable_reasons"] == []
     assert table_two["available"] is False
+    assert table_two["selectable"] is True
     assert "capacity" in table_two["unavailable_reasons"]
 
     floor_two = result["floors"][1]
@@ -90,8 +92,10 @@ def test_table_availability_groups_by_floor_and_zone_and_marks_blocked_tables():
     blocked_table = floor_two["zones"][1]["tables"][0]
 
     assert occupied_table["available"] is False
+    assert occupied_table["selectable"] is False
     assert "table_status" in occupied_table["unavailable_reasons"]
     assert blocked_table["available"] is False
+    assert blocked_table["selectable"] is False
     assert "reservation_overlap" in blocked_table["unavailable_reasons"]
 
 

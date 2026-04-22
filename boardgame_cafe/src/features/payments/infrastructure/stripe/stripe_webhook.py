@@ -1,8 +1,11 @@
 import stripe
 from flask import Blueprint, request, current_app
-from shared.infrastructure import db, csrf
+from features.payments.application.services.booking_payment_lifecycle import (
+    confirm_booking_after_success,
+    fail_payment_and_cleanup_created_booking,
+)
+from shared.infrastructure import csrf
 from shared.infrastructure.email.reservation_payment_publisher import publish_reservation_payment_completed
-from features.payments.infrastructure.database.payments_db import PaymentDB
 
 bp = Blueprint("stripe_webhook", __name__, url_prefix="/payments/stripe")
 
@@ -21,12 +24,20 @@ def webhook():
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-        payment_id = session["metadata"].get("payment_id")
+        payment_id = session.get("metadata", {}).get("payment_id")
 
-        payment = db.session.get(PaymentDB, payment_id)
-        if payment and payment.status != "paid":
-            payment.status = "paid"
-            db.session.commit()
-            publish_reservation_payment_completed(payment.booking_id)
+        resolved_booking_id, changed = confirm_booking_after_success(
+            payment_id=int(payment_id) if payment_id else None,
+        )
+        if changed and resolved_booking_id is not None:
+            publish_reservation_payment_completed(resolved_booking_id)
+
+    if event["type"] in {"checkout.session.expired", "checkout.session.async_payment_failed"}:
+        session = event["data"]["object"]
+        payment_id = session.get("metadata", {}).get("payment_id")
+        fail_payment_and_cleanup_created_booking(
+            payment_id=int(payment_id) if payment_id else None,
+            reason=event["type"],
+        )
 
     return {"status": "ok"}
