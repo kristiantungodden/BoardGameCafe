@@ -943,7 +943,7 @@ def seed_bookings() -> tuple[int, int, int]:
 
     create_booking = get_create_booking_handler()
 
-    _PAID_STATUSES = {"completed", "seated"}  # bookings that should show as paid
+    _PAID_STATUSES = {"confirmed", "completed", "seated"}
     _REFUNDED_STATUSES = {"cancelled", "no_show"}
 
     for row in seed_rows:
@@ -986,11 +986,10 @@ def seed_bookings() -> tuple[int, int, int]:
         if db_booking is not None and row.get("created_at") is not None:
             db_booking.created_at = row["created_at"]
 
-        # Advance booking to desired final status
+        # Advance booking to desired final status (created is only transient pre-payment)
         final = row["final_status"]
-        if final != "confirmed":
-            if db_booking is not None:
-                db_booking.status = final
+        if db_booking is not None:
+            db_booking.status = final
 
         # Adjust payment status to match reality
         if payment is not None:
