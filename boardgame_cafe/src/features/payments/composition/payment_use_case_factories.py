@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from typing import Any
+from flask import current_app
 
 from features.bookings.infrastructure.repositories.booking_repository import (
     SqlAlchemyBookingRepository,
@@ -29,10 +30,23 @@ _booking_repo = SqlAlchemyBookingRepository()
 
 
 def _create_payment_provider() -> PaymentProviderInterface:
-    stripe_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    # Prefer Flask app config when running inside an application context (e.g. tests).
+    stripe_key = ""
+    app_base_url = None
+    try:
+        stripe_key = (current_app.config.get("STRIPE_SECRET_KEY") or "").strip()
+        app_base_url = current_app.config.get("APP_BASE_URL")
+    except RuntimeError:
+        # Not in app context — fall back to environment variables.
+        stripe_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+        app_base_url = os.getenv("APP_BASE_URL")
+
     if not stripe_key:
         raise ValueError("STRIPE_SECRET_KEY environment variable is required")
-    app_base_url = os.getenv("APP_BASE_URL") or "http://127.0.0.1:5000"
+
+    if not app_base_url:
+        app_base_url = "http://127.0.0.1:5000"
+
     return StripeAdapter(stripe_key, app_base_url)
 
 
