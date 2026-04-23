@@ -36,6 +36,13 @@ class FakeTableReservationRepository:
             tr for tr in self._table_reservations.values()
             if tr.booking_id == booking_id
         ]
+
+    def list_by_table_id(self, table_id: int):
+        """List all table reservations linked to a table."""
+        return [
+            tr for tr in self._table_reservations.values()
+            if tr.table_id == table_id
+        ]
     
     def get_by_booking_and_table(self, booking_id: int, table_id: int):
         """Get a table reservation by booking_id and table_id."""

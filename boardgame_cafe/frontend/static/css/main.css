@@ -644,6 +644,120 @@ footer {
     grid-column: 1 / -1;
 }
 
+#floor .admin-floor-head {
+    margin-bottom: 0.7rem;
+}
+
+#floor .admin-floorplan-map {
+    margin-bottom: 0.85rem;
+    min-height: 170px;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+}
+
+#floor .admin-floor-tree-item {
+    border-color: #cfdcf4;
+    background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+}
+
+#floor .admin-location-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.7rem;
+    align-items: start;
+}
+
+#floor .admin-location-lists {
+    margin-top: 1rem;
+}
+
+#floor .admin-stacked-scroll {
+    margin-top: 0.75rem;
+}
+
+#floor .admin-location-edit-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+#floor .admin-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.2rem;
+}
+
+#floor .table-tile .button {
+    margin-top: 0.3rem;
+    width: 100%;
+}
+
+#floor .table-tile-available {
+    border-color: #a7d8bf;
+    background: #dff4e9;
+}
+
+#floor .table-tile-available .table-tile-status {
+    color: #22543d;
+}
+
+#floor .table-tile-alert {
+    border-color: #efb6bc;
+    background: #fbe5e7;
+}
+
+#floor .table-tile-alert .table-tile-status {
+    color: #8a2630;
+}
+
+#floor .table-tile-unavailable {
+    border-color: #d0d5db;
+    background: #e9ecef;
+}
+
+#floor .admin-drop-zone {
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+#floor .admin-drop-zone.admin-drop-active {
+    border-color: #2a5a48;
+    box-shadow: 0 0 0 3px rgba(42, 90, 72, 0.18);
+}
+
+#floor [data-dnd-table-id] {
+    cursor: grab;
+}
+
+#floor [data-dnd-table-id]:active {
+    cursor: grabbing;
+}
+
+#floor [data-dnd-table-id].admin-dragging {
+    opacity: 0.55;
+    transform: scale(0.98);
+}
+
+#floor .admin-drop-hint {
+    border: 2px dashed #2a5a48;
+    border-radius: 10px;
+    min-height: 78px;
+    display: grid;
+    place-items: center;
+    font-size: 0.82rem;
+    color: #2a5a48;
+    background: rgba(42, 90, 72, 0.06);
+    font-weight: 700;
+}
+
+.admin-location-modal-card {
+    width: min(520px, 95vw);
+    max-height: min(76vh, 640px);
+}
+
+@media (max-width: 980px) {
+    #floor .admin-location-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .steward-side-panel {
     align-self: start;
     position: sticky;

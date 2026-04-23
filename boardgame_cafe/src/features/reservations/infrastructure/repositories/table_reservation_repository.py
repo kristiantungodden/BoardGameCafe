@@ -77,6 +77,15 @@ class SqlAlchemyTableReservationRepository(TableReservationRepositoryInterface):
             .all()
         )
         return [self._to_domain(db) for db in db_table_ress]
+
+    def list_by_table_id(self, table_id: int) -> Sequence[TableReservation]:
+        """List all table reservations linked to a table."""
+        db_table_ress = (
+            self.session.query(TableReservationDB)
+            .filter_by(table_id=table_id)
+            .all()
+        )
+        return [self._to_domain(db) for db in db_table_ress]
     
     def get_by_booking_and_table(
         self, booking_id: int, table_id: int
