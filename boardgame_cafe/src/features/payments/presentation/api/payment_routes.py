@@ -4,15 +4,15 @@ from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user
 
 from features.bookings.application.interfaces.booking_repository_interface import BookingRepositoryInterface
-from features.payments.application.services.booking_payment_lifecycle import (
-    fail_payment_and_cleanup_created_booking,
-)
 from features.payments.application.interfaces.payment_provider_interface import PaymentProviderInterface
 from features.payments.application.interfaces.payment_repository_interface import PaymentRepositoryInterface
 from features.payments.application.services.payment_service import (
     PaymentAccessDeniedError,
     PaymentApplicationService,
     PaymentNotFoundError,
+)
+from features.payments.composition.payment_use_case_factories import (
+    get_payment_status_handler,
 )
 from features.payments.presentation.schemas.payment_schema import PaymentSchema
 
@@ -197,13 +197,7 @@ def check_payment_status_route(payment_id: int):
         return auth_error
 
     try:
-        saved = _require_service().sync_payment_status(payment_id=payment_id, user=current_user)
-        if str(saved.status) == "failed":
-            fail_payment_and_cleanup_created_booking(
-                payment_id=saved.id,
-                booking_id=saved.booking_id,
-                reason="provider_status_failed",
-            )
+        saved = get_payment_status_handler()(payment_id, current_user)
         return jsonify(PaymentSchema.dump(saved)), HTTPStatus.OK
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), HTTPStatus.INTERNAL_SERVER_ERROR

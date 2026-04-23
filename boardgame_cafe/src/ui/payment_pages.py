@@ -1,27 +1,9 @@
 from flask import Flask, abort, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-
-from features.payments.infrastructure.database.payments_db import PaymentDB
-from shared.infrastructure import db
-
-
-def _is_staff_or_admin(user) -> bool:
-    role = getattr(user, "role", None)
-    if hasattr(role, "value"):
-        role = role.value
-    return role in {"staff", "admin"} or bool(
-        getattr(user, "is_staff", False) or getattr(user, "is_admin", False)
-    )
-
-
-def _can_view_payment_result(payment: PaymentDB) -> bool:
-    if _is_staff_or_admin(current_user):
-        return True
-    booking = getattr(payment, "booking", None)
-    if booking is None:
-        return False
-    return getattr(booking, "customer_id", None) == getattr(current_user, "id", None)
-
+from features.payments.composition.payment_use_case_factories import (
+    get_payment_cancel_handler,
+    get_payment_success_handler,
+)
 
 def register_payment_pages(app: Flask) -> None:
     @app.route("/payments/<int:booking_id>")
@@ -38,17 +20,18 @@ def register_payment_pages(app: Flask) -> None:
         if payment_id is None:
             abort(400)
 
-        payment = db.session.get(PaymentDB, payment_id)
-        if payment is None:
-            abort(404)
-        if not _can_view_payment_result(payment):
-            abort(403)
-
         # Canonicalize URL to avoid exposing mutable query parameters.
         if request.args:
-            return redirect(url_for("payment_success_page", payment_id=payment.id))
+            return redirect(url_for("payment_success_page", payment_id=payment_id))
 
-        is_paid = payment.status == "paid"
+        try:
+            payment = get_payment_success_handler()(payment_id, current_user)
+        except ValueError:
+            abort(404)
+        except PermissionError:
+            abort(403)
+
+        is_paid = str(payment.status) == "paid"
 
         return render_template(
             "payment_result.html",
@@ -72,14 +55,16 @@ def register_payment_pages(app: Flask) -> None:
         if payment_id is None:
             abort(400)
 
-        payment = db.session.get(PaymentDB, payment_id)
-        if payment is None:
-            abort(404)
-        if not _can_view_payment_result(payment):
-            abort(403)
-
+        # Canonicalize URL to avoid exposing mutable query parameters.
         if request.args:
-            return redirect(url_for("payment_cancel_page", payment_id=payment.id))
+            return redirect(url_for("payment_cancel_page", payment_id=payment_id))
+
+        try:
+            payment = get_payment_cancel_handler()(payment_id, current_user)
+        except ValueError:
+            abort(404)
+        except PermissionError:
+            abort(403)
 
         return render_template(
             "payment_result.html",

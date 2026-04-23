@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.payments.domain.models.payment import Payment, PaymentStatus
@@ -23,7 +24,7 @@ def _create_customer_and_login(client, app, email: str = "customer@example.com")
         return db.session.get(UserDB, user_id)
 
 
-def _create_booking_for_customer(customer_id: int) -> BookingDB:
+def _create_booking_for_customer(customer_id: int, status: str = "confirmed") -> BookingDB:
     start_ts = datetime(2026, 4, 22, 12, 0, 0)
     end_ts = start_ts + timedelta(hours=2)
     booking = BookingDB(
@@ -31,19 +32,20 @@ def _create_booking_for_customer(customer_id: int) -> BookingDB:
         start_ts=start_ts,
         end_ts=end_ts,
         party_size=2,
-        status="confirmed",
+        status=status,
     )
     db.session.add(booking)
     db.session.commit()
     return booking
 
 
-def test_payment_success_route_is_read_only_and_uses_db_status(client, app, monkeypatch):
+def test_payment_success_route_confirms_paid_booking_and_uses_db_status(client, app, monkeypatch):
     repo = PaymentRepository()
     customer = _create_customer_and_login(client, app)
 
     with app.app_context():
-        booking = _create_booking_for_customer(customer.id)
+        booking = _create_booking_for_customer(customer.id, status="created")
+        booking_id = booking.id
         payment = Payment(booking_id=booking.id, amount_cents=2300)
         saved = repo.add(payment)
         saved.provider = "stripe"
@@ -51,8 +53,14 @@ def test_payment_success_route_is_read_only_and_uses_db_status(client, app, monk
         saved.status = PaymentStatus.PENDING
         repo.update(saved)
 
+    publish_mock = Mock()
     monkeypatch.setattr(
-        "app.stripe.checkout.Session.retrieve",
+        "features.payments.composition.payment_use_case_factories.publish_reservation_payment_completed",
+        publish_mock,
+    )
+
+    monkeypatch.setattr(
+        "features.payments.infrastructure.stripe.stripe_adapter.stripe.checkout.Session.retrieve",
         lambda session_id: SimpleNamespace(payment_status="paid"),
     )
 
@@ -61,12 +69,17 @@ def test_payment_success_route_is_read_only_and_uses_db_status(client, app, monk
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
     assert "Payment Confirmation" in html
-    assert "Payment is being verified" in html
-    assert "pending" in html
+    assert "Payment completed successfully." in html
+    assert "success" in html
 
     with app.app_context():
         updated = repo.get_by_id(saved.id)
-        assert updated.status == PaymentStatus.PENDING
+        assert updated.status == PaymentStatus.PAID
+        booking_after_payment = db.session.get(BookingDB, booking_id)
+        assert booking_after_payment is not None
+        assert booking_after_payment.status == "confirmed"
+
+    publish_mock.assert_called_once_with(booking_id)
 
 
 def test_payment_success_route_handles_unpaid_status(client, app, monkeypatch):
@@ -83,7 +96,7 @@ def test_payment_success_route_handles_unpaid_status(client, app, monkeypatch):
         repo.update(saved)
 
     monkeypatch.setattr(
-        "app.stripe.checkout.Session.retrieve",
+        "features.payments.infrastructure.stripe.stripe_adapter.stripe.checkout.Session.retrieve",
         lambda session_id: SimpleNamespace(payment_status="unpaid"),
     )
 
