@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 from shared.infrastructure.extensions import mail
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
@@ -51,44 +51,48 @@ def send_reservation_confirmation_email(event_payload: dict) -> None:
     qr_lines = ""
     attachments = []
 
-    if reservation_id and user_id:
-        token = get_or_create_reservation_qr_token(
-            current_app.config["SECRET_KEY"],
-            user_id=int(user_id),
-            reservation_id=int(reservation_id),
-        )
-        checkin_path = f"/api/reservations/checkin/{token}"
-        checkin_url = f"{_public_base_url()}{checkin_path}"
-        qr_svg = generate_qr_svg(checkin_url)
-        attachments.append(
-            (
-                f"reservation-{reservation_id}-checkin-qr.svg",
-                "image/svg+xml",
-                qr_svg.encode("utf-8"),
+    if reservation_id and user_id and has_app_context():
+        secret_key = current_app.config.get("SECRET_KEY")
+        if secret_key:
+            token = get_or_create_reservation_qr_token(
+                secret_key,
+                user_id=int(user_id),
+                reservation_id=int(reservation_id),
             )
-        )
-        qr_lines = (
-            "\n\nCheck-in QR included as attachment: "
-            f"reservation-{reservation_id}-checkin-qr.svg"
-            f"\nStaff check-in URL (fallback): {checkin_url}"
-        )
+            checkin_path = f"/api/reservations/checkin/{token}"
+            checkin_url = f"{_public_base_url()}{checkin_path}"
+            qr_svg = generate_qr_svg(checkin_url)
+            attachments.append(
+                (
+                    f"reservation-{reservation_id}-checkin-qr.svg",
+                    "image/svg+xml",
+                    qr_svg.encode("utf-8"),
+                )
+            )
+            qr_lines = (
+                "\n\nCheck-in QR included as attachment: "
+                f"reservation-{reservation_id}-checkin-qr.svg"
+                f"\nStaff check-in URL (fallback): {checkin_url}"
+            )
 
     details = (
         f"table_numbers={table_numbers}, start_ts={start_ts}, "
         f"end_ts={end_ts}, party_size={party_size}"
     )
-    FlaskMailService(mail).send_email(
-        subject="Your Dicer.no Reservation Confirmation",
-        sender=None,
-        recipients=[recipient],
-        body=(
+    send_kwargs = {
+        "subject": "Your Dicer.no Reservation Confirmation",
+        "sender": None,
+        "recipients": [recipient],
+        "body": (
             "Thank you for your reservation at Dicer.no! "
             f"\n\nHere are your reservation details:\n{details}"
             f"{qr_lines}"
             "\n\nWe look forward to seeing you soon!"
         ),
-        attachments=attachments,
-    )
+    }
+    if attachments:
+        send_kwargs["attachments"] = attachments
+    FlaskMailService(mail).send_email(**send_kwargs)
 
 # HER MÅ VÆRE NOE FOR RESET PASSORD SENERE.
 
