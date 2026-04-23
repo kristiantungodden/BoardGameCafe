@@ -26,6 +26,10 @@ class TableReservationRepositoryInterface(ABC):
     @abstractmethod
     def list_by_booking_id(self, booking_id: int) -> Sequence[TableReservation]:
         """List all table reservations for a booking."""
+
+    @abstractmethod
+    def list_by_table_id(self, table_id: int) -> Sequence[TableReservation]:
+        """List all table reservations linked to a table."""
     
     @abstractmethod
     def get_by_booking_and_table(
