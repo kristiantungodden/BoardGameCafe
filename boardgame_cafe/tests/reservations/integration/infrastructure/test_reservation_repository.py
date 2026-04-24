@@ -9,6 +9,9 @@ from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from features.games.infrastructure.database.game_db import GameDB
 from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
+from features.reservations.infrastructure.repositories.reservation_repository import (
+	SqlAlchemyReservationRepository,
+)
 from features.tables.infrastructure.database.table_db import TableDB
 from features.users.infrastructure.database.user_db import UserDB
 
@@ -109,3 +112,35 @@ def test_game_reservation_db_rejects_duplicate_copy_for_same_booking(db_session)
 	with pytest.raises(IntegrityError):
 		db_session.commit()
 	db_session.rollback()
+
+
+def test_reservation_repository_returns_all_linked_table_ids(db_session):
+	user, table_one, _, _ = _create_user_table_game(db_session)
+	table_two = TableDB(table_nr="T100", capacity=2, zone="main", status="available")
+	db_session.add(table_two)
+	db_session.commit()
+
+	booking = BookingDB(
+		customer_id=user.id,
+		start_ts=datetime(2026, 4, 1, 18, 0),
+		end_ts=datetime(2026, 4, 1, 20, 0),
+		party_size=6,
+		status="confirmed",
+	)
+	db_session.add(booking)
+	db_session.commit()
+
+	db_session.add_all(
+		[
+			TableReservationDB(booking_id=booking.id, table_id=table_one.id),
+			TableReservationDB(booking_id=booking.id, table_id=table_two.id),
+		]
+	)
+	db_session.commit()
+
+	repo = SqlAlchemyReservationRepository(session=db_session)
+	reservation = repo.get_by_id(booking.id)
+
+	assert reservation is not None
+	assert reservation.table_id == table_one.id
+	assert reservation.table_ids == [table_one.id, table_two.id]

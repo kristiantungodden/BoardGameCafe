@@ -46,45 +46,43 @@ class SqlAlchemyReservationRepository(ReservationRepositoryInterface):
         else:
             self.session.flush()
 
-        return self._to_domain(booking, link)
+        return self._to_domain(booking, [link.table_id])
 
     def get_by_id(self, reservation_id: int) -> Optional[Booking]:
         booking = self.session.get(BookingDB, reservation_id)
         if booking is None:
             return None
 
-        link = (
-            self.session.query(TableReservationDB)
-            .filter(TableReservationDB.booking_id == booking.id)
-            .order_by(TableReservationDB.id.asc())
-            .first()
-        )
-        if link is None:
+        table_ids = self._table_ids_for_booking(booking.id)
+        if not table_ids:
             return None
 
-        return self._to_domain(booking, link)
+        return self._to_domain(booking, table_ids)
 
     def list_all(self) -> Sequence[Booking]:
         rows = (
-            self.session.query(BookingDB, TableReservationDB)
+            self.session.query(BookingDB)
             .join(TableReservationDB, TableReservationDB.booking_id == BookingDB.id)
             .order_by(BookingDB.start_ts.asc(), BookingDB.id.asc())
             .all()
         )
         deduped: list[Booking] = []
         seen_booking_ids: set[int] = set()
-        for booking, link in rows:
+        for booking in rows:
             if booking.id in seen_booking_ids:
                 continue
             seen_booking_ids.add(booking.id)
-            deduped.append(self._to_domain(booking, link))
+            table_ids = self._table_ids_for_booking(booking.id)
+            if not table_ids:
+                continue
+            deduped.append(self._to_domain(booking, table_ids))
         return deduped
 
     def list_for_table_in_window(
         self, table_id: int, start_ts: datetime, end_ts: datetime
     ) -> Sequence[Booking]:
         rows = (
-            self.session.query(BookingDB, TableReservationDB)
+            self.session.query(BookingDB)
             .join(TableReservationDB, TableReservationDB.booking_id == BookingDB.id)
             .filter(TableReservationDB.table_id == table_id)
             .filter(BookingDB.start_ts < end_ts)
@@ -92,7 +90,7 @@ class SqlAlchemyReservationRepository(ReservationRepositoryInterface):
             .order_by(BookingDB.start_ts.asc())
             .all()
         )
-        return [self._to_domain(booking, link) for booking, link in rows]
+        return [self._to_domain(booking, self._table_ids_for_booking(booking.id)) for booking in rows]
 
     def update(self, reservation: Booking) -> Booking:
         if reservation.id is None:
@@ -129,10 +127,19 @@ class SqlAlchemyReservationRepository(ReservationRepositoryInterface):
         else:
             self.session.flush()
 
-        return self._to_domain(booking, link)
+        return self._to_domain(booking, self._table_ids_for_booking(booking.id))
+
+    def _table_ids_for_booking(self, booking_id: int) -> list[int]:
+        rows = (
+            self.session.query(TableReservationDB.table_id)
+            .filter(TableReservationDB.booking_id == booking_id)
+            .order_by(TableReservationDB.id.asc())
+            .all()
+        )
+        return [int(row.table_id) for row in rows if row.table_id is not None]
 
     @staticmethod
-    def _to_domain(booking: BookingDB, link: TableReservationDB) -> Booking:
+    def _to_domain(booking: BookingDB, table_ids: Sequence[int]) -> Booking:
         reservation = Booking(
             id=booking.id,
             customer_id=booking.customer_id,
@@ -143,7 +150,9 @@ class SqlAlchemyReservationRepository(ReservationRepositoryInterface):
             notes=booking.notes,
             created_at=booking.created_at,
         )
-        setattr(reservation, "table_id", link.table_id)
+        normalized_table_ids = [int(table_id) for table_id in table_ids if table_id is not None]
+        setattr(reservation, "table_ids", normalized_table_ids)
+        setattr(reservation, "table_id", normalized_table_ids[0] if normalized_table_ids else None)
         return reservation
 
 
