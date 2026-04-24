@@ -3,7 +3,7 @@ import pytest
 from datetime import datetime, date
 from enum import Enum
 
-from shared.domain.events import UserRegistered, ReservationCreated
+from shared.domain.events import UserRegistered, ReservationPaymentCompleted
 from shared.infrastructure.email.event_bus import EventBus
 
 
@@ -64,10 +64,10 @@ class TestEventBusSyncHandlers:
         reservation_calls = []
 
         event_bus.subscribe(UserRegistered, lambda e: user_calls.append(e))
-        event_bus.subscribe(ReservationCreated, lambda e: reservation_calls.append(e))
+        event_bus.subscribe(ReservationPaymentCompleted, lambda e: reservation_calls.append(e))
 
         event_bus.publish(UserRegistered(user_id=1, email="test@example.com"))
-        event_bus.publish(ReservationCreated(
+        event_bus.publish(ReservationPaymentCompleted(
             reservation_id=1, user_id=1, user_email="test@example.com",
             table_numbers=[2], start_ts="2026-04-17T17:00:00", end_ts="2026-04-17T19:00:00", party_size=4
         ))

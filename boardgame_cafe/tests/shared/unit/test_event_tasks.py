@@ -105,8 +105,8 @@ class TestSendReservationConfirmationEmailTask:
         mock_mail_service.return_value = mock_service_instance
 
         event_payload = {
-            "event_type": "ReservationCreated",
-            "event_module": "shared.domain.events.reservation_created",
+            "event_type": "ReservationPaymentCompleted",
+            "event_module": "shared.domain.events.reservation_payment_completed",
             "data": {
                 "reservation_id": 456,
                 "user_id": 123,
@@ -141,8 +141,8 @@ class TestSendReservationConfirmationEmailTask:
         mock_mail_service.return_value = mock_service_instance
 
         event_payload = {
-            "event_type": "ReservationCreated",
-            "event_module": "shared.domain.events.reservation_created",
+            "event_type": "ReservationPaymentCompleted",
+            "event_module": "shared.domain.events.reservation_payment_completed",
             "data": {
                 "reservation_id": 456,
                 "user_id": 123,
@@ -165,8 +165,8 @@ class TestSendReservationConfirmationEmailTask:
         mock_mail_service.return_value = mock_service_instance
 
         event_payload = {
-            "event_type": "ReservationCreated",
-            "event_module": "shared.domain.events.reservation_created",
+            "event_type": "ReservationPaymentCompleted",
+            "event_module": "shared.domain.events.reservation_payment_completed",
             "data": {
                 "reservation_id": 456,
                 "user_id": 123,
@@ -189,8 +189,8 @@ class TestSendReservationConfirmationEmailTask:
 
         # Minimal payload
         event_payload = {
-            "event_type": "ReservationCreated",
-            "event_module": "shared.domain.events.reservation_created",
+            "event_type": "ReservationPaymentCompleted",
+            "event_module": "shared.domain.events.reservation_payment_completed",
             "data": {
                 "user_email": "user@example.com",
             }
@@ -231,8 +231,8 @@ class TestPublishRealtimeEventTask:
     def test_publish_realtime_event_passes_through_complete_payload(self, mock_publish):
         """Task should pass through the complete event payload unchanged."""
         event_payload = {
-            "event_type": "ReservationCreated",
-            "event_module": "shared.domain.events.reservation_created",
+            "event_type": "ReservationPaymentCompleted",
+            "event_module": "shared.domain.events.reservation_payment_completed",
             "data": {
                 "reservation_id": 456,
                 "user_id": 123,

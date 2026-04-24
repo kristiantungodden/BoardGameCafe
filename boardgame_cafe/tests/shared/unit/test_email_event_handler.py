@@ -3,7 +3,6 @@ import pytest
 from unittest.mock import Mock, patch
 
 from shared.domain.events import (
-    ReservationCreated,
     ReservationPaymentCompleted,
     UserRegistered,
 )
@@ -130,13 +129,13 @@ class TestEmailEventHandlerRegistration:
 
         event_bus = EventBus()
 
-        # Subscribe both events to realtime publishing
+        # Subscribe both events to realtime publishing (actual wiring)
         event_bus.subscribe_task(UserRegistered, "shared.tasks.publish_realtime_event")
-        event_bus.subscribe_task(ReservationCreated, "shared.tasks.publish_realtime_event")
+        event_bus.subscribe_task(ReservationPaymentCompleted, "shared.tasks.publish_realtime_event")
 
         # Publish both events
         event_bus.publish(UserRegistered(user_id=1, email="user@example.com"))
-        event_bus.publish(ReservationCreated(
+        event_bus.publish(ReservationPaymentCompleted(
             reservation_id=1, user_id=1, user_email="user@example.com",
             table_numbers=[1], start_ts="2026-04-17T18:00:00", end_ts="2026-04-17T20:00:00", party_size=2
         ))
@@ -223,9 +222,9 @@ class TestEventPayloadStructure:
         )
 
         event_bus = EventBus()
-        event_bus.subscribe_task(ReservationCreated, "task")
+        event_bus.subscribe_task(ReservationPaymentCompleted, "task")
 
-        event = ReservationCreated(
+        event = ReservationPaymentCompleted(
             reservation_id=456,
             user_id=123,
             user_email="user@example.com",
