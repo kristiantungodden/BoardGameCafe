@@ -12,8 +12,9 @@ from shared.infrastructure import db
 from features.tables.infrastructure.database import TableDB as CafeTableDB
 
 class TableRepository(TableRepositoryInterface):
-    def __init__(self, session: Optional[Session] = None):
+    def __init__(self, session: Optional[Session] = None, auto_commit: bool = True):
         self.session = session or db.session
+        self.auto_commit = auto_commit
 
     def add(self, table: Table) -> Table:
         db_table = CafeTableDB(
@@ -29,7 +30,10 @@ class TableRepository(TableRepositoryInterface):
             status=table.status,
         )
         self.session.add(db_table)
-        self.session.commit()
+        if self.auto_commit:
+            self.session.commit()
+        else:
+            self.session.flush()
         return self._to_domain(db_table)
 
     def get_by_id(self, table_id: int) -> Optional[Table]:
@@ -71,7 +75,10 @@ class TableRepository(TableRepositoryInterface):
         db_table.height = table.height
         db_table.rotation = table.rotation
         db_table.status = table.status
-        self.session.commit()
+        if self.auto_commit:
+            self.session.commit()
+        else:
+            self.session.flush()
         return self._to_domain(db_table)
 
     def delete(self, table_id: int) -> None:
@@ -79,7 +86,10 @@ class TableRepository(TableRepositoryInterface):
         if db_table is None:
             raise ValueError(f"Table with id {table_id} does not exist")
         self.session.delete(db_table)
-        self.session.commit()
+        if self.auto_commit:
+            self.session.commit()
+        else:
+            self.session.flush()
 
     def search(self, filters: Optional[TableFilters] = None) -> list[Table]:
         filters = filters or TableFilters()

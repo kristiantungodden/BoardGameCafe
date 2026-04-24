@@ -39,6 +39,12 @@ from features.bookings.application.use_cases.booking_lifecycle_use_cases import 
     MarkBookingNoShowUseCase,
     SeatBookingUseCase,
 )
+from features.reservations.infrastructure.repositories.table_reservation_repository import (
+    SqlAlchemyTableReservationRepository,
+)
+from features.tables.infrastructure.repositories.table_repository import (
+    TableRepository as SqlAlchemyTableRepository,
+)
 from features.reservations.infrastructure.repositories.game_reservation_repository import (
     SqlAlchemyGameReservationRepository,
 )
@@ -103,11 +109,21 @@ def get_browse_steward_reservations_use_case() -> BrowseStewardReservationsUseCa
 
 
 def get_seat_reservation_use_case() -> SeatBookingUseCase:
-    return SeatBookingUseCase(get_reservation_repo(), get_status_history_repo())
+    return SeatBookingUseCase(
+        get_reservation_repo(),
+        get_status_history_repo(),
+        SqlAlchemyTableReservationRepository(),
+        SqlAlchemyTableRepository(),
+    )
 
 
 def get_complete_reservation_use_case() -> CompleteBookingUseCase:
-    return CompleteBookingUseCase(get_reservation_repo(), get_status_history_repo())
+    return CompleteBookingUseCase(
+        get_reservation_repo(),
+        get_status_history_repo(),
+        SqlAlchemyTableReservationRepository(),
+        SqlAlchemyTableRepository(),
+    )
 
 
 def get_no_show_reservation_use_case() -> MarkBookingNoShowUseCase:

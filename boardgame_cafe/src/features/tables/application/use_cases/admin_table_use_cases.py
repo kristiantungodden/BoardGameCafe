@@ -17,6 +17,10 @@ from features.tables.domain.models.zone import Zone
 from shared.domain.exceptions import ValidationError
 
 
+_MOVE_LOCKED_TABLE_STATUSES = {"occupied", "maintenance"}
+_EDIT_DELETE_LOCKED_TABLE_STATUSES = {"occupied"}
+
+
 @dataclass
 class CreateFloorCommand:
     number: int
@@ -192,6 +196,8 @@ class UpdateTableUseCase:
         existing = self.table_repo.get_by_id(cmd.table_id)
         if existing is None:
             raise ValidationError("Table not found")
+        _ensure_table_is_editable_or_deletable(existing)
+        _ensure_table_is_not_moved_while_locked(existing, cmd.floor, cmd.zone)
         if self.floor_repo.get_by_number(cmd.floor) is None:
             raise ValidationError("Floor not found")
         if self.zone_repo.get_by_floor_and_name(cmd.floor, cmd.zone) is None:
@@ -212,7 +218,7 @@ class UpdateTableUseCase:
         existing.capacity = cmd.capacity
         existing.floor = cmd.floor
         existing.zone = cmd.zone
-        existing.status = cmd.status
+        _apply_table_status_update(existing, cmd.status)
         existing.features = cmd.features or {}
         existing.width = cmd.width
         existing.height = cmd.height
@@ -229,6 +235,7 @@ class DeleteTableUseCase:
         table = self.table_repo.get_by_id(table_id)
         if table is None:
             raise ValidationError("Table not found")
+        _ensure_table_is_editable_or_deletable(table)
 
         future_bookings = self.reservation_repo.list_for_table_in_window(
             table_id,
@@ -254,6 +261,7 @@ class ForceDeleteTableUseCase:
         table = self.table_repo.get_by_id(table_id)
         if table is None:
             raise ValidationError("Table not found")
+        _ensure_table_is_editable_or_deletable(table)
 
         links = self.table_reservation_repo.list_by_table_id(table_id)
         for link in links:
@@ -351,6 +359,37 @@ class DeleteZoneUseCase:
             raise ValidationError("Cannot delete zone with tables assigned to it")
 
         self.zone_repo.delete(zone_id)
+
+
+def _ensure_table_is_editable_or_deletable(table: Table) -> None:
+    if table.status in _EDIT_DELETE_LOCKED_TABLE_STATUSES:
+        raise ValidationError("Cannot edit or delete a table while it is occupied")
+
+
+def _ensure_table_is_not_moved_while_locked(table: Table, target_floor: int, target_zone: str) -> None:
+    if table.status not in _MOVE_LOCKED_TABLE_STATUSES:
+        return
+
+    normalized_target_zone = str(target_zone or "").strip()
+    normalized_existing_zone = str(table.zone or "").strip()
+    if int(table.floor) != int(target_floor) or normalized_existing_zone != normalized_target_zone:
+        raise ValidationError("Cannot move a table while it is occupied or under maintenance")
+
+
+def _apply_table_status_update(table: Table, next_status: str) -> None:
+    normalized_next_status = str(next_status or "").strip().lower()
+    if normalized_next_status == table.status:
+        return
+
+    if table.status == "available" and normalized_next_status == "maintenance":
+        table.start_maintenance()
+        return
+
+    if table.status == "maintenance" and normalized_next_status == "available":
+        table.finish_maintenance()
+        return
+
+    table.status = normalized_next_status
 
 
 class ForceDeleteZoneUseCase:
