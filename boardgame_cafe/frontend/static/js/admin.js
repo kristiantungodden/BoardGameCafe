@@ -213,6 +213,11 @@ function getAdminTableDisplayStatus(table) {
     return persisted || 'unknown';
 }
 
+function isAdminTableMovable(table) {
+    const persisted = String(table?.status || '').trim().toLowerCase();
+    return persisted !== 'occupied';
+}
+
 function deriveLocationStateFromTables(tables) {
     const floorMap = new Map();
     const zoneMap = new Map();
@@ -330,7 +335,7 @@ function renderLocationFloorplan() {
 
                         const tablesMarkup = zoneTables.length
                             ? zoneTables.map((table) => `
-                                <article class="table-tile ${getAdminTableTileClass(getAdminTableDisplayStatus(table))}" draggable="true" data-dnd-table-id="${table.id}">
+                                <article class="table-tile ${getAdminTableTileClass(getAdminTableDisplayStatus(table))}" draggable="${isAdminTableMovable(table) ? 'true' : 'false'}" data-dnd-table-id="${table.id}">
                                     <span class="table-tile-name">T${escapeHtml(table.number)}</span>
                                     <span class="table-tile-cap">Cap ${escapeHtml(table.capacity)}</span>
                                     <span class="table-tile-status">${escapeHtml(getAdminTableDisplayStatus(table))}</span>
@@ -413,12 +418,17 @@ async function moveTableToZone(tableId, targetFloorRaw, targetZoneRaw) {
 }
 
 function bindLocationDragAndDrop() {
+    const map = document.getElementById('admin-floorplan-map');
+    if (!map) return;
+
     const tableTiles = document.querySelectorAll('[data-dnd-table-id]');
-    const dropZones = document.querySelectorAll('.admin-drop-zone');
+    const dropZones = Array.from(document.querySelectorAll('.admin-drop-zone'));
+    let activeZone = null;
 
     const clearDropHints = () => {
         document.querySelectorAll('.admin-drop-hint').forEach((hint) => hint.remove());
         dropZones.forEach((zone) => zone.classList.remove('admin-drop-active'));
+        activeZone = null;
     };
 
     const attachDropHint = (zone) => {
@@ -439,7 +449,9 @@ function bindLocationDragAndDrop() {
     tableTiles.forEach((tile) => {
         tile.addEventListener('dragstart', (event) => {
             const tableId = String(tile.getAttribute('data-dnd-table-id') || '');
-            if (!tableId || !event.dataTransfer) {
+            const table = getTableById(tableId);
+            if (!tableId || !event.dataTransfer || !isAdminTableMovable(table)) {
+                event.preventDefault();
                 return;
             }
             event.dataTransfer.setData('text/plain', tableId);
@@ -453,47 +465,57 @@ function bindLocationDragAndDrop() {
         });
     });
 
-    dropZones.forEach((zone) => {
-        zone.addEventListener('dragenter', (event) => {
-            event.preventDefault();
-            dropZones.forEach((entry) => entry.classList.remove('admin-drop-active'));
-            document.querySelectorAll('.admin-drop-hint').forEach((hint) => hint.remove());
-            zone.classList.add('admin-drop-active');
-            attachDropHint(zone);
-        });
-
-        zone.addEventListener('dragover', (event) => {
-            event.preventDefault();
-            zone.classList.add('admin-drop-active');
-            attachDropHint(zone);
-        });
-
-        zone.addEventListener('dragleave', (event) => {
-            const related = event.relatedTarget;
-            if (related && zone.contains(related)) {
-                return;
+    map.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        const zone = event.target instanceof Element
+            ? event.target.closest('.admin-drop-zone')
+            : null;
+        if (!zone || !dropZones.includes(zone)) {
+            if (activeZone) {
+                clearDropHints();
             }
-            zone.classList.remove('admin-drop-active');
-            const hint = zone.querySelector('.admin-drop-hint');
-            if (hint) {
-                hint.remove();
-            }
-        });
+            return;
+        }
 
-        zone.addEventListener('drop', async (event) => {
-            event.preventDefault();
+        if (activeZone !== zone) {
             clearDropHints();
+            activeZone = zone;
+            zone.classList.add('admin-drop-active');
+            attachDropHint(zone);
+        }
+    });
 
-            const tableIdRaw = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
-            const tableId = Number(tableIdRaw);
-            const targetFloor = zone.getAttribute('data-target-floor');
-            const targetZone = zone.getAttribute('data-target-zone');
-            if (!tableId || !targetFloor || !targetZone) {
-                return;
-            }
+    map.addEventListener('dragleave', (event) => {
+        const related = event.relatedTarget;
+        if (!(related instanceof Element) || !map.contains(related)) {
+            clearDropHints();
+        }
+    });
 
-            await moveTableToZone(tableId, targetFloor, targetZone);
-        });
+    map.addEventListener('drop', async (event) => {
+        event.preventDefault();
+        const hoveredZone = event.target instanceof Element
+            ? event.target.closest('.admin-drop-zone')
+            : null;
+        const zone = (hoveredZone && dropZones.includes(hoveredZone))
+            ? hoveredZone
+            : activeZone;
+
+        if (!zone || !dropZones.includes(zone)) {
+            clearDropHints();
+            return;
+        }
+
+        const tableIdRaw = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+        const tableId = Number(tableIdRaw);
+        const targetFloor = zone.getAttribute('data-target-floor');
+        const targetZone = zone.getAttribute('data-target-zone');
+        clearDropHints();
+        if (!tableId || !targetFloor || !targetZone) {
+            return;
+        }
+
+        await moveTableToZone(tableId, targetFloor, targetZone);
     });
 }
 

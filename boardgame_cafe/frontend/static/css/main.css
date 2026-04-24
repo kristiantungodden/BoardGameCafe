@@ -742,6 +742,10 @@ footer {
     cursor: grab;
 }
 
+#floor [data-dnd-table-id][draggable="false"] {
+    cursor: not-allowed;
+}
+
 #floor [data-dnd-table-id]:active {
     cursor: grabbing;
 }
