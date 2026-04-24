@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from contextlib import nullcontext
 from typing import Optional, Sequence
 
 from features.bookings.application.interfaces.booking_repository_interface import (
@@ -28,7 +29,6 @@ from features.tables.application.interfaces.table_repository import (
 )
 from shared.domain.constants import OVERLAP_BLOCKING_STATUSES
 from shared.domain.exceptions import ValidationError
-from shared.infrastructure import db
 
 _OPENING_TIME = time(hour=9, minute=0)
 _CLOSING_TIME = time(hour=23, minute=0)
@@ -276,51 +276,18 @@ def _execute_transition_with_history(
     table_reservation_repo: Optional[TableReservationRepositoryInterface] = None,
     table_repo: Optional[TableRepositoryInterface] = None,
 ) -> Optional[Booking]:
-    try:
-        session = db.session()
-    except RuntimeError:
-        return _apply_transition_and_log(
-            booking_repo,
-            status_history_repo,
-            payment_repo,
-            payment_provider,
-            booking_id,
-            transition_method_name,
-            actor_user_id,
-            actor_role,
-            table_reservation_repo,
-            table_repo,
-        )
-
-    tx_ctx = session.begin_nested() if session.in_transaction() else session.begin()
-    with tx_ctx:
-        transition_booking_repo = _instantiate_repo_in_transaction(booking_repo, session)
-        transition_history_repo = _instantiate_repo_in_transaction(
-            status_history_repo, session
-        )
-        transition_payment_repo = _instantiate_repo_in_transaction(payment_repo, session)
-        return _apply_transition_and_log(
-            transition_booking_repo,
-            transition_history_repo,
-            transition_payment_repo,
-            payment_provider,
-            booking_id,
-            transition_method_name,
-            actor_user_id,
-            actor_role,
-            _instantiate_repo_in_transaction(table_reservation_repo, session),
-            _instantiate_repo_in_transaction(table_repo, session),
-        )
-
-
-def _instantiate_repo_in_transaction(repo, session):
-    if repo is None:
-        return None
-
-    try:
-        return repo.__class__(session=session, auto_commit=False)
-    except TypeError:
-        return repo
+    return _apply_transition_and_log(
+        booking_repo,
+        status_history_repo,
+        payment_repo,
+        payment_provider,
+        booking_id,
+        transition_method_name,
+        actor_user_id,
+        actor_role,
+        table_reservation_repo,
+        table_repo,
+    )
 
 
 def _apply_transition_and_log(
@@ -335,53 +302,119 @@ def _apply_transition_and_log(
     table_reservation_repo=None,
     table_repo=None,
 ) -> Optional[Booking]:
-    booking = booking_repo.get_by_id(booking_id)
-    if booking is None:
+    session = _resolve_shared_session(
+        booking_repo,
+        status_history_repo,
+        payment_repo,
+        table_reservation_repo,
+        table_repo,
+    )
+    auto_commit_repos = [
+        repo
+        for repo in (
+            booking_repo,
+            status_history_repo,
+            payment_repo,
+            table_reservation_repo,
+            table_repo,
+        )
+        if _normalize_session(getattr(repo, "session", None)) is session and hasattr(repo, "auto_commit")
+    ]
+
+    tx_ctx = (
+        session.begin_nested() if session is not None and session.in_transaction() else session.begin()
+        if session is not None
+        else nullcontext()
+    )
+
+    previous_auto_commit = []
+    try:
+        for repo in auto_commit_repos:
+            previous_auto_commit.append((repo, repo.auto_commit))
+            repo.auto_commit = False
+
+        with tx_ctx:
+            booking = booking_repo.get_by_id(booking_id)
+            if booking is None:
+                return None
+
+            previous_status = booking.status
+            if transition_method_name == "cancel":
+                _validate_cancellation_window(booking.start_ts)
+
+            getattr(booking, transition_method_name)()
+            updated = booking_repo.update(booking)
+
+            if transition_method_name == "cancel":
+                _refund_paid_booking_if_supported(
+                    booking_id=updated.id,
+                    payment_repo=payment_repo,
+                    payment_provider=payment_provider,
+                )
+
+            if transition_method_name == "seat":
+                _sync_table_status_for_booking(
+                    booking_id=updated.id,
+                    table_reservation_repo=table_reservation_repo,
+                    table_repo=table_repo,
+                    target_status="occupied",
+                )
+
+            if transition_method_name == "complete":
+                _sync_table_status_for_booking(
+                    booking_id=updated.id,
+                    table_reservation_repo=table_reservation_repo,
+                    table_repo=table_repo,
+                    target_status="available",
+                )
+
+            if status_history_repo is not None:
+                status_history_repo.save(
+                    BookingStatusHistoryEntry(
+                        booking_id=updated.id,
+                        from_status=previous_status,
+                        to_status=updated.status,
+                        source="status_transition",
+                        actor_user_id=actor_user_id,
+                        actor_role=actor_role,
+                    )
+                )
+
+            return updated
+    finally:
+        for repo, auto_commit in reversed(previous_auto_commit):
+            repo.auto_commit = auto_commit
+
+
+def _resolve_shared_session(*repos):
+    sessions = [
+        _normalize_session(getattr(repo, "session", None))
+        for repo in repos
+        if getattr(repo, "session", None) is not None
+    ]
+    if not sessions:
         return None
 
-    previous_status = booking.status
-    if transition_method_name == "cancel":
-        _validate_cancellation_window(booking.start_ts)
+    first_session = sessions[0]
+    if any(session is not first_session for session in sessions[1:]):
+        return None
 
-    getattr(booking, transition_method_name)()
-    updated = booking_repo.update(booking)
+    return first_session
 
-    if transition_method_name == "cancel":
-        _refund_paid_booking_if_supported(
-            booking_id=updated.id,
-            payment_repo=payment_repo,
-            payment_provider=payment_provider,
-        )
 
-    if transition_method_name == "seat":
-        _sync_table_status_for_booking(
-            booking_id=updated.id,
-            table_reservation_repo=table_reservation_repo,
-            table_repo=table_repo,
-            target_status="occupied",
-        )
+def _normalize_session(session):
+    if session is None:
+        return None
 
-    if transition_method_name == "complete":
-        _sync_table_status_for_booking(
-            booking_id=updated.id,
-            table_reservation_repo=table_reservation_repo,
-            table_repo=table_repo,
-            target_status="available",
-        )
+    if hasattr(session, "in_transaction"):
+        return session
 
-    if status_history_repo is not None:
-        status_history_repo.save(
-            BookingStatusHistoryEntry(
-                booking_id=updated.id,
-                from_status=previous_status,
-                to_status=updated.status,
-                source="status_transition",
-                actor_user_id=actor_user_id,
-                actor_role=actor_role,
-            )
-        )
+    if callable(session):
+        resolved = session()
+        if hasattr(resolved, "in_transaction"):
+            return resolved
 
-    return updated
+    return session
 
 
 def _sync_table_status_for_booking(

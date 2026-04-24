@@ -14,3 +14,7 @@ class PaymentRepositoryInterface(ABC):
     @abstractmethod
     def get_by_booking_id(self, booking_id: int) -> Payment | None:
         raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, payment_id: int) -> None:
+        raise NotImplementedError

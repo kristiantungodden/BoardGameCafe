@@ -53,9 +53,11 @@ from features.reservations.infrastructure.repositories.reservation_repository im
 from features.reservations.infrastructure.repositories.table_reservation_repository import (
     SqlAlchemyTableReservationRepository,
 )
+from features.games.infrastructure.repositories.game_repository import GameRepository
 from features.tables.infrastructure.repositories.table_repository import (
     TableRepository as SqlAlchemyTableRepository,
 )
+from features.users.infrastructure.pricing_settings import resolve_base_fee
 from shared.infrastructure import db
 
 _repo = SqlAlchemyReservationRepository()
@@ -74,6 +76,7 @@ _stripe_provider = (
 _status_history_repo = SqlAlchemyBookingStatusHistoryRepository()
 _available_table_repo = SqlAlchemyAvailableTableRepository()
 _available_copy_repo = SqlAlchemyAvailableGameCopyRepository()
+_game_lookup_repo = GameRepository()
 
 
 def get_create_reservation_use_case() -> CreateBookingRecordUseCase:
@@ -173,34 +176,61 @@ def get_create_reservation_with_payment_handler():
 
 def get_create_booking_handler():
     def _create_booking(cmd: BookingCommand, games: list[dict] | None = None):
-        booking_use_case = CreateBookingUseCase(
-            booking_repo=_booking_repo,
-            table_reservation_repo=_table_reservation_repo,
-            game_repo=_game_repo,
-            available_table_repo=_available_table_repo,
-            available_copy_repo=_available_copy_repo,
-            payment_repo=_payment_repo,
-            status_history_repo=_status_history_repo,
-        )
+        session = db.session()
+        tx_ctx = session.begin_nested() if session.in_transaction() else session.begin()
 
-        game_requests = [
-            BookingGameRequest(
-                requested_game_id=game["requested_game_id"],
-                game_copy_id=game.get("game_copy_id"),
+        with tx_ctx:
+            booking_repo = SqlAlchemyBookingRepository(session=session, auto_commit=False)
+            table_reservation_repo = SqlAlchemyTableReservationRepository(
+                session=session,
+                auto_commit=False,
             )
-            for game in (games or [])
-        ]
+            game_reservation_repo = SqlAlchemyGameReservationRepository(
+                session=session,
+                auto_commit=False,
+            )
+            table_repo = SqlAlchemyTableRepository(session=session, auto_commit=False)
+            game_lookup_repo = GameRepository(session=session)
+            available_table_repo = SqlAlchemyAvailableTableRepository(session=session)
+            available_copy_repo = SqlAlchemyAvailableGameCopyRepository(session=session)
+            payment_repo = PaymentRepository(session=session, auto_commit=False)
+            status_history_repo = SqlAlchemyBookingStatusHistoryRepository(
+                session=session,
+                auto_commit=False,
+            )
+            base_fee_cents = resolve_base_fee(session)["effective_fee_cents"]
 
-        return booking_use_case.execute(
-            customer_id=cmd.customer_id,
-            table_id=cmd.table_id,
-            table_ids=getattr(cmd, "table_ids", None),
-            start_ts=cmd.start_ts,
-            end_ts=cmd.end_ts,
-            party_size=cmd.party_size,
-            games=game_requests,
-            notes=cmd.notes,
-        )
+            booking_use_case = CreateBookingUseCase(
+                booking_repo=booking_repo,
+                table_reservation_repo=table_reservation_repo,
+                game_repo=game_reservation_repo,
+                table_repo=table_repo,
+                game_lookup_repo=game_lookup_repo,
+                available_table_repo=available_table_repo,
+                available_copy_repo=available_copy_repo,
+                payment_repo=payment_repo,
+                status_history_repo=status_history_repo,
+            )
+
+            game_requests = [
+                BookingGameRequest(
+                    requested_game_id=game["requested_game_id"],
+                    game_copy_id=game.get("game_copy_id"),
+                )
+                for game in (games or [])
+            ]
+
+            return booking_use_case.execute(
+                customer_id=cmd.customer_id,
+                table_id=cmd.table_id,
+                table_ids=getattr(cmd, "table_ids", None),
+                start_ts=cmd.start_ts,
+                end_ts=cmd.end_ts,
+                party_size=cmd.party_size,
+                games=game_requests,
+                notes=cmd.notes,
+                base_fee_cents=base_fee_cents,
+            )
 
     return _create_booking
 

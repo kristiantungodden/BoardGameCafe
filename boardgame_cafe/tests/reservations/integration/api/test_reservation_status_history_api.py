@@ -13,6 +13,15 @@ from features.reservations.composition.reservation_use_case_factories import (
     get_cancel_reservation_use_case,
     get_create_booking_handler,
 )
+from features.bookings.infrastructure.repositories.booking_repository import (
+    SqlAlchemyBookingRepository,
+)
+from features.bookings.infrastructure.repositories.booking_status_history_repository import (
+    SqlAlchemyBookingStatusHistoryRepository,
+)
+from features.payments.infrastructure.repositories.payment_repository import (
+    PaymentRepository,
+)
 from features.reservations.infrastructure.repositories.reservation_repository import (
     SqlAlchemyReservationRepository,
 )
@@ -52,7 +61,13 @@ def test_owner_can_read_reservation_status_history(client, app, test_data):
                 notes="",
             )
         )
-        confirm_booking_after_success(payment_id=payment.id, booking_id=reservation.id)
+        confirm_booking_after_success(
+            payment_repo=PaymentRepository(),
+            booking_repo=SqlAlchemyBookingRepository(),
+            status_history_repo=SqlAlchemyBookingStatusHistoryRepository(),
+            payment_id=payment.id,
+            booking_id=reservation.id,
+        )
 
     original_current_user = reservation_routes.current_user
     reservation_routes.current_user = FakeCurrentUser(
