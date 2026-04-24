@@ -33,10 +33,12 @@
 						{% if current_user.role == "admin" %}
 							<a class="button button-secondary" href="/admin">Admin Dashboard</a>
 						{% endif %}
-						{% if current_user.role in ("staff", "admin") %}
+						{% if current_user.role == "staff" %}
 							<a class="button button-secondary" href="/steward">Steward Dashboard</a>
 						{% endif %}
-						<a class="button button-secondary" href="{{ url_for('my_bookings_page') }}">My Bookings</a>
+						{% if current_user.role == "customer" %}
+							<a class="button button-secondary" href="{{ url_for('my_bookings_page') }}">My Bookings</a>
+						{% endif %}
 						<form method="post" action="/logout" class="inline-form">
 							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 							<button class="button" type="submit">Logout</button>
