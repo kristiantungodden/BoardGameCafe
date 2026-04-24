@@ -21,6 +21,18 @@ from features.payments.application.services.booking_payment_lifecycle import (
     confirm_booking_after_success,
     fail_payment_and_cleanup_created_booking,
 )
+from features.reservations.infrastructure.repositories.game_reservation_repository import (
+    SqlAlchemyGameReservationRepository,
+)
+from features.reservations.infrastructure.repositories.reservation_qr_repository import (
+    SqlAlchemyReservationQRCodeRepository,
+)
+from features.reservations.infrastructure.repositories.table_reservation_repository import (
+    SqlAlchemyTableReservationRepository,
+)
+from features.bookings.infrastructure.repositories.booking_status_history_repository import (
+    SqlAlchemyBookingStatusHistoryRepository,
+)
 from shared.infrastructure.email.reservation_payment_publisher import (
     publish_reservation_payment_completed,
 )
@@ -28,6 +40,10 @@ from shared.infrastructure.email.reservation_payment_publisher import (
 
 _payment_repo = PaymentRepository()
 _booking_repo = SqlAlchemyBookingRepository()
+_table_reservation_repo = SqlAlchemyTableReservationRepository()
+_game_reservation_repo = SqlAlchemyGameReservationRepository()
+_reservation_qr_repo = SqlAlchemyReservationQRCodeRepository()
+_status_history_repo = SqlAlchemyBookingStatusHistoryRepository()
 
 
 def _create_payment_provider() -> PaymentProviderInterface:
@@ -68,6 +84,9 @@ def _finalize_paid_payment(payment) -> None:
         return
 
     resolved_booking_id, changed = confirm_booking_after_success(
+        payment_repo=_payment_repo,
+        booking_repo=_booking_repo,
+        status_history_repo=_status_history_repo,
         payment_id=payment.id,
         booking_id=payment.booking_id,
     )
@@ -101,6 +120,12 @@ def get_payment_cancel_handler():
         payment_service = _build_payment_service()
         payment = payment_service.get_payment(payment_id=payment_id, user=user)
         fail_payment_and_cleanup_created_booking(
+            payment_repo=_payment_repo,
+            booking_repo=_booking_repo,
+            status_history_repo=_status_history_repo,
+            table_reservation_repo=_table_reservation_repo,
+            game_reservation_repo=_game_reservation_repo,
+            reservation_qr_repo=_reservation_qr_repo,
             payment_id=payment.id,
             booking_id=payment.booking_id,
             reason="customer_cancelled",

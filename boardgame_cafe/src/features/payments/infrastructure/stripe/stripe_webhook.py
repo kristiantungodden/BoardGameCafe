@@ -4,6 +4,14 @@ from features.payments.application.services.booking_payment_lifecycle import (
     confirm_booking_after_success,
     fail_payment_and_cleanup_created_booking,
 )
+from features.payments.composition.payment_use_case_factories import (
+    _booking_repo,
+    _game_reservation_repo,
+    _payment_repo,
+    _reservation_qr_repo,
+    _status_history_repo,
+    _table_reservation_repo,
+)
 from shared.infrastructure import csrf
 from shared.infrastructure.email.reservation_payment_publisher import publish_reservation_payment_completed
 
@@ -27,6 +35,9 @@ def webhook():
         payment_id = session.get("metadata", {}).get("payment_id")
 
         resolved_booking_id, changed = confirm_booking_after_success(
+            payment_repo=_payment_repo,
+            booking_repo=_booking_repo,
+            status_history_repo=_status_history_repo,
             payment_id=int(payment_id) if payment_id else None,
         )
         if changed and resolved_booking_id is not None:
@@ -36,6 +47,12 @@ def webhook():
         session = event["data"]["object"]
         payment_id = session.get("metadata", {}).get("payment_id")
         fail_payment_and_cleanup_created_booking(
+            payment_repo=_payment_repo,
+            booking_repo=_booking_repo,
+            status_history_repo=_status_history_repo,
+            table_reservation_repo=_table_reservation_repo,
+            game_reservation_repo=_game_reservation_repo,
+            reservation_qr_repo=_reservation_qr_repo,
             payment_id=int(payment_id) if payment_id else None,
             reason=event["type"],
         )

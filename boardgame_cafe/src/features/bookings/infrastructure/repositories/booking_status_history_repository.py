@@ -52,6 +52,15 @@ class SqlAlchemyBookingStatusHistoryRepository(BookingStatusHistoryRepositoryInt
         )
         return [self._to_domain(row) for row in rows]
 
+    def delete_for_booking(self, booking_id: int) -> None:
+        self.session.query(BookingStatusHistoryDB).filter(
+            BookingStatusHistoryDB.booking_id == booking_id
+        ).delete(synchronize_session=False)
+        if self.auto_commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+
     @staticmethod
     def _to_domain(row: BookingStatusHistoryDB) -> BookingStatusHistoryEntry:
         return BookingStatusHistoryEntry(

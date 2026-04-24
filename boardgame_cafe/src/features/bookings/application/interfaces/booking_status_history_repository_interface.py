@@ -16,3 +16,7 @@ class BookingStatusHistoryRepositoryInterface(ABC):
     @abstractmethod
     def list_for_booking(self, booking_id: int) -> Sequence[BookingStatusHistoryEntry]:
         raise NotImplementedError
+
+    @abstractmethod
+    def delete_for_booking(self, booking_id: int) -> None:
+        raise NotImplementedError

@@ -4,7 +4,11 @@ import pytest
 
 import features.bookings.application.use_cases.booking_use_cases as booking_module
 from features.bookings.application.use_cases.booking_use_cases import CreateBookingUseCase
+from features.games.infrastructure.repositories.game_repository import GameRepository
 from features.tables.infrastructure.database.table_db import TableDB
+from features.tables.infrastructure.repositories.table_repository import (
+    TableRepository as SqlAlchemyTableRepository,
+)
 from shared.infrastructure import db
 from shared.domain.exceptions import ValidationError
 
@@ -38,11 +42,13 @@ class FakeBookingRepo:
 
 
 class FakeTableReservationRepo:
+    links = []
+
     def __init__(self, session=None, auto_commit=True):
-        self.links = []
+        pass
 
     def save(self, table_reservation):
-        self.links.append(table_reservation)
+        FakeTableReservationRepo.links.append(table_reservation)
         return table_reservation
 
 
@@ -123,6 +129,8 @@ def test_create_booking_rejects_unavailable_selected_table(app, monkeypatch):
         booking_repo=FakeBookingRepo(),
         table_reservation_repo=FakeTableReservationRepo(),
         game_repo=FakeGameRepo(),
+        table_repo=SqlAlchemyTableRepository(session=db.session),
+        game_lookup_repo=GameRepository(session=db.session),
         available_table_repo=FakeAvailableTableRepo(),
         available_copy_repo=FakeAvailableCopyRepo(),
         payment_repo=None,
@@ -149,6 +157,8 @@ def test_create_booking_accepts_valid_selected_table(app, monkeypatch):
         booking_repo=FakeBookingRepo(),
         table_reservation_repo=FakeTableReservationRepo(),
         game_repo=FakeGameRepo(),
+        table_repo=SqlAlchemyTableRepository(session=db.session),
+        game_lookup_repo=GameRepository(session=db.session),
         available_table_repo=FakeAvailableTableRepo(),
         available_copy_repo=FakeAvailableCopyRepo(),
         payment_repo=None,
@@ -180,6 +190,8 @@ def test_create_booking_rejects_more_than_two_games_per_selected_table(app, monk
         booking_repo=FakeBookingRepo(),
         table_reservation_repo=FakeTableReservationRepo(),
         game_repo=FakeGameRepo(),
+        table_repo=SqlAlchemyTableRepository(session=db.session),
+        game_lookup_repo=GameRepository(session=db.session),
         available_table_repo=FakeAvailableTableRepo(),
         available_copy_repo=FakeAvailableCopyRepo(),
         payment_repo=None,
@@ -204,6 +216,7 @@ def test_create_booking_rejects_more_than_two_games_per_selected_table(app, monk
 
 def test_create_booking_allows_two_games_per_table_across_multiple_tables(app, monkeypatch):
     FakeAvailableTableRepo.should_validate = True
+    FakeTableReservationRepo.links = []
     monkeypatch.setattr(booking_module, "create_and_save_payment", _stub_create_and_save_payment)
     monkeypatch.setattr(booking_module, "AddGameToReservationUseCase", _FakeAddGameUseCase)
 
@@ -211,6 +224,8 @@ def test_create_booking_allows_two_games_per_table_across_multiple_tables(app, m
         booking_repo=FakeBookingRepo(),
         table_reservation_repo=FakeTableReservationRepo(),
         game_repo=FakeGameRepo(),
+        table_repo=SqlAlchemyTableRepository(session=db.session),
+        game_lookup_repo=GameRepository(session=db.session),
         available_table_repo=FakeAvailableTableRepo(),
         available_copy_repo=FakeAvailableCopyRepo(),
         payment_repo=None,
@@ -235,7 +250,10 @@ def test_create_booking_allows_two_games_per_table_across_multiple_tables(app, m
         )
 
     assert booking.id is not None
+    assert booking.table_id == table_one_id
+    assert booking.table_ids == [table_one_id, table_two_id]
     assert len(created_games) == 4
+    assert len(FakeTableReservationRepo.links) == 2
 
 
 def test_create_booking_rejects_multiple_tables_when_combined_capacity_too_small(app, monkeypatch):
@@ -246,6 +264,8 @@ def test_create_booking_rejects_multiple_tables_when_combined_capacity_too_small
         booking_repo=FakeBookingRepo(),
         table_reservation_repo=FakeTableReservationRepo(),
         game_repo=FakeGameRepo(),
+        table_repo=SqlAlchemyTableRepository(session=db.session),
+        game_lookup_repo=GameRepository(session=db.session),
         available_table_repo=FakeAvailableTableRepo(),
         available_copy_repo=FakeAvailableCopyRepo(),
         payment_repo=None,

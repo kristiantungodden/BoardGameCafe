@@ -43,6 +43,17 @@ class PaymentRepository(PaymentRepositoryInterface):
             return None
         return db_payment.to_domain()
 
+    def delete(self, payment_id: int) -> None:
+        db_payment = self.session.get(PaymentDB, payment_id)
+        if db_payment is None:
+            return
+
+        self.session.delete(db_payment)
+        if self.auto_commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+
     def get_by_provider_ref(self, provider_ref: str) -> DomainPayment | None:
         db_payment = self.session.query(PaymentDB).filter_by(provider_ref=provider_ref).first()
         if db_payment is None:
