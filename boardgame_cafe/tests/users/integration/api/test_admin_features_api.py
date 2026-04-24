@@ -639,3 +639,78 @@ def test_admin_can_manage_announcements_and_home_shows_only_published(app, clien
 
     with app.app_context():
         assert db.session.get(AnnouncementDB, published_id) is None
+
+
+def test_admin_can_edit_announcement(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Edit Admin",
+            email="admin-edit-ann@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="admin-edit-ann@example.com", password="AdminPass123")
+
+    create = client.post(
+        "/api/admin/content/announcements",
+        json={"title": "Original Title", "body": "Original body text.", "publish_now": False},
+    )
+    assert create.status_code == 201
+    ann_id = create.get_json()["id"]
+
+    edit = client.put(
+        f"/api/admin/content/announcements/{ann_id}",
+        json={"title": "Updated Title", "body": "Updated body text."},
+    )
+    assert edit.status_code == 200
+    updated = edit.get_json()
+    assert updated["title"] == "Updated Title"
+    assert updated["body"] == "Updated body text."
+    assert updated["id"] == ann_id
+
+    # Verify the change is persisted
+    listing = client.get("/api/admin/content/announcements")
+    items = listing.get_json()
+    match = next(item for item in items if item["id"] == ann_id)
+    assert match["title"] == "Updated Title"
+
+
+def test_non_admin_cannot_access_catalogue_endpoints(app, client):
+    with app.app_context():
+        _create_user(
+            role="customer",
+            name="Customer",
+            email="customer-catalogue@example.com",
+            password="CustomerPass123",
+        )
+
+    _login(client, email="customer-catalogue@example.com", password="CustomerPass123")
+
+    for method, path, body in [
+        ("get", "/api/admin/catalogue", None),
+        ("post", "/api/admin/catalogue/games", {"title": "X", "min_players": 1, "max_players": 4, "playtime_min": 30, "complexity": 1.0}),
+        ("delete", "/api/admin/catalogue/games/1", None),
+        ("get", "/api/admin/catalogue/incidents", None),
+    ]:
+        resp = getattr(client, method)(path, json=body)
+        assert resp.status_code in (401, 403), f"Expected 401/403 for {method.upper()} {path}, got {resp.status_code}"
+
+
+def test_non_admin_cannot_access_pricing_endpoints(app, client):
+    with app.app_context():
+        _create_user(
+            role="customer",
+            name="Customer",
+            email="customer-pricing@example.com",
+            password="CustomerPass123",
+        )
+
+    _login(client, email="customer-pricing@example.com", password="CustomerPass123")
+
+    for method, path, body in [
+        ("get", "/api/admin/pricing", None),
+        ("put", "/api/admin/pricing/base-fee", {"booking_base_fee_cents": 500}),
+    ]:
+        resp = getattr(client, method)(path, json=body)
+        assert resp.status_code in (401, 403), f"Expected 401/403 for {method.upper()} {path}, got {resp.status_code}"
