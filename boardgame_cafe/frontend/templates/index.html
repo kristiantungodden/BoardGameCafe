@@ -15,23 +15,13 @@
 			<a class="button" href="/booking">Book a Session</a>
 			<a class="button button-secondary" href="/games">See Our Game Library</a>
 		</div>
-
-		<div class="landing-auth-row">
-			{% if current_user.is_authenticated %}
-			<a class="button button-subtle" href="{{ url_for('my_bookings_page') }}">My Bookings</a>
-			<form method="post" action="/logout" class="inline-form">
-				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-				<button class="button button-subtle" type="submit">Logout</button>
-			</form>
-			{% endif %}
-		</div>
 	</div>
 	<aside class="landing-meta" aria-label="Visit information">
 		<h2>Quick Info</h2>
 		<ul class="landing-meta-list">
-			<li class="landing-meta-item"><strong>Simple booking</strong><span>Choose date, table, and games in one place.</span></li>
-			<li class="landing-meta-item"><strong>Game library</strong><span>Browse titles before you reserve your session.</span></li>
-			<li class="landing-meta-item"><strong>Live updates</strong><span>See your bookings and status updates anytime.</span></li>
+			<li class="landing-meta-item"><strong>Opening Hours</strong><span>We are open from 9am to 11pm, 7 days a week!</span></li>
+			<li class="landing-meta-item"><strong>Quick Booking</strong><span>Book your table in less than a minute!</span></li>
+			<li class="landing-meta-item"><strong>Your Bookings</strong><span>Keep track of your sessions in one place!</span></li>
 		</ul>
 	</aside>
 </section>
@@ -73,10 +63,6 @@
 		<p class="game-state">Loading featured games...</p>
 	</div>
 </section>
-
-<p class="landing-footnote">
-	Planning with friends? Share the games page first, then lock in your table.
-</p>
 
 <script>
 	async function loadHomeGamesPreview() {
