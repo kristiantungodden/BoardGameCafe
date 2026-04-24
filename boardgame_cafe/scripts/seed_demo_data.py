@@ -41,7 +41,7 @@ def _build_demo_users() -> list[dict]:
             "name": "a",
             "email": "a@a.a",
             "phone": None,
-            "password": "aaaaaaaa",
+            "password": "Aaaaaaa1!",
             "created_at": now - timedelta(days=320),
         },
         {
@@ -49,7 +49,7 @@ def _build_demo_users() -> list[dict]:
             "name": "b",
             "email": "b@b.b",
             "phone": None,
-            "password": "bbbbbbbb",
+            "password": "Bbbbbbb1!",
             "created_at": now - timedelta(days=300),
         },
         # Realistic customers
@@ -58,7 +58,7 @@ def _build_demo_users() -> list[dict]:
             "name": "Emma Hansen",
             "email": "emma.hansen@example.com",
             "phone": "+4791234567",
-            "password": "Password1",
+            "password": "Password1!",
             "created_at": now - timedelta(days=240),
         },
         {
@@ -66,7 +66,7 @@ def _build_demo_users() -> list[dict]:
             "name": "Lars Olsen",
             "email": "lars.olsen@example.com",
             "phone": "+4798765432",
-            "password": "Password1",
+            "password": "Password1!",
             "created_at": now - timedelta(days=210),
         },
         {
@@ -74,7 +74,7 @@ def _build_demo_users() -> list[dict]:
             "name": "Sofie Berg",
             "email": "sofie.berg@example.com",
             "phone": None,
-            "password": "Password1",
+            "password": "Password1!",
             "created_at": now - timedelta(days=180),
         },
         {
@@ -82,7 +82,7 @@ def _build_demo_users() -> list[dict]:
             "name": "Jonas Vik",
             "email": "jonas.vik@example.com",
             "phone": "+4792345678",
-            "password": "Password1",
+            "password": "Password1!",
             "created_at": now - timedelta(days=160),
         },
         # Staff
@@ -91,7 +91,7 @@ def _build_demo_users() -> list[dict]:
             "name": "steward",
             "email": "steward@example.com",
             "phone": None,
-            "password": "Stewardpw",
+            "password": "StewardPw1!",
             "created_at": now - timedelta(days=340),
         },
         {
@@ -99,7 +99,7 @@ def _build_demo_users() -> list[dict]:
             "name": "Maria Lund",
             "email": "maria.lund@example.com",
             "phone": "+4745678901",
-            "password": "Stewardpw",
+            "password": "StewardPw1!",
             "created_at": now - timedelta(days=260),
         },
         # Admin
@@ -108,7 +108,7 @@ def _build_demo_users() -> list[dict]:
             "name": "admin",
             "email": "admin@example.com",
             "phone": None,
-            "password": "Adminpw123",
+            "password": "AdminPw123!",
             "created_at": now - timedelta(days=365),
         },
     ]
@@ -121,7 +121,7 @@ def _build_demo_users() -> list[dict]:
                 "name": f"Report User {idx:02d}",
                 "email": f"report.user{idx:02d}@example.com",
                 "phone": None,
-                "password": "Password1",
+                "password": "Password1!",
                 "created_at": now - timedelta(days=max(5, 350 - idx * 13)),
             }
         )

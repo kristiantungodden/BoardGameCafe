@@ -158,6 +158,7 @@ def list_reservations():
     # Filter to current user's reservations only (unless user is staff/admin)
     if not (hasattr(current_user, 'is_staff') and current_user.is_staff):
         items = [item for item in items if item.customer_id == current_user.id]
+        items = [item for item in items if item.status != "created"]
     
     return [_serialize_reservation(item) for item in items], 200
 

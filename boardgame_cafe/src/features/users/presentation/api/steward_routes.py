@@ -128,6 +128,19 @@ def _serialize_waitlist_entry(entry):
     }
 
 
+def _publish_steward_board_event(event_type: str, data: dict) -> None:
+    # Best-effort realtime fan-out for steward dashboard sync.
+    try:
+        publish_realtime_event({"event_type": event_type, "data": data})
+    except Exception:
+        pass
+
+
+def _current_actor_role() -> str | None:
+    role = getattr(current_user, "role", None)
+    return getattr(role, "value", role)
+
+
 def _parse_reservation_date_arg():
     date_str = request.args.get("date")
     if not date_str:
@@ -319,6 +332,16 @@ def swap_game_copy(reservation_id: int, reservation_game_id: int):
     except (DomainError, ValueError) as exc:
         return {"error": str(exc)}, 400
 
+    _publish_steward_board_event(
+        "reservation.game.swap",
+        {
+            "reservation_id": reservation_id,
+            "reservation_game_id": reservation_game_id,
+            "new_copy_id": new_copy_id,
+            "updated_by_user_id": getattr(current_user, "id", None),
+        },
+    )
+
     return _serialize_reservation_game(reservation_game), 200
 
 
@@ -363,11 +386,15 @@ def update_game_copy_status(copy_id: int):
         return {"error": str(exc)}, 400
 
     # Publish realtime event so dashboards update live
-    try:
-        publish_realtime_event({"event_type": "game_copy.updated", "data": _serialize_game_copy(game_copy)})
-    except Exception:
-        # best-effort: don't fail the request if realtime publish isn't available
-        pass
+    _publish_steward_board_event(
+        "game_copy.updated",
+        {
+            **_serialize_game_copy(game_copy),
+            "updated_by_user_id": getattr(current_user, "id", None),
+            "updated_by_role": "admin",
+            "action": action,
+        },
+    )
 
     return _serialize_game_copy(game_copy), 200
 
@@ -483,6 +510,16 @@ def add_waitlist_entry():
     entry = use_case.execute(
         type("C", (), {"customer_id": customer_id, "party_size": party_size, "notes": notes})
     )
+
+    _publish_steward_board_event(
+        "waitlist.created",
+        {
+            **_serialize_waitlist_entry(entry),
+            "created_by_user_id": getattr(current_user, "id", None),
+            "created_by_role": _current_actor_role(),
+        },
+    )
+
     return _serialize_waitlist_entry(entry), 201
 
 
@@ -497,4 +534,14 @@ def remove_waitlist_entry(entry_id: int):
     ok = use_case.execute(entry_id)
     if not ok:
         return {"error": "Not found"}, 404
+
+    _publish_steward_board_event(
+        "waitlist.deleted",
+        {
+            "id": entry_id,
+            "deleted_by_user_id": getattr(current_user, "id", None),
+            "deleted_by_role": _current_actor_role(),
+        },
+    )
+
     return {}, 204

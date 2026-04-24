@@ -56,7 +56,10 @@ def register():
         payload = UserCreate.model_validate(raw or {})
     except PydanticValidationError as exc:
         if is_json_request:
-            return {"error": "Registration failed", "details": exc.errors()}, 400
+            return {
+                "error": "Registration failed",
+                "details": exc.errors(include_context=False),
+            }, 400
         flash("Registration failed. Please check your input.", "error")
         return redirect(url_for("register_page"))
 

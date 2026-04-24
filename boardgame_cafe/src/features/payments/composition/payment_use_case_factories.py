@@ -19,6 +19,7 @@ from features.payments.infrastructure.repositories.payment_repository import (
 from features.payments.infrastructure.stripe.stripe_adapter import StripeAdapter
 from features.payments.application.services.booking_payment_lifecycle import (
     confirm_booking_after_success,
+    fail_payment_and_cleanup_created_booking,
 )
 from shared.infrastructure.email.reservation_payment_publisher import (
     publish_reservation_payment_completed,
@@ -98,6 +99,12 @@ def get_payment_status_handler():
 def get_payment_cancel_handler():
     def _get_payment(payment_id: int, user: Any):
         payment_service = _build_payment_service()
-        return payment_service.get_payment(payment_id=payment_id, user=user)
+        payment = payment_service.get_payment(payment_id=payment_id, user=user)
+        fail_payment_and_cleanup_created_booking(
+            payment_id=payment.id,
+            booking_id=payment.booking_id,
+            reason="customer_cancelled",
+        )
+        return payment
 
     return _get_payment

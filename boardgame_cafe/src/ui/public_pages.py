@@ -1,7 +1,8 @@
 from flask import Flask, flash, redirect, render_template, url_for
 from flask_login import login_required, logout_user, current_user
-from features.users.infrastructure.database.announcement_db import AnnouncementDB
-from shared.infrastructure import db
+from features.users.composition.public_content_use_case_factories import (
+    get_list_latest_published_announcements_handler,
+)
 
 
 def register_public_pages(app: Flask) -> None:
@@ -13,13 +14,7 @@ def register_public_pages(app: Flask) -> None:
 
     @app.route("/", methods=["GET"])
     def home():
-        announcements = (
-            db.session.query(AnnouncementDB)
-            .filter(AnnouncementDB.is_published.is_(True))
-            .order_by(AnnouncementDB.published_at.desc(), AnnouncementDB.id.desc())
-            .limit(5)
-            .all()
-        )   
+        announcements = get_list_latest_published_announcements_handler()(limit=5)
         return render_template("index.html", announcements=announcements)
 
     @app.route("/games", methods=["GET"])
