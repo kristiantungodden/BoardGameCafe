@@ -182,8 +182,70 @@
 			</section>
 			<section class="card" id="floor">
 				<h3>Floor & Tables</h3>
-				<p class="hero-copy">Configure floors, zones, table sizes, and operational statuses for the café map.</p>
-				<p class="quick-links">This will build on the existing table and floorplan structure already used by bookings.</p>
+				<p class="hero-copy">Configure floors, zones, and tables in one hierarchy. Use edit to rename or delete records.</p>
+				<div class="floorplan-map admin-floorplan-map" id="admin-floorplan-map" aria-live="polite">Loading location hierarchy...</div>
+				<p class="quick-links" id="admin-location-action-message"></p>
+
+				<div class="admin-location-grid">
+				<div class="steward-item-list">
+					<form class="form-stack steward-item" id="create-floor-form">
+						<h4>Create Floor</h4>
+						<label class="form-label" for="floor-number">Floor number</label>
+						<input class="form-input" id="floor-number" name="number" type="number" min="1" required>
+
+						<label class="form-label" for="floor-name">Floor name</label>
+						<input class="form-input" id="floor-name" name="name" required>
+
+						<div class="action-row">
+							<button class="button" type="submit">Create floor</button>
+						</div>
+					</form>
+					<p class="quick-links" id="create-floor-message"></p>
+				</div>
+
+				<div class="steward-item-list">
+					<form class="form-stack steward-item" id="create-zone-form">
+						<h4>Create Zone</h4>
+						<label class="form-label" for="zone-floor">Floor</label>
+						<input class="form-input" id="zone-floor" name="floor" type="number" min="1" required>
+
+						<label class="form-label" for="zone-name">Zone name</label>
+						<input class="form-input" id="zone-name" name="name" required>
+
+						<label class="form-label" for="zone-notes">Notes</label>
+						<input class="form-input" id="zone-notes" name="notes">
+
+						<div class="action-row">
+							<button class="button" type="submit">Create zone</button>
+						</div>
+					</form>
+					<p class="quick-links" id="create-zone-message"></p>
+				</div>
+
+				<div class="steward-item-list">
+					<form class="form-stack steward-item" id="create-table-form">
+						<h4>Create Table</h4>
+						<label class="form-label" for="table-number">Table number</label>
+						<input class="form-input" id="table-number" name="number" type="number" min="1" required>
+
+						<label class="form-label" for="table-capacity">Capacity</label>
+						<input class="form-input" id="table-capacity" name="capacity" type="number" min="1" required>
+
+						<label class="form-label" for="table-floor">Floor</label>
+						<input class="form-input" id="table-floor" name="floor" type="number" min="1" required>
+
+						<label class="form-label" for="table-zone">Zone</label>
+						<input class="form-input" id="table-zone" name="zone" required>
+
+						<div class="action-row">
+							<button class="button" type="submit">Create table</button>
+						</div>
+					</form>
+					<p class="quick-links" id="create-table-message"></p>
+				</div>
+				</div>
+
+				<p class="quick-links">Edit buttons open a popup where you can rename or delete floor, zone, or table records.</p>
 			</section>
 			<section class="card" id="policies">
 				<h3>Policies & Fees</h3>
@@ -263,6 +325,32 @@
 			</section>
 		</div>
 	</section>
+
+	<div id="admin-location-modal" class="booking-details-overlay" hidden>
+		<div class="booking-details-backdrop" data-location-modal-close></div>
+		<section class="booking-details-card admin-location-modal-card" role="dialog" aria-modal="true" aria-labelledby="admin-location-modal-title">
+			<div class="booking-details-head">
+				<h3 id="admin-location-modal-title">Edit Location</h3>
+				<button class="button button-subtle" type="button" data-location-modal-close>Close</button>
+			</div>
+			<p class="steward-item-meta" id="admin-location-modal-meta"></p>
+			<form id="admin-location-modal-form" class="form-stack">
+				<label class="form-label" id="admin-location-modal-name-label" for="admin-location-modal-name-input">Name</label>
+				<input class="form-input" id="admin-location-modal-name-input" required>
+				<div id="admin-location-modal-status-field" hidden>
+					<label class="form-label" for="admin-location-modal-status-input">Status</label>
+					<select class="form-input" id="admin-location-modal-status-input">
+						<option value="available">available</option>
+						<option value="maintenance">maintenance</option>
+					</select>
+				</div>
+				<div class="action-row action-row-top-gap">
+					<button class="button" type="submit">Save</button>
+					<button class="button button-subtle" type="button" id="admin-location-modal-delete">Delete</button>
+				</div>
+			</form>
+		</section>
+	</div>
 
 	<p class="steward-last-update" id="admin-last-updated">Last updated: --</p>
 </section>

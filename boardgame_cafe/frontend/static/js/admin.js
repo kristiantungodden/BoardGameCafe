@@ -2,6 +2,9 @@ async function fetchJson(path, opts = {}) {
     opts.credentials = opts.credentials || 'same-origin';
 
     const method = (opts.method || 'GET').toUpperCase();
+    if (method === 'GET' && !opts.cache) {
+        opts.cache = 'no-store';
+    }
     if (method !== 'GET' && method !== 'HEAD') {
         const meta = document.querySelector('meta[name="csrf-token"]');
         const token = meta ? meta.getAttribute('content') : null;
@@ -14,6 +17,21 @@ async function fetchJson(path, opts = {}) {
 
     const res = await fetch(path, opts);
     if (!res.ok) throw new Error(await res.text());
+
+    if (res.status === 204) {
+        return {};
+    }
+
+    const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('application/json')) {
+        try {
+            const text = await res.text();
+            return text ? { text } : {};
+        } catch (_error) {
+            return {};
+        }
+    }
+
     return res.json();
 }
 
@@ -35,6 +53,19 @@ const ADMIN_CATALOGUE = {
 
 const ADMIN_ANNOUNCEMENTS = {
     items: [],
+};
+
+const ADMIN_LOCATION_STATE = {
+    floors: [],
+    zones: [],
+    tables: [],
+    reservedTableIds: new Set(),
+    selectedFloor: null,
+};
+
+const ADMIN_LOCATION_MODAL = {
+    kind: null,
+    id: null,
 };
 
 function centsToNok(cents) {
@@ -92,6 +123,866 @@ function setAnnouncementMessage(message, isError = false) {
     if (!node) return;
     node.textContent = message;
     node.style.color = isError ? '#8d2430' : '';
+}
+
+function setLocationMessage(id, message, isError = false) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.textContent = message;
+    node.style.color = isError ? '#8d2430' : '';
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function locationErrorMessage(error, fallback) {
+    const raw = String(error?.message || '').trim();
+    if (!raw) return fallback;
+    try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.error) {
+            return String(parsed.error);
+        }
+    } catch (_ignored) {
+        // Response was plain text.
+    }
+    return raw.length > 180 ? fallback : raw;
+}
+
+function updateFloorSelectOptions() {
+    const select = document.getElementById('admin-floor-select');
+    const floors = ADMIN_LOCATION_STATE.floors || [];
+
+    if (floors.length === 0) {
+        ADMIN_LOCATION_STATE.selectedFloor = null;
+        if (select) {
+            select.innerHTML = '<option value="">No floors</option>';
+        }
+        return;
+    }
+
+    if (!floors.some((floor) => Number(floor.number) === Number(ADMIN_LOCATION_STATE.selectedFloor))) {
+        ADMIN_LOCATION_STATE.selectedFloor = Number(floors[0].number);
+    }
+
+    if (!select) return;
+
+    select.innerHTML = floors
+        .map((floor) => `<option value="${floor.number}">${floor.number} - ${floor.name}</option>`)
+        .join('');
+    select.value = String(ADMIN_LOCATION_STATE.selectedFloor);
+}
+
+function getFloorById(floorId) {
+    return ADMIN_LOCATION_STATE.floors.find((floor) => Number(floor.id) === Number(floorId)) || null;
+}
+
+function getZoneById(zoneId) {
+    return ADMIN_LOCATION_STATE.zones.find((zone) => Number(zone.id) === Number(zoneId)) || null;
+}
+
+function getTableById(tableId) {
+    return ADMIN_LOCATION_STATE.tables.find((table) => Number(table.id) === Number(tableId)) || null;
+}
+
+function getAdminTableTileClass(status) {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized === 'available') {
+        return 'table-tile-available';
+    }
+    if (normalized === 'reserved') {
+        return 'table-tile-reserved';
+    }
+    if (normalized === 'occupied') {
+        return 'table-tile-alert';
+    }
+    return 'table-tile-unavailable';
+}
+
+function getAdminTableDisplayStatus(table) {
+    const persisted = String(table?.status || '').trim().toLowerCase();
+    if (persisted === 'available' && ADMIN_LOCATION_STATE.reservedTableIds.has(Number(table?.id))) {
+        return 'reserved';
+    }
+    return persisted || 'unknown';
+}
+
+function deriveLocationStateFromTables(tables) {
+    const floorMap = new Map();
+    const zoneMap = new Map();
+
+    tables.forEach((table) => {
+        const floorNr = Number(table.floor || 1);
+        const zoneName = String(table.zone || 'main').trim() || 'main';
+
+        if (!floorMap.has(floorNr)) {
+            floorMap.set(floorNr, {
+                id: null,
+                number: floorNr,
+                name: `Floor ${floorNr}`,
+                active: true,
+                notes: null,
+            });
+        }
+
+        const zoneKey = `${floorNr}:${zoneName}`;
+        if (!zoneMap.has(zoneKey)) {
+            zoneMap.set(zoneKey, {
+                id: null,
+                floor: floorNr,
+                name: zoneName,
+                active: true,
+                notes: null,
+            });
+        }
+    });
+
+    return {
+        floors: Array.from(floorMap.values()).sort((a, b) => a.number - b.number),
+        zones: Array.from(zoneMap.values()).sort((a, b) => (a.floor - b.floor) || a.name.localeCompare(b.name)),
+    };
+}
+
+async function materializeLocationRecordsFromTables(tables, existingFloors = [], existingZones = []) {
+    const derived = deriveLocationStateFromTables(tables || []);
+    const existingFloorNumbers = new Set((existingFloors || []).map((floor) => Number(floor.number)));
+    const existingZoneKeys = new Set((existingZones || []).map((zone) => `${Number(zone.floor)}:${String(zone.name || '').trim().toLowerCase()}`));
+    let createdCount = 0;
+
+    for (const floor of derived.floors) {
+        if (existingFloorNumbers.has(Number(floor.number))) {
+            continue;
+        }
+
+        try {
+            await fetchJson('/api/admin/floors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    number: Number(floor.number),
+                    name: String(floor.name || `Floor ${floor.number}`),
+                    active: true,
+                    notes: null,
+                }),
+            });
+            createdCount += 1;
+            existingFloorNumbers.add(Number(floor.number));
+        } catch (_error) {
+            // Ignore duplicates and continue creating missing records.
+        }
+    }
+
+    for (const zone of derived.zones) {
+        const zoneKey = `${Number(zone.floor)}:${String(zone.name || '').trim().toLowerCase()}`;
+        if (existingZoneKeys.has(zoneKey)) {
+            continue;
+        }
+
+        try {
+            await fetchJson('/api/admin/zones', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    floor: Number(zone.floor),
+                    name: String(zone.name || 'main'),
+                    active: true,
+                    notes: null,
+                }),
+            });
+            createdCount += 1;
+            existingZoneKeys.add(zoneKey);
+        } catch (_error) {
+            // Ignore duplicates and continue creating missing records.
+        }
+    }
+
+    return createdCount;
+}
+
+function renderLocationFloorplan() {
+    const map = document.getElementById('admin-floorplan-map');
+    if (!map) return;
+
+    const floors = [...(ADMIN_LOCATION_STATE.floors || [])].sort((a, b) => Number(a.number) - Number(b.number));
+    if (!floors.length) {
+        map.innerHTML = '<p class="game-state">No floors available yet.</p>';
+        return;
+    }
+
+    map.innerHTML = floors
+        .map((floor) => {
+            const zonesForFloor = ADMIN_LOCATION_STATE.zones
+                .filter((zone) => Number(zone.floor) === Number(floor.number))
+                .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+            const zonesMarkup = zonesForFloor.length
+                ? zonesForFloor
+                    .map((zone) => {
+                        const zoneTables = ADMIN_LOCATION_STATE.tables
+                            .filter((table) => Number(table.floor) === Number(floor.number) && String(table.zone) === String(zone.name))
+                            .sort((a, b) => Number(a.number) - Number(b.number));
+
+                        const tablesMarkup = zoneTables.length
+                            ? zoneTables.map((table) => `
+                                <article class="table-tile ${getAdminTableTileClass(getAdminTableDisplayStatus(table))}" draggable="true" data-dnd-table-id="${table.id}">
+                                    <span class="table-tile-name">T${escapeHtml(table.number)}</span>
+                                    <span class="table-tile-cap">Cap ${escapeHtml(table.capacity)}</span>
+                                    <span class="table-tile-status">${escapeHtml(getAdminTableDisplayStatus(table))}</span>
+                                    <button class="button button-subtle" type="button" data-location-edit="table" data-location-id="${table.id}">Edit</button>
+                                </article>
+                            `).join('')
+                            : '<p class="steward-item-meta">No tables in this zone.</p>';
+
+                        return `
+                            <section class="floor-zone admin-drop-zone" data-target-floor="${floor.number}" data-target-zone="${escapeHtml(zone.name)}">
+                                <div class="steward-item-head">
+                                    <h5 class="floor-zone-title">Zone ${escapeHtml(zone.name)}</h5>
+                                    <button class="button button-subtle" type="button" data-location-edit="zone" data-location-id="${zone.id}">Edit</button>
+                                </div>
+                                <div class="floor-zone-grid">${tablesMarkup}</div>
+                            </section>
+                        `;
+                    })
+                    .join('')
+                : '<p class="steward-item-meta">No zones in this floor.</p>';
+
+            return `
+                <article class="steward-item admin-floor-tree-item">
+                    <div class="steward-item-head">
+                        <p class="steward-item-title">Floor ${floor.number} - ${escapeHtml(floor.name)}</p>
+                        <button class="button button-subtle" type="button" data-location-edit="floor" data-location-id="${floor.id}">Edit</button>
+                    </div>
+                    <div class="steward-item-list">${zonesMarkup}</div>
+                </article>
+            `;
+        })
+        .join('');
+
+    bindLocationOverviewActions();
+    bindLocationDragAndDrop();
+}
+
+async function moveTableToZone(tableId, targetFloorRaw, targetZoneRaw) {
+    const row = getTableById(tableId);
+    if (!row) {
+        setLocationMessage('admin-location-action-message', 'Selected table no longer exists.', true);
+        return;
+    }
+
+    const targetFloor = Number(targetFloorRaw);
+    const targetZone = String(targetZoneRaw || '').trim();
+    if (!targetFloor || !targetZone) {
+        setLocationMessage('admin-location-action-message', 'Invalid drop target.', true);
+        return;
+    }
+
+    if (Number(row.floor) === targetFloor && String(row.zone) === targetZone) {
+        return;
+    }
+
+    const payload = {
+        number: Number(row.number),
+        capacity: Number(row.capacity),
+        floor: targetFloor,
+        zone: targetZone,
+        status: String(row.status || 'available'),
+        features: row.features || {},
+        width: row.width || null,
+        height: row.height || null,
+        rotation: row.rotation || null,
+    };
+
+    try {
+        await fetchJson(`/api/admin/tables/${tableId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        setLocationMessage('admin-location-action-message', `Moved table T${row.number} to floor ${targetFloor}, zone ${targetZone}.`);
+        await loadLocationOverview();
+    } catch (error) {
+        console.error(error);
+        setLocationMessage('admin-location-action-message', locationErrorMessage(error, 'Could not move table.'), true);
+    }
+}
+
+function bindLocationDragAndDrop() {
+    const tableTiles = document.querySelectorAll('[data-dnd-table-id]');
+    const dropZones = document.querySelectorAll('.admin-drop-zone');
+
+    const clearDropHints = () => {
+        document.querySelectorAll('.admin-drop-hint').forEach((hint) => hint.remove());
+        dropZones.forEach((zone) => zone.classList.remove('admin-drop-active'));
+    };
+
+    const attachDropHint = (zone) => {
+        const grid = zone.querySelector('.floor-zone-grid');
+        if (!grid) {
+            return;
+        }
+
+        let hint = grid.querySelector('.admin-drop-hint');
+        if (!hint) {
+            hint = document.createElement('div');
+            hint.className = 'admin-drop-hint';
+            hint.textContent = 'Drop table here';
+            grid.appendChild(hint);
+        }
+    };
+
+    tableTiles.forEach((tile) => {
+        tile.addEventListener('dragstart', (event) => {
+            const tableId = String(tile.getAttribute('data-dnd-table-id') || '');
+            if (!tableId || !event.dataTransfer) {
+                return;
+            }
+            event.dataTransfer.setData('text/plain', tableId);
+            event.dataTransfer.effectAllowed = 'move';
+            tile.classList.add('admin-dragging');
+        });
+
+        tile.addEventListener('dragend', () => {
+            tile.classList.remove('admin-dragging');
+            clearDropHints();
+        });
+    });
+
+    dropZones.forEach((zone) => {
+        zone.addEventListener('dragenter', (event) => {
+            event.preventDefault();
+            dropZones.forEach((entry) => entry.classList.remove('admin-drop-active'));
+            document.querySelectorAll('.admin-drop-hint').forEach((hint) => hint.remove());
+            zone.classList.add('admin-drop-active');
+            attachDropHint(zone);
+        });
+
+        zone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            zone.classList.add('admin-drop-active');
+            attachDropHint(zone);
+        });
+
+        zone.addEventListener('dragleave', (event) => {
+            const related = event.relatedTarget;
+            if (related && zone.contains(related)) {
+                return;
+            }
+            zone.classList.remove('admin-drop-active');
+            const hint = zone.querySelector('.admin-drop-hint');
+            if (hint) {
+                hint.remove();
+            }
+        });
+
+        zone.addEventListener('drop', async (event) => {
+            event.preventDefault();
+            clearDropHints();
+
+            const tableIdRaw = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+            const tableId = Number(tableIdRaw);
+            const targetFloor = zone.getAttribute('data-target-floor');
+            const targetZone = zone.getAttribute('data-target-zone');
+            if (!tableId || !targetFloor || !targetZone) {
+                return;
+            }
+
+            await moveTableToZone(tableId, targetFloor, targetZone);
+        });
+    });
+}
+
+function renderLocationOverview() {
+    renderLocationFloorplan();
+}
+
+async function updateFloorRecord(floorId, nextName) {
+    const existing = getFloorById(floorId);
+    if (!existing) {
+        setLocationMessage('admin-location-action-message', 'Floor not found.', true);
+        return;
+    }
+
+    const payload = {
+        number: Number(existing.number),
+        name: String(nextName || '').trim(),
+        notes: existing.notes || null,
+        active: Boolean(existing.active),
+    };
+
+    try {
+        await fetchJson(`/api/admin/floors/${floorId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        setLocationMessage('admin-location-action-message', 'Floor updated.');
+        await loadLocationOverview();
+    } catch (error) {
+        console.error(error);
+        setLocationMessage('admin-location-action-message', locationErrorMessage(error, 'Could not update floor.'), true);
+    }
+}
+
+async function deleteFloorRecord(floorId) {
+    if (!window.confirm(`Delete floor #${floorId}?`)) return;
+
+    try {
+        await fetchJson(`/api/admin/floors/${floorId}`, { method: 'DELETE' });
+        setLocationMessage('admin-location-action-message', 'Floor deleted.');
+        await loadLocationOverview();
+    } catch (error) {
+        const reason = locationErrorMessage(error, 'Could not delete floor.');
+        const requiresForce = reason.toLowerCase().includes('cannot delete floor with tables assigned');
+        if (requiresForce && window.confirm('Floor still has zones/tables. Force delete floor and all assigned records?')) {
+            try {
+                await fetchJson(`/api/admin/floors/${floorId}?force=1`, { method: 'DELETE' });
+                setLocationMessage('admin-location-action-message', 'Floor force deleted with its zones/tables.');
+                await loadLocationOverview();
+                await loadAdminStats();
+                return;
+            } catch (forceError) {
+                console.error(forceError);
+                setLocationMessage('admin-location-action-message', locationErrorMessage(forceError, 'Could not force delete floor.'), true);
+                return;
+            }
+        }
+        console.error(error);
+        setLocationMessage('admin-location-action-message', reason, true);
+    }
+}
+
+async function updateZoneRecord(zoneId, nextName) {
+    const existing = getZoneById(zoneId);
+    if (!existing) {
+        setLocationMessage('admin-location-action-message', 'Zone not found.', true);
+        return;
+    }
+
+    const payload = {
+        name: String(nextName || '').trim(),
+        floor: Number(existing.floor),
+        notes: existing.notes || null,
+        active: Boolean(existing.active),
+    };
+
+    try {
+        await fetchJson(`/api/admin/zones/${zoneId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        setLocationMessage('admin-location-action-message', 'Zone updated.');
+        await loadLocationOverview();
+    } catch (error) {
+        console.error(error);
+        setLocationMessage('admin-location-action-message', locationErrorMessage(error, 'Could not update zone.'), true);
+    }
+}
+
+async function deleteZoneRecord(zoneId) {
+    if (!window.confirm(`Delete zone #${zoneId}?`)) return;
+
+    try {
+        await fetchJson(`/api/admin/zones/${zoneId}`, { method: 'DELETE' });
+        setLocationMessage('admin-location-action-message', 'Zone deleted.');
+        await loadLocationOverview();
+    } catch (error) {
+        const reason = locationErrorMessage(error, 'Could not delete zone.');
+        const requiresForce = reason.toLowerCase().includes('cannot delete zone with tables assigned');
+        if (requiresForce && window.confirm('Zone still has tables assigned. Force delete zone and those tables?')) {
+            try {
+                await fetchJson(`/api/admin/zones/${zoneId}?force=1`, { method: 'DELETE' });
+                setLocationMessage('admin-location-action-message', 'Zone force deleted with assigned tables.');
+                await loadLocationOverview();
+                await loadAdminStats();
+                return;
+            } catch (forceError) {
+                console.error(forceError);
+                setLocationMessage('admin-location-action-message', locationErrorMessage(forceError, 'Could not force delete zone.'), true);
+                return;
+            }
+        }
+        console.error(error);
+        setLocationMessage('admin-location-action-message', reason, true);
+    }
+}
+
+async function updateTableRecord(tableId, nextNumberRaw, nextStatusRaw) {
+    const row = getTableById(tableId);
+    if (!row) {
+        setLocationMessage('admin-location-action-message', 'Table record not found.', true);
+        return;
+    }
+
+    const nextNumber = Number(nextNumberRaw);
+    if (!Number.isInteger(nextNumber) || nextNumber <= 0) {
+        setLocationMessage('admin-location-action-message', 'Table number must be a positive integer.', true);
+        return;
+    }
+    const allowedStatuses = new Set(['available', 'maintenance']);
+    const normalizedStatus = String(nextStatusRaw || row.status || 'available').trim().toLowerCase();
+    const nextStatus = allowedStatuses.has(normalizedStatus) ? normalizedStatus : 'available';
+
+    const payload = {
+        number: nextNumber,
+        capacity: Number(row.capacity),
+        floor: Number(row.floor),
+        zone: String(row.zone || '').trim(),
+        status: nextStatus,
+        features: row.features || {},
+        width: row.width || null,
+        height: row.height || null,
+        rotation: row.rotation || null,
+    };
+
+    try {
+        await fetchJson(`/api/admin/tables/${tableId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        setLocationMessage('admin-location-action-message', 'Table updated.');
+        await loadLocationOverview();
+        await loadAdminStats();
+    } catch (error) {
+        console.error(error);
+        setLocationMessage('admin-location-action-message', locationErrorMessage(error, 'Could not update table.'), true);
+    }
+}
+
+async function deleteTableRecord(tableId) {
+    if (!window.confirm(`Delete table #${tableId}?`)) return;
+
+    try {
+        await fetchJson(`/api/admin/tables/${tableId}`, { method: 'DELETE' });
+        setLocationMessage('admin-location-action-message', 'Table deleted.');
+        await loadLocationOverview();
+        await loadAdminStats();
+    } catch (error) {
+        const reason = locationErrorMessage(error, 'Could not delete table.');
+        if (reason.toLowerCase().includes('while it is occupied')) {
+            window.alert(reason);
+        }
+        const requiresForce = reason.toLowerCase().includes('future reservations');
+        if (requiresForce && window.confirm('Table has future reservations. Force delete table and remove table reservations?')) {
+            try {
+                await fetchJson(`/api/admin/tables/${tableId}?force=1`, { method: 'DELETE' });
+                setLocationMessage('admin-location-action-message', 'Table force deleted.');
+                await loadLocationOverview();
+                await loadAdminStats();
+                return;
+            } catch (forceError) {
+                console.error(forceError);
+                setLocationMessage('admin-location-action-message', locationErrorMessage(forceError, 'Could not force delete table.'), true);
+                return;
+            }
+        }
+        console.error(error);
+        setLocationMessage('admin-location-action-message', reason, true);
+    }
+}
+
+function closeLocationModal() {
+    const overlay = document.getElementById('admin-location-modal');
+    const statusField = document.getElementById('admin-location-modal-status-field');
+    const statusInput = document.getElementById('admin-location-modal-status-input');
+    if (overlay) {
+        overlay.hidden = true;
+    }
+    if (statusField) {
+        statusField.hidden = true;
+    }
+    if (statusInput) {
+        statusInput.value = 'available';
+    }
+    ADMIN_LOCATION_MODAL.kind = null;
+    ADMIN_LOCATION_MODAL.id = null;
+}
+
+function openLocationModal(kind, id) {
+    const overlay = document.getElementById('admin-location-modal');
+    const title = document.getElementById('admin-location-modal-title');
+    const label = document.getElementById('admin-location-modal-name-label');
+    const meta = document.getElementById('admin-location-modal-meta');
+    const input = document.getElementById('admin-location-modal-name-input');
+    const statusField = document.getElementById('admin-location-modal-status-field');
+    const statusInput = document.getElementById('admin-location-modal-status-input');
+    if (!overlay || !title || !label || !meta || !input || !statusField || !statusInput) return;
+
+    ADMIN_LOCATION_MODAL.kind = kind;
+    ADMIN_LOCATION_MODAL.id = Number(id);
+
+    if (kind === 'floor') {
+        const floor = getFloorById(id);
+        if (!floor) return;
+        statusField.hidden = true;
+        title.textContent = `Edit Floor ${floor.number}`;
+        label.textContent = 'Floor name';
+        meta.textContent = `Floor ${floor.number}`;
+        input.type = 'text';
+        input.min = '';
+        input.step = '';
+        input.value = floor.name || '';
+    } else if (kind === 'zone') {
+        const zone = getZoneById(id);
+        if (!zone) return;
+        statusField.hidden = true;
+        title.textContent = `Edit Zone ${zone.name}`;
+        label.textContent = 'Zone name';
+        meta.textContent = `Floor ${zone.floor}`;
+        input.type = 'text';
+        input.min = '';
+        input.step = '';
+        input.value = zone.name || '';
+    } else {
+        const table = getTableById(id);
+        if (!table) return;
+        statusField.hidden = false;
+        title.textContent = `Edit Table ${table.number}`;
+        label.textContent = 'Table number';
+        meta.textContent = `Floor ${table.floor} · Zone ${table.zone}`;
+        input.type = 'number';
+        input.min = '1';
+        input.step = '1';
+        input.value = String(table.number || '');
+        statusInput.value = String(table.status || 'available').trim().toLowerCase() === 'maintenance'
+            ? 'maintenance'
+            : 'available';
+    }
+
+    overlay.hidden = false;
+    window.setTimeout(() => input.focus(), 0);
+}
+
+async function submitLocationModal(event) {
+    event.preventDefault();
+    const input = document.getElementById('admin-location-modal-name-input');
+    const statusInput = document.getElementById('admin-location-modal-status-input');
+    if (!input || !statusInput) return;
+
+    const kind = ADMIN_LOCATION_MODAL.kind;
+    const id = Number(ADMIN_LOCATION_MODAL.id);
+    const value = String(input.value || '').trim();
+    if (!kind || !id || !value) {
+        return;
+    }
+
+    if ((kind === 'floor' || kind === 'zone') && value.length > 100) {
+        setLocationMessage('admin-location-action-message', 'Name is too long.', true);
+        return;
+    }
+
+    if (kind === 'floor') {
+        await updateFloorRecord(id, value);
+    } else if (kind === 'zone') {
+        await updateZoneRecord(id, value);
+    } else {
+        await updateTableRecord(id, value, statusInput.value);
+    }
+
+    closeLocationModal();
+}
+
+async function deleteFromLocationModal() {
+    const kind = ADMIN_LOCATION_MODAL.kind;
+    const id = Number(ADMIN_LOCATION_MODAL.id);
+    if (!kind || !id) return;
+
+    if (kind === 'floor') {
+        await deleteFloorRecord(id);
+    } else if (kind === 'zone') {
+        await deleteZoneRecord(id);
+    } else {
+        await deleteTableRecord(id);
+    }
+
+    closeLocationModal();
+}
+
+function bindLocationOverviewActions() {
+    document.querySelectorAll('[data-location-edit]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const kind = String(button.getAttribute('data-location-edit') || '');
+            const id = Number(button.getAttribute('data-location-id'));
+            if (!kind) return;
+            if (!id) {
+                setLocationMessage(
+                    'admin-location-action-message',
+                    'This location has not been synced yet. Refresh once and try again.',
+                    true,
+                );
+                return;
+            }
+            openLocationModal(kind, id);
+        });
+    });
+}
+
+async function loadLocationOverview(options = {}) {
+    const skipMaterialize = Boolean(options.skipMaterialize);
+    try {
+        const [floors, zones, tables, confirmedReservations] = await Promise.all([
+            fetchJson('/api/admin/floors'),
+            fetchJson('/api/admin/zones'),
+            fetchJson('/api/admin/tables'),
+            fetchJson('/api/steward/reservations').catch(() => []),
+        ]);
+
+        ADMIN_LOCATION_STATE.floors = Array.isArray(floors) ? floors : [];
+        ADMIN_LOCATION_STATE.zones = Array.isArray(zones) ? zones : [];
+        ADMIN_LOCATION_STATE.tables = Array.isArray(tables) ? tables : [];
+        const now = Date.now();
+        ADMIN_LOCATION_STATE.reservedTableIds = new Set(
+            (Array.isArray(confirmedReservations) ? confirmedReservations : [])
+                .filter((reservation) => {
+                    const ts = Date.parse(String(reservation?.start_ts || ''));
+                    return Number.isFinite(ts) && ts > now;
+                })
+                .map((reservation) => Number(reservation?.table_id))
+                .filter((tableId) => Number.isFinite(tableId) && tableId > 0),
+        );
+
+        // Backward-compatible bootstrap: materialize any missing floor/zone records implied by tables.
+        if (!skipMaterialize && ADMIN_LOCATION_STATE.tables.length > 0) {
+            const createdCount = await materializeLocationRecordsFromTables(
+                ADMIN_LOCATION_STATE.tables,
+                ADMIN_LOCATION_STATE.floors,
+                ADMIN_LOCATION_STATE.zones,
+            );
+            if (createdCount > 0) {
+                await loadLocationOverview({ skipMaterialize: true });
+                return;
+            }
+        }
+
+        // Fallback merge (read-only): keep API data, append derived rows if still missing.
+        if (ADMIN_LOCATION_STATE.tables.length > 0) {
+            const derived = deriveLocationStateFromTables(ADMIN_LOCATION_STATE.tables);
+            const floorNumbers = new Set(ADMIN_LOCATION_STATE.floors.map((floor) => Number(floor.number)));
+            const mergedFloors = [...ADMIN_LOCATION_STATE.floors];
+            derived.floors.forEach((floor) => {
+                if (!floorNumbers.has(Number(floor.number))) {
+                    mergedFloors.push(floor);
+                }
+            });
+            ADMIN_LOCATION_STATE.floors = mergedFloors.sort((a, b) => Number(a.number) - Number(b.number));
+
+            const zoneKeys = new Set(
+                ADMIN_LOCATION_STATE.zones.map((zone) => `${Number(zone.floor)}:${String(zone.name || '').trim().toLowerCase()}`),
+            );
+            const mergedZones = [...ADMIN_LOCATION_STATE.zones];
+            derived.zones.forEach((zone) => {
+                const zoneKey = `${Number(zone.floor)}:${String(zone.name || '').trim().toLowerCase()}`;
+                if (!zoneKeys.has(zoneKey)) {
+                    mergedZones.push(zone);
+                }
+            });
+            ADMIN_LOCATION_STATE.zones = mergedZones.sort((a, b) => (Number(a.floor) - Number(b.floor)) || String(a.name || '').localeCompare(String(b.name || '')));
+        }
+
+        updateFloorSelectOptions();
+        renderLocationOverview();
+        renderLocationFloorplan();
+
+        const zoneFloorInput = document.getElementById('zone-floor');
+        if (zoneFloorInput && !zoneFloorInput.value) {
+            zoneFloorInput.value = String(ADMIN_LOCATION_STATE.selectedFloor || '');
+        }
+
+        const tableFloorInput = document.getElementById('table-floor');
+        if (tableFloorInput && !tableFloorInput.value) {
+            tableFloorInput.value = String(ADMIN_LOCATION_STATE.selectedFloor || '');
+        }
+    } catch (error) {
+        console.error(error);
+        setLocationMessage('create-floor-message', 'Could not load floor overview.', true);
+    }
+}
+
+async function createFloor(form) {
+    const payload = {
+        number: Number(form.elements.namedItem('number')?.value),
+        name: String(form.elements.namedItem('name')?.value || '').trim(),
+        active: true,
+        notes: null,
+    };
+
+    try {
+        await fetchJson('/api/admin/floors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        form.reset();
+        setLocationMessage('create-floor-message', 'Floor created.');
+        await loadLocationOverview();
+        const selectedFloorInput = document.getElementById('zone-floor');
+        if (selectedFloorInput) {
+            selectedFloorInput.value = String(ADMIN_LOCATION_STATE.selectedFloor || '');
+        }
+    } catch (error) {
+        console.error(error);
+        setLocationMessage('create-floor-message', locationErrorMessage(error, 'Could not create floor.'), true);
+    }
+}
+
+async function createZone(form) {
+    const payload = {
+        floor: Number(form.elements.namedItem('floor')?.value),
+        name: String(form.elements.namedItem('name')?.value || '').trim(),
+        active: true,
+        notes: String(form.elements.namedItem('notes')?.value || '').trim() || null,
+    };
+
+    try {
+        await fetchJson('/api/admin/zones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        form.reset();
+        setLocationMessage('create-zone-message', 'Zone created.');
+        await loadLocationOverview();
+        const selectedFloorInput = document.getElementById('table-floor');
+        if (selectedFloorInput) {
+            selectedFloorInput.value = String(ADMIN_LOCATION_STATE.selectedFloor || payload.floor || '');
+        }
+    } catch (error) {
+        console.error(error);
+        setLocationMessage('create-zone-message', locationErrorMessage(error, 'Could not create zone.'), true);
+    }
+}
+
+async function createTable(form) {
+    const payload = {
+        number: Number(form.elements.namedItem('number')?.value),
+        capacity: Number(form.elements.namedItem('capacity')?.value),
+        floor: Number(form.elements.namedItem('floor')?.value),
+        zone: String(form.elements.namedItem('zone')?.value || '').trim(),
+        status: 'available',
+        features: {},
+    };
+
+    try {
+        await fetchJson('/api/admin/tables', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        form.reset();
+        setLocationMessage('create-table-message', 'Table created.');
+        await loadLocationOverview();
+        await loadAdminStats();
+    } catch (error) {
+        console.error(error);
+        setLocationMessage('create-table-message', locationErrorMessage(error, 'Could not create table.'), true);
+    }
 }
 
 function renderAnnouncements(announcements) {
@@ -1226,6 +2117,56 @@ function bindAdminDashboard() {
         createAnnouncementFromAdminForm(announcementForm);
     });
 
+    const floorForm = document.getElementById('create-floor-form');
+    floorForm?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        createFloor(floorForm);
+    });
+
+    const zoneForm = document.getElementById('create-zone-form');
+    zoneForm?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        createZone(zoneForm);
+    });
+
+    const tableForm = document.getElementById('create-table-form');
+    tableForm?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        createTable(tableForm);
+    });
+
+    const floorSelect = document.getElementById('admin-floor-select');
+    floorSelect?.addEventListener('change', () => {
+        ADMIN_LOCATION_STATE.selectedFloor = Number(floorSelect.value);
+        renderLocationOverview();
+
+        const zoneFloorInput = document.getElementById('zone-floor');
+        if (zoneFloorInput) {
+            zoneFloorInput.value = String(ADMIN_LOCATION_STATE.selectedFloor || '');
+        }
+
+        const tableFloorInput = document.getElementById('table-floor');
+        if (tableFloorInput) {
+            tableFloorInput.value = String(ADMIN_LOCATION_STATE.selectedFloor || '');
+        }
+    });
+
+    const locationModalForm = document.getElementById('admin-location-modal-form');
+    locationModalForm?.addEventListener('submit', submitLocationModal);
+
+    const locationModalDelete = document.getElementById('admin-location-modal-delete');
+    locationModalDelete?.addEventListener('click', deleteFromLocationModal);
+
+    document.querySelectorAll('[data-location-modal-close]').forEach((button) => {
+        button.addEventListener('click', closeLocationModal);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeLocationModal();
+        }
+    });
+
     loadAdminStats();
     loadUsers();
 
@@ -1238,6 +2179,46 @@ function bindAdminDashboard() {
     loadPricing();
     loadCatalogue();
     loadAnnouncements();
+    loadLocationOverview();
+
+    try {
+        const es = new EventSource('/api/events/stream');
+        setAdminConnection('Realtime: connected');
+        es.addEventListener('domain_event', (e) => {
+            try {
+                const payload = JSON.parse(e.data);
+                const et = normalizeRealtimeEventType(payload);
+                if (!et) return;
+
+                if (et === 'reservation.seated' || et === 'reservation.completed') {
+                    const data = payload.data || {};
+                    const reservationId = data.reservation_id || 'unknown';
+                    const eventKey = `${et}:${reservationId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    loadLocationOverview();
+                    loadAdminStats();
+                    return;
+                }
+
+                if (et === 'reservation.cancelled' || et === 'reservation.updated' || et === 'reservation.payment.completed') {
+                    const data = payload.data || {};
+                    const reservationId = data.reservation_id || 'unknown';
+                    const eventKey = `${et}:${reservationId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    loadAdminStats();
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to handle admin realtime event', error);
+            }
+        });
+        es.addEventListener('error', () => setAdminConnection('Realtime: reconnecting...'));
+    } catch (error) {
+        console.error('Failed to connect admin realtime stream', error);
+        setAdminConnection('Realtime: unavailable');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', bindAdminDashboard);

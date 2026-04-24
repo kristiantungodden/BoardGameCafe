@@ -4,6 +4,7 @@ from shared.infrastructure import db
 from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.bookings.infrastructure.database.booking_status_history_db import BookingStatusHistoryDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
+from features.tables.infrastructure.database.table_db import TableDB
 from shared.domain.events import ReservationCompleted, ReservationSeated
 from shared.domain.events import ReservationUpdated
 
@@ -60,6 +61,11 @@ def test_steward_list_and_seat_flow(client, app, test_data):
     assert seat_data["id"] == reservation_id
     assert seat_data["status"] == "seated"
 
+    with app.app_context():
+        seated_table = db.session.get(TableDB, table_id)
+        assert seated_table is not None
+        assert seated_table.status == "occupied"
+
     pending_after_seat = client.get("/api/steward/reservations")
     assert pending_after_seat.status_code == 200
     pending_after_seat_data = pending_after_seat.get_json()
@@ -114,6 +120,11 @@ def test_steward_complete_flow(client, app, test_data):
     data = comp.get_json()
     assert data["id"] == reservation_id
     assert data["status"] == "completed"
+
+    with app.app_context():
+        freed_table = db.session.get(TableDB, table_id)
+        assert freed_table is not None
+        assert freed_table.status == "available"
 
     seated_after_complete = client.get("/api/steward/reservations/seated")
     assert seated_after_complete.status_code == 200

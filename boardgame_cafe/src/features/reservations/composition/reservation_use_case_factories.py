@@ -53,17 +53,21 @@ from features.reservations.infrastructure.repositories.reservation_repository im
 from features.reservations.infrastructure.repositories.table_reservation_repository import (
     SqlAlchemyTableReservationRepository,
 )
+from features.tables.infrastructure.repositories.table_repository import (
+    TableRepository as SqlAlchemyTableRepository,
+)
 from shared.infrastructure import db
 
 _repo = SqlAlchemyReservationRepository()
 _booking_repo = SqlAlchemyBookingRepository()
 _table_reservation_repo = SqlAlchemyTableReservationRepository()
+_table_repo = SqlAlchemyTableRepository()
 _game_repo = SqlAlchemyGameReservationRepository()
 _lookup_repo = SqlAlchemyReservationLookupRepository()
 _payment_repo = PaymentRepository()
 _stripe_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
 _stripe_provider = (
-    StripeAdapter(_stripe_key, os.getenv("APP_BASE_URL") or "http://localhost:5000")
+    StripeAdapter(_stripe_key, os.getenv("APP_BASE_URL") or "http://127.0.0.1:5000")
     if _stripe_key
     else None
 )
@@ -98,11 +102,11 @@ def get_cancel_reservation_use_case() -> CancelBookingUseCase:
 
 
 def get_seat_reservation_use_case() -> SeatBookingUseCase:
-    return SeatBookingUseCase(_repo, _status_history_repo)
+    return SeatBookingUseCase(_repo, _status_history_repo, _table_reservation_repo, _table_repo)
 
 
 def get_complete_reservation_use_case() -> CompleteBookingUseCase:
-    return CompleteBookingUseCase(_repo, _status_history_repo)
+    return CompleteBookingUseCase(_repo, _status_history_repo, _table_reservation_repo, _table_repo)
 
 
 def get_no_show_reservation_use_case() -> MarkBookingNoShowUseCase:

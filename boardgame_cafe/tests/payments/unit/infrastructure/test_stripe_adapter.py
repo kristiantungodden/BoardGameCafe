@@ -42,10 +42,7 @@ def test_start_payment_builds_checkout_session_with_environment_urls(monkeypatch
     assert captured["metadata"]["payment_id"] == "99"
     assert captured["line_items"][0]["price_data"]["unit_amount"] == 2500
     assert captured["success_url"].startswith("https://boardgamecafe.example/payments/success")
-    assert captured["cancel_url"] == (
-        "https://boardgamecafe.example/payments/cancel"
-        "?payment_id=99&booking_id=42"
-    )
+    assert captured["cancel_url"] == "https://boardgamecafe.example/payments/cancel/99"
 
 
 def test_fetch_status_maps_paid_and_pending(monkeypatch):

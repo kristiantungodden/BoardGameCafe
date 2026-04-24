@@ -10,12 +10,6 @@ from features.tables.application.use_cases.admin_table_use_cases import (
     CreateZoneCommand,
     CreateFloorCommand,
     CreateTableCommand,
-    DeleteFloorUseCase,
-    DeleteTableUseCase,
-    DeleteZoneUseCase,
-    ListFloorsUseCase,
-    ListTablesUseCase,
-    ListZonesUseCase,
     UpdateFloorCommand,
     UpdateTableCommand,
     UpdateZoneCommand,
@@ -27,6 +21,9 @@ from features.tables.composition.admin_use_case_factories import (
     get_delete_floor_use_case,
     get_delete_table_use_case,
     get_delete_zone_use_case,
+    get_force_delete_floor_use_case,
+    get_force_delete_table_use_case,
+    get_force_delete_zone_use_case,
     get_list_floors_use_case,
     get_list_tables_use_case,
     get_list_zones_use_case,
@@ -35,9 +32,7 @@ from features.tables.composition.admin_use_case_factories import (
     get_update_zone_use_case,
 )
 from features.tables.presentation.schemas.admin_schema import FloorRequest, TableRequest, ZoneRequest
-from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 from shared.domain.exceptions import ValidationError as DomainValidationError
-from shared.infrastructure import db
 
 
 bp = Blueprint("admin_tables", __name__, url_prefix="/api/admin")
@@ -92,28 +87,6 @@ def _serialize_zone(zone):
 def _is_force_delete() -> bool:
     raw = (request.args.get("force") or "").strip().lower()
     return raw in {"1", "true", "yes", "y"}
-
-
-def _find_floor_by_id(floor_id: int):
-    floors = get_list_floors_use_case().execute()
-    for floor in floors:
-        if getattr(floor, "id", None) == floor_id:
-            return floor
-    return None
-
-
-def _find_zone_by_id(zone_id: int):
-    zones = get_list_zones_use_case().execute()
-    for zone in zones:
-        if getattr(zone, "id", None) == zone_id:
-            return zone
-    return None
-
-
-def _force_delete_table(table_id: int) -> None:
-    db.session.query(TableReservationDB).filter(TableReservationDB.table_id == table_id).delete(synchronize_session=False)
-    db.session.commit()
-    get_delete_table_use_case().execute(table_id)
 
 
 @bp.get("/floors")
@@ -173,19 +146,7 @@ def delete_floor(floor_id: int):
             get_delete_floor_use_case().execute(floor_id)
             return "", 204
 
-        floor = _find_floor_by_id(floor_id)
-        if floor is None:
-            return jsonify({"error": "Floor not found"}), 400
-
-        tables_on_floor = get_list_tables_use_case().execute(floor=floor.number)
-        for table in tables_on_floor:
-            _force_delete_table(table.id)
-
-        zones_on_floor = get_list_zones_use_case().execute(floor=floor.number)
-        for zone in zones_on_floor:
-            get_delete_zone_use_case().execute(zone.id)
-
-        get_delete_floor_use_case().execute(floor_id)
+        get_force_delete_floor_use_case().execute(floor_id)
     except DomainValidationError as exc:
         return jsonify({"error": str(exc)}), 400
     return "", 204
@@ -249,16 +210,7 @@ def delete_zone(zone_id: int):
             get_delete_zone_use_case().execute(zone_id)
             return "", 204
 
-        zone = _find_zone_by_id(zone_id)
-        if zone is None:
-            return jsonify({"error": "Zone not found"}), 400
-
-        tables = get_list_tables_use_case().execute(floor=zone.floor)
-        for table in tables:
-            if table.zone == zone.name:
-                _force_delete_table(table.id)
-
-        get_delete_zone_use_case().execute(zone_id)
+        get_force_delete_zone_use_case().execute(zone_id)
     except DomainValidationError as exc:
         return jsonify({"error": str(exc)}), 400
     return "", 204
@@ -319,7 +271,7 @@ def delete_table(table_id: int):
         return err
     try:
         if _is_force_delete():
-            _force_delete_table(table_id)
+            get_force_delete_table_use_case().execute(table_id)
         else:
             get_delete_table_use_case().execute(table_id)
     except DomainValidationError as exc:

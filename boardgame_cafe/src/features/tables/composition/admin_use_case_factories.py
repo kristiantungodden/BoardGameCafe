@@ -1,4 +1,7 @@
 from features.reservations.infrastructure.repositories.reservation_repository import SqlAlchemyReservationRepository
+from features.reservations.infrastructure.repositories.table_reservation_repository import (
+    SqlAlchemyTableReservationRepository,
+)
 from features.tables.infrastructure.repositories.floor_repository import FloorRepository
 from features.tables.infrastructure.repositories.table_repository import TableRepository
 from features.tables.infrastructure.repositories.zone_repository import ZoneRepository
@@ -9,6 +12,9 @@ from features.tables.application.use_cases.admin_table_use_cases import (
     DeleteFloorUseCase,
     DeleteTableUseCase,
     DeleteZoneUseCase,
+    ForceDeleteFloorUseCase,
+    ForceDeleteTableUseCase,
+    ForceDeleteZoneUseCase,
     ListFloorsUseCase,
     ListTablesUseCase,
     ListZonesUseCase,
@@ -21,6 +27,7 @@ _floor_repo = FloorRepository()
 _table_repo = TableRepository()
 _zone_repo = ZoneRepository()
 _reservation_repo = SqlAlchemyReservationRepository()
+_table_reservation_repo = SqlAlchemyTableReservationRepository()
 
 
 def get_list_floors_use_case() -> ListFloorsUseCase:
@@ -55,6 +62,10 @@ def get_delete_table_use_case() -> DeleteTableUseCase:
     return DeleteTableUseCase(_table_repo, _reservation_repo)
 
 
+def get_force_delete_table_use_case() -> ForceDeleteTableUseCase:
+    return ForceDeleteTableUseCase(_table_repo, _table_reservation_repo)
+
+
 def get_list_zones_use_case() -> ListZonesUseCase:
     return ListZonesUseCase(_zone_repo)
 
@@ -69,3 +80,16 @@ def get_update_zone_use_case() -> UpdateZoneUseCase:
 
 def get_delete_zone_use_case() -> DeleteZoneUseCase:
     return DeleteZoneUseCase(_zone_repo, _table_repo)
+
+
+def get_force_delete_zone_use_case() -> ForceDeleteZoneUseCase:
+    return ForceDeleteZoneUseCase(_zone_repo, _table_repo, get_force_delete_table_use_case())
+
+
+def get_force_delete_floor_use_case() -> ForceDeleteFloorUseCase:
+    return ForceDeleteFloorUseCase(
+        _floor_repo,
+        _zone_repo,
+        _table_repo,
+        get_force_delete_table_use_case(),
+    )
