@@ -205,7 +205,7 @@ def test_admin_table_delete_rejects_occupied_tables(client, app):
     assert "while it is occupied" in delete_response.get_json()["error"]
 
 
-def test_admin_table_move_rejects_maintenance_tables(client, app):
+def test_admin_table_move_allows_maintenance_tables(client, app):
     _create_floor(client, number=1, name="Main")
     _create_zone(client, floor=1, name="A")
 
@@ -229,8 +229,11 @@ def test_admin_table_move_rejects_maintenance_tables(client, app):
             "rotation": table["rotation"],
         },
     )
-    assert move_response.status_code == 400
-    assert "occupied or under maintenance" in move_response.get_json()["error"]
+    assert move_response.status_code == 200, move_response.get_data(as_text=True)
+    moved_table = move_response.get_json()
+    assert moved_table["floor"] == 2
+    assert moved_table["zone"] == "B"
+    assert moved_table["status"] == "maintenance"
 
 
 def test_admin_table_delete_allows_maintenance_tables(client, app):

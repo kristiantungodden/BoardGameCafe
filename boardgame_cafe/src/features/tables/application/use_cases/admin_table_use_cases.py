@@ -5,19 +5,19 @@ from datetime import datetime
 from typing import Optional
 
 from features.reservations.application.interfaces.reservation_repository_interface import ReservationRepositoryInterface
-from features.tables.application.interfaces.floor_repository import FloorRepository
-from features.tables.application.interfaces.table_repository import TableRepository, TableFilters
-from features.tables.application.interfaces.zone_repository import ZoneRepository
 from features.reservations.application.interfaces.table_reservation_repository_interface import (
     TableReservationRepositoryInterface,
 )
+from features.tables.application.interfaces.floor_repository import FloorRepository
+from features.tables.application.interfaces.table_repository import TableRepository, TableFilters
+from features.tables.application.interfaces.zone_repository import ZoneRepository
 from features.tables.domain.models.floor import Floor
 from features.tables.domain.models.table import Table
 from features.tables.domain.models.zone import Zone
 from shared.domain.exceptions import ValidationError
 
 
-_MOVE_LOCKED_TABLE_STATUSES = {"occupied", "maintenance"}
+_MOVE_LOCKED_TABLE_STATUSES = {"occupied"}
 _EDIT_DELETE_LOCKED_TABLE_STATUSES = {"occupied"}
 
 
@@ -227,9 +227,15 @@ class UpdateTableUseCase:
 
 
 class DeleteTableUseCase:
-    def __init__(self, table_repo: TableRepository, reservation_repo: ReservationRepositoryInterface):
+    def __init__(
+        self,
+        table_repo: TableRepository,
+        reservation_repo: ReservationRepositoryInterface,
+        table_reservation_repo: TableReservationRepositoryInterface,
+    ):
         self.table_repo = table_repo
         self.reservation_repo = reservation_repo
+        self.table_reservation_repo = table_reservation_repo
 
     def execute(self, table_id: int) -> None:
         table = self.table_repo.get_by_id(table_id)
@@ -244,6 +250,12 @@ class DeleteTableUseCase:
         )
         if future_bookings:
             raise ValidationError("Cannot delete table with future reservations")
+
+        if table.status == "available":
+            links = self.table_reservation_repo.list_by_table_id(table_id)
+            for link in links:
+                if getattr(link, "id", None) is not None:
+                    self.table_reservation_repo.delete(link.id)
 
         self.table_repo.delete(table_id)
 
@@ -373,7 +385,7 @@ def _ensure_table_is_not_moved_while_locked(table: Table, target_floor: int, tar
     normalized_target_zone = str(target_zone or "").strip()
     normalized_existing_zone = str(table.zone or "").strip()
     if int(table.floor) != int(target_floor) or normalized_existing_zone != normalized_target_zone:
-        raise ValidationError("Cannot move a table while it is occupied or under maintenance")
+        raise ValidationError("Cannot move a table while it is occupied")
 
 
 def _apply_table_status_update(table: Table, next_status: str) -> None:

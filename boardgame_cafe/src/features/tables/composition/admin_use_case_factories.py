@@ -59,7 +59,7 @@ def get_update_table_use_case() -> UpdateTableUseCase:
 
 
 def get_delete_table_use_case() -> DeleteTableUseCase:
-    return DeleteTableUseCase(_table_repo, _reservation_repo)
+    return DeleteTableUseCase(_table_repo, _reservation_repo, _table_reservation_repo)
 
 
 def get_force_delete_table_use_case() -> ForceDeleteTableUseCase:
