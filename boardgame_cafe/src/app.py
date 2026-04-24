@@ -9,7 +9,7 @@ import stripe
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
-from shared.infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
+from shared.infrastructure import db, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
 from shared.infrastructure import init_booking_draft_store
 from shared.infrastructure.message_bus.realtime import stream_realtime_events
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
@@ -66,7 +66,6 @@ def create_app(config_name: str = None):
 
     # Initialize extensions with app
     db.init_app(app)
-    migrate.init_app(app, db)
     csrf.init_app(app)
     mail.init_app(app)
     login_manager.init_app(app)
