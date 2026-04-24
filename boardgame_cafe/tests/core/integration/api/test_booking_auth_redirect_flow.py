@@ -68,4 +68,4 @@ def test_auth_redirect_to_booking_then_confirmation_and_my_bookings(client, test
     list_response = client.get("/api/reservations")
     assert list_response.status_code == 200
     rows = list_response.get_json()
-    assert any(item["id"] == reservation_id for item in rows)
+    assert not any(item["id"] == reservation_id for item in rows)

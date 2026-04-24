@@ -77,6 +77,22 @@ def test_register_returns_400_for_invalid_payload(client):
     assert response.status_code == 400
     data = response.get_json()
     assert data["error"] == "Registration failed"
+
+
+def test_register_returns_400_for_weak_password_without_complexity(client):
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "name": "Weak Password User",
+            "email": "weak-password@example.com",
+            "password": "abcdefgh",  # no uppercase, digit, or special character
+        },
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] == "Registration failed"
+    assert "details" in data
     assert "details" in data
 
     # Invalid email format

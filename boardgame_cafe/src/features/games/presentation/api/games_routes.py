@@ -9,6 +9,7 @@ from features.games.application.use_cases.game_tag_use_cases import (
     CreateGameTagCommand,
 )
 from features.games.composition.game_use_case_factories import (
+    get_featured_picks_use_case,
     get_game_tag_use_cases,
     get_game_use_cases,
     get_games_filtered,
@@ -73,6 +74,38 @@ def _serialize_tag_link(link: GameTagLink) -> dict:
         "game_id": link.game_id,
         "game_tag_id": link.game_tag_id,
     }
+
+
+def _serialize_featured_game(game: Game | None) -> dict | None:
+    if game is None:
+        return None
+    return _serialize_game(game)
+
+
+@bp.route("/featured-picks", methods=["GET"])
+def get_featured_picks():
+    picks = get_featured_picks_use_case().execute()
+
+    top_rated = picks["top_rated_last_month"]
+    most_borrowed = picks["most_borrowed_last_month"]
+
+    return jsonify(
+        {
+            "top_rated_last_month": None
+            if top_rated is None
+            else {
+                **(_serialize_featured_game(use_cases.get_game(top_rated.game.id)) or {}),
+                "average_rating": top_rated.average_rating,
+                "rating_count": top_rated.rating_count,
+            },
+            "most_borrowed_last_month": None
+            if most_borrowed is None
+            else {
+                **(_serialize_featured_game(use_cases.get_game(most_borrowed.game.id)) or {}),
+                "borrow_count": most_borrowed.borrow_count,
+            },
+        }
+    ), 200
 
 
 @bp.route("/", methods=["GET"])

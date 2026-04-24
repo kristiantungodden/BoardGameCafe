@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Annotated, Optional
+import re
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
@@ -28,6 +29,19 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: PasswordStr
     role: Optional[str] = Field(default="customer", pattern=r"^(customer|staff|admin)$")
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        # Registration policy: minimum 8 chars with at least one letter and one digit.
+        if (
+            not re.search(r"[A-Za-z]", value)
+            or not re.search(r"\d", value)
+        ):
+            raise ValueError(
+                "Password must include at least one letter and one digit"
+            )
+        return value
 
 
 class UserUpdate(BaseModel):

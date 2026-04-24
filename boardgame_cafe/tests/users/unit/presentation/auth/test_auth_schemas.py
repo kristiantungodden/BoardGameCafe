@@ -148,15 +148,27 @@ class TestUserCreate:
         errors = exc_info.value.errors()
         assert any(e["loc"][0] == "password" for e in errors)
 
-    def test_register_payload_accepts_exactly_8_char_password(self):
-        """Password with exactly 8 characters should be accepted."""
+    def test_register_payload_rejects_digits_only_password_even_if_length_is_8(self):
+        """Password policy should reject weak numeric-only passwords."""
         payload = {
             "name": "Test User",
             "email": "user@example.com",
             "password": "12345678",
         }
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate.model_validate(payload)
+        errors = exc_info.value.errors()
+        assert any(e["loc"][0] == "password" for e in errors)
+
+    def test_register_payload_accepts_strong_exactly_8_char_password(self):
+        """Password with exactly 8 characters can pass if complexity requirements are met."""
+        payload = {
+            "name": "Test User",
+            "email": "user2@example.com",
+            "password": "Abcdef1!",
+        }
         user = UserCreate.model_validate(payload)
-        assert user.password == "12345678"
+        assert user.password == "Abcdef1!"
 
     def test_register_payload_rejects_empty_password(self):
         """Empty password should raise ValidationError."""

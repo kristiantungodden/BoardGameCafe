@@ -117,6 +117,33 @@ def test_payment_cancel_route_renders_cancelled_page_without_login(client):
     assert resp.status_code in {301, 302}
 
 
+def test_payment_cancel_route_deletes_created_booking_aggregate(client, app):
+    repo = PaymentRepository()
+    customer = _create_customer_and_login(client, app, email="cancel-cleanup@example.com")
+
+    with app.app_context():
+        booking = _create_booking_for_customer(customer.id, status="created")
+        payment = Payment(booking_id=booking.id, amount_cents=2400)
+        saved = repo.add(payment)
+        saved.provider = "stripe"
+        saved.provider_ref = "cs_test_cancel_cleanup"
+        saved.status = PaymentStatus.PENDING
+        repo.update(saved)
+
+        booking_id = booking.id
+        payment_id = saved.id
+
+    resp = client.get(f"/payments/cancel/{payment_id}")
+
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert "Payment Cancelled" in html
+
+    with app.app_context():
+        assert repo.get_by_id(payment_id) is None
+        assert db.session.get(BookingDB, booking_id) is None
+
+
 def test_payment_result_routes_require_payment_owner(client, app):
     repo = PaymentRepository()
 

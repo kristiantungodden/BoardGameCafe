@@ -13,6 +13,9 @@ from features.games.application.use_cases.game_rating_use_cases import (
     GetAverageRatingByGameIdUseCase,
     GetRatingsByGameIdUseCase,
 )
+from features.games.application.use_cases.game_featured_use_cases import (
+    GetFeaturedPicksUseCase,
+)
 from features.games.application.use_cases.game_tag_use_cases import (
     AttachGameTagUseCase,
     CreateGameTagUseCase,
@@ -29,6 +32,9 @@ from features.games.infrastructure.repositories.game_rating_repository import (
 )
 from features.games.infrastructure.repositories.game_repository import GameRepository
 from features.games.infrastructure.repositories.game_tag_repository import GameTagRepository
+from features.games.infrastructure.repositories.game_featured_repository import (
+    SqlAlchemyGameFeaturedRepository,
+)
 from shared.infrastructure import db
 
 
@@ -62,6 +68,7 @@ _game_repository = GameRepository()
 _tag_repository = GameTagRepository()
 _copy_repository = GameCopyRepositoryImpl()
 _rating_repository = GameRatingRepositoryImpl()
+_featured_repository = SqlAlchemyGameFeaturedRepository()
 
 
 def get_game_use_cases() -> GameUseCases:
@@ -103,6 +110,10 @@ def get_game_rating_use_cases() -> GameRatingUseCaseBundle:
         list_by_game=GetRatingsByGameIdUseCase(_rating_repository),
         get_average=GetAverageRatingByGameIdUseCase(_rating_repository),
     )
+
+
+def get_featured_picks_use_case() -> GetFeaturedPicksUseCase:
+    return GetFeaturedPicksUseCase(_featured_repository)
 
 
 def rollback_games_transaction() -> None:

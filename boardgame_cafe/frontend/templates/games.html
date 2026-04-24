@@ -26,7 +26,9 @@
         <aside class="games-side-panel">
             <article class="panel games-note-panel">
                 <h3>Featured Picks</h3>
-                <p>Minimal cards for quick browsing, rich details in the popup.</p>
+                <div id="featured-picks-list" class="mini-list">
+                    <p class="game-state">Loading featured picks...</p>
+                </div>
             </article>
             <article class="panel games-filter-panel">
                 <h3>Search and Filters</h3>
@@ -87,7 +89,6 @@
     </div>
 
     <div class="action-row action-row-top-gap">
-        <a class="button" href="/api/games/">Open Games API</a>
         <a class="button button-secondary" href="/">Back to Home</a>
     </div>
 </section>
@@ -145,11 +146,41 @@
     }
 
     .games-side-panel {
-        display: grid;
+        display: flex;
+        flex-direction: column;
         gap: 0.85rem;
+        height: 100%;
     }
 
-    .games-catalog-panel,
+    .games-note-panel {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #featured-picks-list {
+        max-height: 200px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .games-filter-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .games-catalog-panel {
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(180deg, #fffdfa 0%, #f8f3e9 100%);
+        border: 1px solid #ded4c1;
+        border-radius: 8px;
+        box-shadow: 0 8px 20px rgba(31, 29, 26, 0.06);
+        max-height: min(136vh, 96rem);
+    }
+
     .games-note-panel,
     .games-filter-panel {
         background: linear-gradient(180deg, #fffdfa 0%, #f8f3e9 100%);
@@ -176,10 +207,18 @@
     }
 
     #games-list {
-        max-height: min(62vh, 48rem);
+        flex: 1;
+        min-height: 0;
+        max-height: min(136vh, 96rem);
         overflow-y: auto;
+        overflow-x: hidden;
         padding-right: 0.35rem;
         align-content: start;
+    }
+
+    .game-catalog-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        grid-auto-rows: max-content;
     }
 
     #games-list::-webkit-scrollbar {
@@ -543,13 +582,108 @@
         gap: 0.45rem;
     }
 
+    #featured-picks-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        padding-right: 0.35rem;
+    }
+
+    #featured-picks-list::-webkit-scrollbar {
+        width: 9px;
+    }
+
+    #featured-picks-list::-webkit-scrollbar-track {
+        background: #f1eadc;
+        border-radius: 999px;
+    }
+
+    #featured-picks-list::-webkit-scrollbar-thumb {
+        background: #c9bda8;
+        border-radius: 999px;
+        border: 2px solid #f1eadc;
+    }
+
+    #featured-picks-list::-webkit-scrollbar-thumb:hover {
+        background: #b8a98e;
+    }
+
+    .featured-game-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #d2c6af;
+        border-radius: 8px;
+        background: #fffdf8;
+        overflow: hidden;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+    }
+
+    .featured-game-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(31, 29, 26, 0.12);
+    }
+
+    .featured-badge {
+        position: absolute;
+        top: 0.55rem;
+        left: 0.55rem;
+        z-index: 10;
+        padding: 0.32rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        backdrop-filter: blur(8px);
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 2px 8px rgba(31, 29, 26, 0.15);
+    }
+
+    .featured-badge-rated {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.95), rgba(255, 179, 0, 0.95));
+        color: #6d5a0a;
+        border-color: rgba(255, 160, 0, 0.3);
+    }
+
+    .featured-badge-popular {
+        background: linear-gradient(135deg, rgba(244, 67, 54, 0.95), rgba(229, 57, 53, 0.95));
+        color: #fff;
+        border-color: rgba(229, 57, 53, 0.3);
+    }
+
+    .featured-card-body {
+        padding: 0.6rem 0.65rem 0.65rem;
+    }
+
+    .featured-card-body .game-card-title {
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .featured-card-body .game-card-meta {
+        font-size: 0.8rem;
+        margin: 0;
+        color: #5a5348;
+    }
+
     @media (max-width: 860px) {
         .games-layout {
             grid-template-columns: 1fr;
         }
 
+        .games-side-panel {
+            flex-direction: row;
+            height: auto;
+        }
+
+        .games-note-panel,
+        .games-filter-panel {
+            flex: 1;
+        }
+
         #games-list {
-            max-height: min(58vh, 34rem);
+            max-height: min(58vh, 38rem);
         }
 
         .game-details-grid {
@@ -978,6 +1112,93 @@
         controls.appendChild(nextBtn);
     }
 
+    async function loadFeaturedPicks() {
+        const slot = document.getElementById("featured-picks-list");
+        if (!slot) {
+            return;
+        }
+
+        try {
+            const response = await fetch("/api/games/featured-picks");
+            if (!response.ok) {
+                throw new Error("Failed to load featured picks");
+            }
+            const payload = await response.json();
+
+            const topRated = payload.top_rated_last_month;
+            const mostBorrowed = payload.most_borrowed_last_month;
+
+            const cards = [];
+
+            if (topRated) {
+                const imageUrl = topRated.image_url || "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=700&q=80";
+                const title = topRated.title || "Untitled game";
+                const players = `${topRated.min_players}-${topRated.max_players} players`;
+                const playtime = `${topRated.playtime_min} min`;
+                const complexity = `Complexity: ${topRated.complexity}`;
+
+                cards.push(`
+                    <article class="featured-game-card" data-game-id="${topRated.id}">
+                        <div class="featured-badge featured-badge-rated">⭐ Best Rated</div>
+                        <button class="game-card-cta" type="button" data-game-id="${topRated.id}" aria-label="Open details for ${escapeHtml(title)}">
+                            <img class="game-card-image" src="${imageUrl}" alt="${escapeHtml(title)}" loading="lazy">
+                        </button>
+                        <div class="game-card-body featured-card-body">
+                            <h4 class="game-card-title">${escapeHtml(title)}</h4>
+                            <p class="game-card-meta">${escapeHtml(players)} | ${escapeHtml(playtime)} | ${escapeHtml(complexity)}</p>
+                        </div>
+                    </article>
+                `);
+
+                gamesById.set(Number(topRated.id), topRated);
+            }
+
+            if (mostBorrowed) {
+                const imageUrl = mostBorrowed.image_url || "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=700&q=80";
+                const title = mostBorrowed.title || "Untitled game";
+                const players = `${mostBorrowed.min_players}-${mostBorrowed.max_players} players`;
+                const playtime = `${mostBorrowed.playtime_min} min`;
+                const complexity = `Complexity: ${mostBorrowed.complexity}`;
+
+                cards.push(`
+                    <article class="featured-game-card" data-game-id="${mostBorrowed.id}">
+                        <div class="featured-badge featured-badge-popular">📌 Most Popular</div>
+                        <button class="game-card-cta" type="button" data-game-id="${mostBorrowed.id}" aria-label="Open details for ${escapeHtml(title)}">
+                            <img class="game-card-image" src="${imageUrl}" alt="${escapeHtml(title)}" loading="lazy">
+                        </button>
+                        <div class="game-card-body featured-card-body">
+                            <h4 class="game-card-title">${escapeHtml(title)}</h4>
+                            <p class="game-card-meta">${escapeHtml(players)} | ${escapeHtml(playtime)} | ${escapeHtml(complexity)}</p>
+                        </div>
+                    </article>
+                `);
+
+                gamesById.set(Number(mostBorrowed.id), mostBorrowed);
+            }
+
+            if (!cards.length) {
+                slot.innerHTML = '<p class="game-state">No featured picks available yet.</p>';
+                return;
+            }
+
+            slot.innerHTML = cards.join("");
+
+            // Bind click handlers and handle image errors
+            slot.querySelectorAll("[data-game-id]").forEach((node) => {
+                const img = node.querySelector("img");
+                if (img) {
+                    img.addEventListener("error", () => {
+                        img.src = "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=700&q=80";
+                    });
+                }
+            });
+
+            bindGameCardClicks(slot);
+        } catch (_error) {
+            slot.innerHTML = '<p class="game-state">Could not load featured picks.</p>';
+        }
+    }
+
     const filterForm = document.getElementById("game-filter-form");
     if (filterForm) {
         filterForm.addEventListener("submit", (e) => {
@@ -1015,5 +1236,6 @@
     });
 
     loadGames(1, 10);
+    loadFeaturedPicks();
 </script>
 {% endblock %}
