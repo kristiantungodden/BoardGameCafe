@@ -5,11 +5,14 @@ import pytest
 from features.bookings.application.use_cases.booking_lifecycle_use_cases import (
     BookingCommand,
     CancelBookingUseCase,
+    CompleteBookingUseCase,
     CreateBookingRecordUseCase,
     SeatBookingUseCase,
 )
 from features.bookings.domain.models.booking import Booking
 from features.payments.domain.models.payment import Payment, PaymentStatus
+from features.reservations.domain.models.table_reservation import TableReservation
+from features.tables.domain.models.table import Table
 from shared.domain.exceptions import InvalidStatusTransition, ValidationError
 
 
@@ -42,6 +45,21 @@ class FakeTableReservationRepo:
     def save(self, table_reservation):
         self.items.append(table_reservation)
         return table_reservation
+
+    def list_by_booking_id(self, booking_id):
+        return [item for item in self.items if item.booking_id == booking_id]
+
+
+class FakeTableRepo:
+    def __init__(self):
+        self.items = {}
+
+    def get_by_id(self, table_id):
+        return self.items.get(table_id)
+
+    def update(self, table):
+        self.items[table.id] = table
+        return table
 
 
 class FakeStatusHistoryRepo:
@@ -246,3 +264,71 @@ def test_seat_booking_transition_works_without_payment_dependencies():
     assert entries[0].to_status == "seated"
     assert entries[0].actor_user_id == 42
     assert entries[0].actor_role == "staff"
+
+
+def test_seat_booking_marks_linked_table_occupied():
+    booking_repo = FakeBookingRepo()
+    history_repo = FakeStatusHistoryRepo()
+    table_reservation_repo = FakeTableReservationRepo()
+    table_repo = FakeTableRepo()
+    start = datetime.now() + timedelta(days=2)
+
+    booking = Booking(
+        id=1,
+        customer_id=1,
+        start_ts=start,
+        end_ts=start + timedelta(hours=2),
+        party_size=2,
+        status="confirmed",
+    )
+    booking_repo._items[1] = booking
+    table_reservation_repo.items.append(TableReservation(booking_id=1, table_id=7, id=11))
+    table = Table(number=7, capacity=4, status="available")
+    table.id = 7
+    table_repo.items[7] = table
+
+    use_case = SeatBookingUseCase(
+        booking_repo=booking_repo,
+        status_history_repo=history_repo,
+        table_reservation_repo=table_reservation_repo,
+        table_repo=table_repo,
+    )
+
+    updated = use_case.execute(1, actor_user_id=42, actor_role="staff")
+
+    assert updated.status == "seated"
+    assert table_repo.get_by_id(7).status == "occupied"
+
+
+def test_complete_booking_frees_linked_table():
+    booking_repo = FakeBookingRepo()
+    history_repo = FakeStatusHistoryRepo()
+    table_reservation_repo = FakeTableReservationRepo()
+    table_repo = FakeTableRepo()
+    start = datetime.now() + timedelta(days=2)
+
+    booking = Booking(
+        id=1,
+        customer_id=1,
+        start_ts=start,
+        end_ts=start + timedelta(hours=2),
+        party_size=2,
+        status="seated",
+    )
+    booking_repo._items[1] = booking
+    table_reservation_repo.items.append(TableReservation(booking_id=1, table_id=7, id=11))
+    table = Table(number=7, capacity=4, status="occupied")
+    table.id = 7
+    table_repo.items[7] = table
+
+    use_case = CompleteBookingUseCase(
+        booking_repo=booking_repo,
+        status_history_repo=history_repo,
+        table_reservation_repo=table_reservation_repo,
+        table_repo=table_repo,
+    )
+
+    updated = use_case.execute(1, actor_user_id=42, actor_role="staff")
+
+    assert updated.status == "completed"
+    assert table_repo.get_by_id(7).status == "available"

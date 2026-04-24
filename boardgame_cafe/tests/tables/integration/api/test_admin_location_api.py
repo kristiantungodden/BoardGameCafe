@@ -1,6 +1,8 @@
 import pytest
 
 import features.tables.presentation.api.admin_routes as admin_routes
+from shared.infrastructure import db
+from features.tables.infrastructure.database.table_db import TableDB
 
 
 @pytest.fixture(autouse=True)
@@ -40,6 +42,14 @@ def _create_table(client, number=10, floor=1, zone="Zone A"):
     )
     assert response.status_code == 201, response.get_data(as_text=True)
     return response.get_json()
+
+
+def _set_table_status(app, table_id, status):
+    with app.app_context():
+        table = db.session.get(TableDB, table_id)
+        assert table is not None
+        table.status = status
+        db.session.commit()
 
 
 def test_admin_zone_rename_propagates_to_assigned_tables(client):
@@ -153,6 +163,126 @@ def test_admin_table_can_move_between_zone_and_floor(client):
     moved = next((row for row in tables_floor_2.get_json() if row["id"] == table["id"]), None)
     assert moved is not None
     assert moved["zone"] == "B"
+
+
+def test_admin_table_update_rejects_occupied_tables(client, app):
+    _create_floor(client, number=1, name="Main")
+    _create_zone(client, floor=1, name="A")
+
+    _create_floor(client, number=2, name="Second")
+    _create_zone(client, floor=2, name="B")
+
+    table = _create_table(client, number=42, floor=1, zone="A")
+    _set_table_status(app, table["id"], "occupied")
+
+    update_response = client.patch(
+        f"/api/admin/tables/{table['id']}",
+        json={
+            "number": table["number"],
+            "capacity": table["capacity"],
+            "floor": 2,
+            "zone": "B",
+            "status": table["status"],
+            "features": table["features"],
+            "width": table["width"],
+            "height": table["height"],
+            "rotation": table["rotation"],
+        },
+    )
+    assert update_response.status_code == 400
+    assert "while it is occupied" in update_response.get_json()["error"]
+
+
+def test_admin_table_delete_rejects_occupied_tables(client, app):
+    _create_floor(client, number=1, name="Main")
+    _create_zone(client, floor=1, name="A")
+
+    table = _create_table(client, number=43, floor=1, zone="A")
+    _set_table_status(app, table["id"], "occupied")
+
+    delete_response = client.delete(f"/api/admin/tables/{table['id']}?force=1")
+    assert delete_response.status_code == 400
+    assert "while it is occupied" in delete_response.get_json()["error"]
+
+
+def test_admin_table_move_rejects_maintenance_tables(client, app):
+    _create_floor(client, number=1, name="Main")
+    _create_zone(client, floor=1, name="A")
+
+    _create_floor(client, number=2, name="Second")
+    _create_zone(client, floor=2, name="B")
+
+    table = _create_table(client, number=44, floor=1, zone="A")
+    _set_table_status(app, table["id"], "maintenance")
+
+    move_response = client.patch(
+        f"/api/admin/tables/{table['id']}",
+        json={
+            "number": table["number"],
+            "capacity": table["capacity"],
+            "floor": 2,
+            "zone": "B",
+            "status": "maintenance",
+            "features": table["features"],
+            "width": table["width"],
+            "height": table["height"],
+            "rotation": table["rotation"],
+        },
+    )
+    assert move_response.status_code == 400
+    assert "occupied or under maintenance" in move_response.get_json()["error"]
+
+
+def test_admin_table_delete_allows_maintenance_tables(client, app):
+    _create_floor(client, number=1, name="Main")
+    _create_zone(client, floor=1, name="A")
+
+    table = _create_table(client, number=45, floor=1, zone="A")
+    _set_table_status(app, table["id"], "maintenance")
+
+    delete_response = client.delete(f"/api/admin/tables/{table['id']}")
+    assert delete_response.status_code == 204
+
+
+def test_admin_table_status_can_toggle_between_available_and_maintenance(client):
+    _create_floor(client, number=1, name="Main")
+    _create_zone(client, floor=1, name="A")
+
+    table = _create_table(client, number=46, floor=1, zone="A")
+
+    to_maintenance = client.patch(
+        f"/api/admin/tables/{table['id']}",
+        json={
+            "number": table["number"],
+            "capacity": table["capacity"],
+            "floor": table["floor"],
+            "zone": table["zone"],
+            "status": "maintenance",
+            "features": table["features"],
+            "width": table["width"],
+            "height": table["height"],
+            "rotation": table["rotation"],
+        },
+    )
+    assert to_maintenance.status_code == 200
+    assert to_maintenance.get_json()["status"] == "maintenance"
+
+    to_available = client.patch(
+        f"/api/admin/tables/{table['id']}",
+        json={
+            "number": table["number"],
+            "capacity": table["capacity"],
+            "floor": table["floor"],
+            "zone": table["zone"],
+            "status": "available",
+            "features": table["features"],
+            "width": table["width"],
+            "height": table["height"],
+            "rotation": table["rotation"],
+        },
+    )
+    assert to_available.status_code == 200
+    assert to_available.get_json()["status"] == "available"
 
 
 def test_admin_table_move_rejects_unknown_target_zone(client):

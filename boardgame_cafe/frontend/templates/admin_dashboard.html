@@ -337,6 +337,13 @@
 			<form id="admin-location-modal-form" class="form-stack">
 				<label class="form-label" id="admin-location-modal-name-label" for="admin-location-modal-name-input">Name</label>
 				<input class="form-input" id="admin-location-modal-name-input" required>
+				<div id="admin-location-modal-status-field" hidden>
+					<label class="form-label" for="admin-location-modal-status-input">Status</label>
+					<select class="form-input" id="admin-location-modal-status-input">
+						<option value="available">available</option>
+						<option value="maintenance">maintenance</option>
+					</select>
+				</div>
 				<div class="action-row action-row-top-gap">
 					<button class="button" type="submit">Save</button>
 					<button class="button button-subtle" type="button" id="admin-location-modal-delete">Delete</button>

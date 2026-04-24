@@ -59,6 +59,7 @@ const ADMIN_LOCATION_STATE = {
     floors: [],
     zones: [],
     tables: [],
+    reservedTableIds: new Set(),
     selectedFloor: null,
 };
 
@@ -195,10 +196,21 @@ function getAdminTableTileClass(status) {
     if (normalized === 'available') {
         return 'table-tile-available';
     }
-    if (normalized === 'reserved' || normalized === 'occupied') {
+    if (normalized === 'reserved') {
+        return 'table-tile-reserved';
+    }
+    if (normalized === 'occupied') {
         return 'table-tile-alert';
     }
     return 'table-tile-unavailable';
+}
+
+function getAdminTableDisplayStatus(table) {
+    const persisted = String(table?.status || '').trim().toLowerCase();
+    if (persisted === 'available' && ADMIN_LOCATION_STATE.reservedTableIds.has(Number(table?.id))) {
+        return 'reserved';
+    }
+    return persisted || 'unknown';
 }
 
 function deriveLocationStateFromTables(tables) {
@@ -318,10 +330,10 @@ function renderLocationFloorplan() {
 
                         const tablesMarkup = zoneTables.length
                             ? zoneTables.map((table) => `
-                                <article class="table-tile ${getAdminTableTileClass(table.status)}" draggable="true" data-dnd-table-id="${table.id}">
+                                <article class="table-tile ${getAdminTableTileClass(getAdminTableDisplayStatus(table))}" draggable="true" data-dnd-table-id="${table.id}">
                                     <span class="table-tile-name">T${escapeHtml(table.number)}</span>
                                     <span class="table-tile-cap">Cap ${escapeHtml(table.capacity)}</span>
-                                    <span class="table-tile-status">${escapeHtml(table.status || 'unknown')}</span>
+                                    <span class="table-tile-status">${escapeHtml(getAdminTableDisplayStatus(table))}</span>
                                     <button class="button button-subtle" type="button" data-location-edit="table" data-location-id="${table.id}">Edit</button>
                                 </article>
                             `).join('')
@@ -601,7 +613,7 @@ async function deleteZoneRecord(zoneId) {
     }
 }
 
-async function updateTableRecord(tableId, nextNumberRaw) {
+async function updateTableRecord(tableId, nextNumberRaw, nextStatusRaw) {
     const row = getTableById(tableId);
     if (!row) {
         setLocationMessage('admin-location-action-message', 'Table record not found.', true);
@@ -613,12 +625,16 @@ async function updateTableRecord(tableId, nextNumberRaw) {
         setLocationMessage('admin-location-action-message', 'Table number must be a positive integer.', true);
         return;
     }
+    const allowedStatuses = new Set(['available', 'maintenance']);
+    const normalizedStatus = String(nextStatusRaw || row.status || 'available').trim().toLowerCase();
+    const nextStatus = allowedStatuses.has(normalizedStatus) ? normalizedStatus : 'available';
+
     const payload = {
         number: nextNumber,
         capacity: Number(row.capacity),
         floor: Number(row.floor),
         zone: String(row.zone || '').trim(),
-        status: String(row.status || 'available'),
+        status: nextStatus,
         features: row.features || {},
         width: row.width || null,
         height: row.height || null,
@@ -650,6 +666,9 @@ async function deleteTableRecord(tableId) {
         await loadAdminStats();
     } catch (error) {
         const reason = locationErrorMessage(error, 'Could not delete table.');
+        if (reason.toLowerCase().includes('while it is occupied')) {
+            window.alert(reason);
+        }
         const requiresForce = reason.toLowerCase().includes('future reservations');
         if (requiresForce && window.confirm('Table has future reservations. Force delete table and remove table reservations?')) {
             try {
@@ -671,8 +690,16 @@ async function deleteTableRecord(tableId) {
 
 function closeLocationModal() {
     const overlay = document.getElementById('admin-location-modal');
+    const statusField = document.getElementById('admin-location-modal-status-field');
+    const statusInput = document.getElementById('admin-location-modal-status-input');
     if (overlay) {
         overlay.hidden = true;
+    }
+    if (statusField) {
+        statusField.hidden = true;
+    }
+    if (statusInput) {
+        statusInput.value = 'available';
     }
     ADMIN_LOCATION_MODAL.kind = null;
     ADMIN_LOCATION_MODAL.id = null;
@@ -684,7 +711,9 @@ function openLocationModal(kind, id) {
     const label = document.getElementById('admin-location-modal-name-label');
     const meta = document.getElementById('admin-location-modal-meta');
     const input = document.getElementById('admin-location-modal-name-input');
-    if (!overlay || !title || !label || !meta || !input) return;
+    const statusField = document.getElementById('admin-location-modal-status-field');
+    const statusInput = document.getElementById('admin-location-modal-status-input');
+    if (!overlay || !title || !label || !meta || !input || !statusField || !statusInput) return;
 
     ADMIN_LOCATION_MODAL.kind = kind;
     ADMIN_LOCATION_MODAL.id = Number(id);
@@ -692,6 +721,7 @@ function openLocationModal(kind, id) {
     if (kind === 'floor') {
         const floor = getFloorById(id);
         if (!floor) return;
+        statusField.hidden = true;
         title.textContent = `Edit Floor ${floor.number}`;
         label.textContent = 'Floor name';
         meta.textContent = `Floor ${floor.number}`;
@@ -702,6 +732,7 @@ function openLocationModal(kind, id) {
     } else if (kind === 'zone') {
         const zone = getZoneById(id);
         if (!zone) return;
+        statusField.hidden = true;
         title.textContent = `Edit Zone ${zone.name}`;
         label.textContent = 'Zone name';
         meta.textContent = `Floor ${zone.floor}`;
@@ -712,6 +743,7 @@ function openLocationModal(kind, id) {
     } else {
         const table = getTableById(id);
         if (!table) return;
+        statusField.hidden = false;
         title.textContent = `Edit Table ${table.number}`;
         label.textContent = 'Table number';
         meta.textContent = `Floor ${table.floor} · Zone ${table.zone}`;
@@ -719,6 +751,9 @@ function openLocationModal(kind, id) {
         input.min = '1';
         input.step = '1';
         input.value = String(table.number || '');
+        statusInput.value = String(table.status || 'available').trim().toLowerCase() === 'maintenance'
+            ? 'maintenance'
+            : 'available';
     }
 
     overlay.hidden = false;
@@ -728,7 +763,8 @@ function openLocationModal(kind, id) {
 async function submitLocationModal(event) {
     event.preventDefault();
     const input = document.getElementById('admin-location-modal-name-input');
-    if (!input) return;
+    const statusInput = document.getElementById('admin-location-modal-status-input');
+    if (!input || !statusInput) return;
 
     const kind = ADMIN_LOCATION_MODAL.kind;
     const id = Number(ADMIN_LOCATION_MODAL.id);
@@ -747,7 +783,7 @@ async function submitLocationModal(event) {
     } else if (kind === 'zone') {
         await updateZoneRecord(id, value);
     } else {
-        await updateTableRecord(id, value);
+        await updateTableRecord(id, value, statusInput.value);
     }
 
     closeLocationModal();
@@ -791,15 +827,26 @@ function bindLocationOverviewActions() {
 async function loadLocationOverview(options = {}) {
     const skipMaterialize = Boolean(options.skipMaterialize);
     try {
-        const [floors, zones, tables] = await Promise.all([
+        const [floors, zones, tables, confirmedReservations] = await Promise.all([
             fetchJson('/api/admin/floors'),
             fetchJson('/api/admin/zones'),
             fetchJson('/api/admin/tables'),
+            fetchJson('/api/steward/reservations').catch(() => []),
         ]);
 
         ADMIN_LOCATION_STATE.floors = Array.isArray(floors) ? floors : [];
         ADMIN_LOCATION_STATE.zones = Array.isArray(zones) ? zones : [];
         ADMIN_LOCATION_STATE.tables = Array.isArray(tables) ? tables : [];
+        const now = Date.now();
+        ADMIN_LOCATION_STATE.reservedTableIds = new Set(
+            (Array.isArray(confirmedReservations) ? confirmedReservations : [])
+                .filter((reservation) => {
+                    const ts = Date.parse(String(reservation?.start_ts || ''));
+                    return Number.isFinite(ts) && ts > now;
+                })
+                .map((reservation) => Number(reservation?.table_id))
+                .filter((tableId) => Number.isFinite(tableId) && tableId > 0),
+        );
 
         // Backward-compatible bootstrap: materialize any missing floor/zone records implied by tables.
         if (!skipMaterialize && ADMIN_LOCATION_STATE.tables.length > 0) {
@@ -2133,6 +2180,45 @@ function bindAdminDashboard() {
     loadCatalogue();
     loadAnnouncements();
     loadLocationOverview();
+
+    try {
+        const es = new EventSource('/api/events/stream');
+        setAdminConnection('Realtime: connected');
+        es.addEventListener('domain_event', (e) => {
+            try {
+                const payload = JSON.parse(e.data);
+                const et = normalizeRealtimeEventType(payload);
+                if (!et) return;
+
+                if (et === 'reservation.seated' || et === 'reservation.completed') {
+                    const data = payload.data || {};
+                    const reservationId = data.reservation_id || 'unknown';
+                    const eventKey = `${et}:${reservationId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    loadLocationOverview();
+                    loadAdminStats();
+                    return;
+                }
+
+                if (et === 'reservation.cancelled' || et === 'reservation.updated' || et === 'reservation.payment.completed') {
+                    const data = payload.data || {};
+                    const reservationId = data.reservation_id || 'unknown';
+                    const eventKey = `${et}:${reservationId}`;
+                    if (!shouldHandleRealtimeEvent(eventKey)) return;
+
+                    loadAdminStats();
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to handle admin realtime event', error);
+            }
+        });
+        es.addEventListener('error', () => setAdminConnection('Realtime: reconnecting...'));
+    } catch (error) {
+        console.error('Failed to connect admin realtime stream', error);
+        setAdminConnection('Realtime: unavailable');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', bindAdminDashboard);

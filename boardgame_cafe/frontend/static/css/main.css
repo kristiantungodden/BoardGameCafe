@@ -706,6 +706,15 @@ footer {
     color: #22543d;
 }
 
+#floor .table-tile-reserved {
+    border-color: #ffc107;
+    background: #fff9e6;
+}
+
+#floor .table-tile-reserved .table-tile-status {
+    color: #856404;
+}
+
 #floor .table-tile-alert {
     border-color: #efb6bc;
     background: #fbe5e7;

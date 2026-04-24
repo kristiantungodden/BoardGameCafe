@@ -23,6 +23,9 @@ from features.reservations.application.interfaces.table_reservation_repository_i
     TableReservationRepositoryInterface,
 )
 from features.reservations.domain.models.table_reservation import TableReservation
+from features.tables.application.interfaces.table_repository import (
+    TableRepository as TableRepositoryInterface,
+)
 from shared.domain.constants import OVERLAP_BLOCKING_STATUSES
 from shared.domain.exceptions import ValidationError
 from shared.infrastructure import db
@@ -165,9 +168,13 @@ class SeatBookingUseCase:
         self,
         booking_repo: BookingRepositoryInterface,
         status_history_repo: Optional[BookingStatusHistoryRepositoryInterface] = None,
+        table_reservation_repo: Optional[TableReservationRepositoryInterface] = None,
+        table_repo: Optional[TableRepositoryInterface] = None,
     ):
         self.booking_repo = booking_repo
         self.status_history_repo = status_history_repo
+        self.table_reservation_repo = table_reservation_repo
+        self.table_repo = table_repo
 
     def execute(
         self,
@@ -184,6 +191,8 @@ class SeatBookingUseCase:
             transition_method_name="seat",
             actor_user_id=actor_user_id,
             actor_role=actor_role,
+            table_reservation_repo=self.table_reservation_repo,
+            table_repo=self.table_repo,
         )
 
 
@@ -192,9 +201,13 @@ class CompleteBookingUseCase:
         self,
         booking_repo: BookingRepositoryInterface,
         status_history_repo: Optional[BookingStatusHistoryRepositoryInterface] = None,
+        table_reservation_repo: Optional[TableReservationRepositoryInterface] = None,
+        table_repo: Optional[TableRepositoryInterface] = None,
     ):
         self.booking_repo = booking_repo
         self.status_history_repo = status_history_repo
+        self.table_reservation_repo = table_reservation_repo
+        self.table_repo = table_repo
 
     def execute(
         self,
@@ -211,6 +224,8 @@ class CompleteBookingUseCase:
             transition_method_name="complete",
             actor_user_id=actor_user_id,
             actor_role=actor_role,
+            table_reservation_repo=self.table_reservation_repo,
+            table_repo=self.table_repo,
         )
 
 
@@ -258,6 +273,8 @@ def _execute_transition_with_history(
     transition_method_name: str,
     actor_user_id: Optional[int],
     actor_role: Optional[str],
+    table_reservation_repo: Optional[TableReservationRepositoryInterface] = None,
+    table_repo: Optional[TableRepositoryInterface] = None,
 ) -> Optional[Booking]:
     try:
         session = db.session()
@@ -271,6 +288,8 @@ def _execute_transition_with_history(
             transition_method_name,
             actor_user_id,
             actor_role,
+            table_reservation_repo,
+            table_repo,
         )
 
     tx_ctx = session.begin_nested() if session.in_transaction() else session.begin()
@@ -289,6 +308,8 @@ def _execute_transition_with_history(
             transition_method_name,
             actor_user_id,
             actor_role,
+            _instantiate_repo_in_transaction(table_reservation_repo, session),
+            _instantiate_repo_in_transaction(table_repo, session),
         )
 
 
@@ -311,6 +332,8 @@ def _apply_transition_and_log(
     transition_method_name: str,
     actor_user_id: Optional[int],
     actor_role: Optional[str],
+    table_reservation_repo=None,
+    table_repo=None,
 ) -> Optional[Booking]:
     booking = booking_repo.get_by_id(booking_id)
     if booking is None:
@@ -330,6 +353,22 @@ def _apply_transition_and_log(
             payment_provider=payment_provider,
         )
 
+    if transition_method_name == "seat":
+        _sync_table_status_for_booking(
+            booking_id=updated.id,
+            table_reservation_repo=table_reservation_repo,
+            table_repo=table_repo,
+            target_status="occupied",
+        )
+
+    if transition_method_name == "complete":
+        _sync_table_status_for_booking(
+            booking_id=updated.id,
+            table_reservation_repo=table_reservation_repo,
+            table_repo=table_repo,
+            target_status="available",
+        )
+
     if status_history_repo is not None:
         status_history_repo.save(
             BookingStatusHistoryEntry(
@@ -343,6 +382,31 @@ def _apply_transition_and_log(
         )
 
     return updated
+
+
+def _sync_table_status_for_booking(
+    booking_id: int,
+    table_reservation_repo,
+    table_repo,
+    target_status: str,
+) -> None:
+    if table_reservation_repo is None or table_repo is None:
+        return
+
+    table_links = table_reservation_repo.list_by_booking_id(booking_id)
+    for link in table_links:
+        table = table_repo.get_by_id(link.table_id)
+        if table is None or table.status == target_status:
+            continue
+
+        if target_status == "occupied":
+            table.occupy()
+        elif target_status == "available":
+            table.free()
+        else:
+            raise ValueError(f"Unsupported table status sync target '{target_status}'")
+
+        table_repo.update(table)
 
 
 def _refund_paid_booking_if_supported(
