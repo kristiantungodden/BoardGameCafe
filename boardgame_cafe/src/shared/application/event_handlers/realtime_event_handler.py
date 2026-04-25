@@ -12,12 +12,7 @@ from shared.infrastructure.message_bus import realtime as realtime_bus
 
 
 def publish_realtime_event(payload: dict, channel: str | None = None) -> None:
-    """Delegate to the infra realtime publisher at call-time.
-
-    This indirection lets tests monkeypatch either the handler's
-    `publish_realtime_event` or the infra module's
-    `shared.infrastructure.message_bus.realtime.publish_realtime_event`.
-    """
+    """Publish a realtime payload through the infrastructure adapter."""
     if channel is None:
         return realtime_bus.publish_realtime_event(payload)
     return realtime_bus.publish_realtime_event(payload, channel=channel)

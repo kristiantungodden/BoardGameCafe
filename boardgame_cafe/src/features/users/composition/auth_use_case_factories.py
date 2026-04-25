@@ -1,6 +1,7 @@
 from features.users.application.use_cases.auth_use_cases import LoginUseCase, RegisterUseCase
 from features.users.application.use_cases.user_use_cases import (
     ChangePasswordUseCase,
+    GetUserByIdUseCase,
     UpdateOwnProfileUseCase,
 )
 from features.users.infrastructure.adapters import (
@@ -31,6 +32,11 @@ def get_update_profile_use_case() -> UpdateOwnProfileUseCase:
 def get_change_password_use_case() -> ChangePasswordUseCase:
     users = SqlAlchemyUserRepository()
     return ChangePasswordUseCase(users)
+
+
+def get_user_by_id_use_case() -> GetUserByIdUseCase:
+    users = SqlAlchemyUserRepository()
+    return GetUserByIdUseCase(users)
 
 
 def get_password_hasher() -> WerkzeugPasswordHasher:

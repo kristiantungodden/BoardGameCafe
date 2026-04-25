@@ -7,13 +7,14 @@ from pydantic import ValidationError as PydanticValidationError
 from shared.domain.exceptions import ValidationError as DomainValidationError
 from features.users.application.use_cases.auth_use_cases import LoginCommand, RegisterCommand
 from features.users.application.use_cases.user_use_cases import ChangePasswordCommand
+from features.users.application.use_cases.user_use_cases import GetUserByIdQuery
 from features.users.composition.auth_use_case_factories import (
     get_change_password_use_case,
     get_login_use_case,
     get_password_hasher,
     get_register_use_case,
+    get_user_by_id_use_case,
 )
-from features.users.infrastructure.repositories import SqlAlchemyUserRepository
 from features.users.presentation.schemas.auth_schema import (
     ChangePasswordRequest,
     LoginRequest,
@@ -176,8 +177,9 @@ def change_password():
         flash("Invalid password change input.", "error")
         return redirect(url_for("password_change_page"))
 
-    users = SqlAlchemyUserRepository()
-    requesting_user = users.get_by_id(int(current_user.id))
+    requesting_user = get_user_by_id_use_case().execute(
+        GetUserByIdQuery(user_id=int(current_user.id))
+    )
     if requesting_user is None:
         if is_json_request:
             return {"error": "Authentication required"}, 401

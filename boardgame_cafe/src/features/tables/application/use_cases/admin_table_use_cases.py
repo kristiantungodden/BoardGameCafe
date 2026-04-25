@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -208,7 +210,7 @@ class UpdateTableUseCase:
 
         future_bookings = self.reservation_repo.list_for_table_in_window(
             cmd.table_id,
-            datetime.utcnow(),
+            datetime.now(timezone.utc),
             datetime.max,
         )
         if future_bookings and cmd.capacity < existing.capacity:
@@ -245,7 +247,7 @@ class DeleteTableUseCase:
 
         future_bookings = self.reservation_repo.list_for_table_in_window(
             table_id,
-            datetime.utcnow(),
+            datetime.now(timezone.utc),
             datetime.max,
         )
         if future_bookings:
