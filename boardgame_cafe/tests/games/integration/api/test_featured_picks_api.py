@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from features.bookings.infrastructure.database.booking_db import BookingDB
 from features.games.infrastructure.database.game_db import GameDB
@@ -9,7 +9,7 @@ from shared.infrastructure import db
 
 
 def test_featured_picks_returns_top_rated_and_most_borrowed_last_month(client, app):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     within_last_month = now - timedelta(days=10)
 
     with app.app_context():

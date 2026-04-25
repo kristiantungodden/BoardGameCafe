@@ -6,7 +6,8 @@ from features.reservations.application.interfaces.available_game_copy_repository
 from features.reservations.application.interfaces.available_table_repository_interface import (
     AvailableTableRepositoryInterface,
 )
-from shared.infrastructure import db
+from features.tables.application.interfaces.table_repository import TableRepository as TableRepositoryInterface
+from features.games.application.interfaces.game_copy_repository_interface import GameCopyRepository as GameCopyRepositoryInterface
 
 
 class GetBookingAvailabilityUseCase:
@@ -16,40 +17,36 @@ class GetBookingAvailabilityUseCase:
         self,
         available_table_repo: AvailableTableRepositoryInterface,
         available_copy_repo: AvailableGameCopyRepositoryInterface,
+        table_repo: TableRepositoryInterface,
+        game_copy_repo: GameCopyRepositoryInterface,
     ):
         self.available_table_repo = available_table_repo
         self.available_copy_repo = available_copy_repo
+        self.table_repo = table_repo
+        self.game_copy_repo = game_copy_repo
 
     def execute(self, start_ts: datetime, end_ts: datetime, party_size: int) -> dict:
         """Get availability data for the given time window and party size."""
-        # Import here to avoid circular imports
-        from features.tables.infrastructure.database.table_db import TableDB
-        from features.games.infrastructure.database.game_db import GameDB
-        from features.games.infrastructure.database.game_copy_db import GameCopyDB
-
-        session = db.session()
-
         # Get suggested table
-        blocked_tables = self.available_table_repo.get_blocked_table_ids(start_ts, end_ts)
-        table_query = (
-            session.query(TableDB)
-            .filter(TableDB.status == "available")
-            .filter(TableDB.capacity >= party_size)
+        suggested_table_id = self.available_table_repo.find_best_available_table(
+            party_size=party_size,
+            start_ts=start_ts,
+            end_ts=end_ts,
         )
-        if blocked_tables:
-            table_query = table_query.filter(~TableDB.id.in_(blocked_tables))
-
-        suggested_table = table_query.order_by(TableDB.capacity.asc(), TableDB.id.asc()).first()
+        suggested_table = (
+            self.table_repo.get_by_id(suggested_table_id)
+            if suggested_table_id is not None
+            else None
+        )
 
         # Get available games and copies
-        blocked_copies = self.available_copy_repo.get_blocked_copy_ids(start_ts, end_ts)
-        available_copies_q = session.query(GameCopyDB).filter(GameCopyDB.status == "available")
-        if blocked_copies:
-            available_copies_q = available_copies_q.filter(~GameCopyDB.id.in_(blocked_copies))
-        available_copies = available_copies_q.all()
+        available_copy_ids = self._get_available_copy_ids(start_ts, end_ts)
+        available_copies = [
+            copy for copy in (self.game_copy_repo.list_all() or []) if copy.id in available_copy_ids
+        ]
 
         available_game_ids = {row.game_id for row in available_copies}
-        games = session.query(GameDB).order_by(GameDB.title.asc()).all()
+        games = self.game_copy_repo.get_all_games() if hasattr(self.game_copy_repo, "get_all_games") else []
         copies_by_game = {}
         for copy in available_copies:
             copies_by_game.setdefault(copy.game_id, []).append(copy.id)
@@ -73,7 +70,7 @@ class GetBookingAvailabilityUseCase:
             "suggested_table": (
                 {
                     "id": suggested_table.id,
-                    "table_nr": suggested_table.table_nr,
+                    "table_nr": getattr(suggested_table, "table_nr", getattr(suggested_table, "number", None)),
                     "capacity": suggested_table.capacity,
                     "status": suggested_table.status,
                 }
@@ -82,3 +79,10 @@ class GetBookingAvailabilityUseCase:
             ),
             "games": game_availability,
         }
+
+    def _get_available_copy_ids(self, start_ts: datetime, end_ts: datetime) -> set[int]:
+        blocked_copies = self.available_copy_repo.get_blocked_copy_ids(start_ts, end_ts)
+        all_copy_ids = {copy.id for copy in (self.game_copy_repo.list_all() or []) if copy.id is not None}
+        if not blocked_copies:
+            return set(all_copy_ids)
+        return {copy_id for copy_id in all_copy_ids if copy_id not in blocked_copies}

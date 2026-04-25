@@ -54,6 +54,7 @@ from features.reservations.infrastructure.repositories.table_reservation_reposit
     SqlAlchemyTableReservationRepository,
 )
 from features.games.infrastructure.repositories.game_repository import GameRepository
+from features.games.infrastructure.repositories.game_copy_repository import GameCopyRepositoryImpl
 from features.tables.infrastructure.repositories.table_repository import (
     TableRepository as SqlAlchemyTableRepository,
 )
@@ -77,6 +78,7 @@ _status_history_repo = SqlAlchemyBookingStatusHistoryRepository()
 _available_table_repo = SqlAlchemyAvailableTableRepository()
 _available_copy_repo = SqlAlchemyAvailableGameCopyRepository()
 _game_lookup_repo = GameRepository()
+_game_copy_repo = GameCopyRepositoryImpl()
 
 
 def get_create_reservation_use_case() -> CreateBookingRecordUseCase:
@@ -240,6 +242,8 @@ def get_booking_availability_handler():
         availability_use_case = GetBookingAvailabilityUseCase(
             available_table_repo=_available_table_repo,
             available_copy_repo=_available_copy_repo,
+            table_repo=_table_repo,
+            game_copy_repo=_game_copy_repo,
         )
         return availability_use_case.execute(start_ts, end_ts, party_size)
 

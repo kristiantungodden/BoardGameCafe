@@ -178,3 +178,20 @@ def test_reservation_checkin_is_idempotent_when_already_seated(monkeypatch):
 
     assert response.status_code == 302
     assert seat_use_case.calls == []
+
+
+def test_reservation_checkin_rejects_unauthenticated_users(monkeypatch):
+    app = make_app()
+    client = app.test_client()
+    token = create_reservation_qr_token(app.config["SECRET_KEY"], 1)
+
+    monkeypatch.setattr(
+        reservations_module,
+        "current_user",
+        FakeCurrentUser(user_id=0, is_authenticated=False, role="customer"),
+    )
+
+    response = client.get(f"/api/reservations/checkin/{token}")
+
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "Authentication required"

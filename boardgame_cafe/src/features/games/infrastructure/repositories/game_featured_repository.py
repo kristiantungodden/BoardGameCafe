@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import func
@@ -31,7 +31,7 @@ class SqlAlchemyGameFeaturedRepository:
         self.session = session or db.session
 
     def find_top_rated_last_month(self) -> Optional[TopRatedGameResult]:
-        since = datetime.utcnow() - timedelta(days=30)
+        since = datetime.now(timezone.utc) - timedelta(days=30)
         row = (
             self.session.query(
                 GameDB,
@@ -54,7 +54,7 @@ class SqlAlchemyGameFeaturedRepository:
         )
 
     def find_most_borrowed_last_month(self) -> Optional[MostBorrowedGameResult]:
-        since = datetime.utcnow() - timedelta(days=30)
+        since = datetime.now(timezone.utc) - timedelta(days=30)
         row = (
             self.session.query(
                 GameDB,

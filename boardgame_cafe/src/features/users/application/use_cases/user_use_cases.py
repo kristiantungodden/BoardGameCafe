@@ -148,6 +148,21 @@ class ChangePasswordUseCase:
         return self.user_repo.save(target_user)
 
 
+@dataclass
+class GetUserByIdQuery:
+    user_id: int
+
+
+class GetUserByIdUseCase:
+    """Use case for retrieving a single user by id."""
+
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
+    def execute(self, query: GetUserByIdQuery) -> User | None:
+        return self.user_repo.get_by_id(query.user_id)
+
+
 class CreateStewardUseCase:
     """Use case for admin-driven steward provisioning."""
 
