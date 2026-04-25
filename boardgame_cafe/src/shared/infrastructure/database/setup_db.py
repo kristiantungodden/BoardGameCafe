@@ -13,11 +13,13 @@ def init_db(app=None):
             _ensure_booking_status_history_actor_columns()
             _ensure_users_suspension_column()
             _ensure_users_created_at_column()
+            _ensure_cafe_tables_layout_columns()
     else:
         db.create_all()
         _ensure_booking_status_history_actor_columns()
         _ensure_users_suspension_column()
         _ensure_users_created_at_column()
+        _ensure_cafe_tables_layout_columns()
 
 
 def _ensure_booking_status_history_actor_columns() -> None:
@@ -86,3 +88,29 @@ def _ensure_users_created_at_column() -> None:
         connection.execute(
             text("UPDATE users SET created_at = datetime('now') WHERE created_at IS NULL")
         )
+
+
+def _ensure_cafe_tables_layout_columns() -> None:
+    inspector = inspect(db.engine)
+    table_names = set(inspector.get_table_names())
+    if "cafe_tables" not in table_names:
+        return
+
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("cafe_tables")
+    }
+    statements: list[str] = []
+
+    if "width" not in existing_columns:
+        statements.append("ALTER TABLE cafe_tables ADD COLUMN width INTEGER")
+    if "height" not in existing_columns:
+        statements.append("ALTER TABLE cafe_tables ADD COLUMN height INTEGER")
+    if "rotation" not in existing_columns:
+        statements.append("ALTER TABLE cafe_tables ADD COLUMN rotation INTEGER")
+
+    if not statements:
+        return
+
+    with db.engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
