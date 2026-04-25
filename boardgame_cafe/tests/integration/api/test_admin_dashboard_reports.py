@@ -173,6 +173,17 @@ def test_non_admin_cannot_access_registration_report(app, client):
     assert resp.status_code in (401, 403)
 
 
+def test_reports_registrations_malformed_days_defaults_to_30(app, client):
+    _create_admin(app)
+    _login(client)
+
+    resp = client.get("/api/admin/reports/registrations?days=invalid")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert isinstance(data, list)
+    assert len(data) == 30
+
+
 # ---------------------------------------------------------------------------
 # Revenue report
 # ---------------------------------------------------------------------------
@@ -222,6 +233,18 @@ def test_non_admin_cannot_access_revenue_report(app, client):
     assert resp.status_code in (401, 403)
 
 
+def test_reports_revenue_empty_dataset_returns_zero_series(app, client):
+    _create_admin(app)
+    _login(client)
+
+    resp = client.get("/api/admin/reports/revenue?days=5")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert isinstance(data, list)
+    assert len(data) == 5
+    assert all(item["total_cents"] == 0 for item in data)
+
+
 # ---------------------------------------------------------------------------
 # Top games report
 # ---------------------------------------------------------------------------
@@ -253,6 +276,17 @@ def test_non_admin_cannot_access_top_games_report(app, client):
     client.post("/api/auth/login", json={"email": "customer@topgames-tests.example.com", "password": "CustomerPass123"})
     resp = client.get("/api/admin/reports/top-games")
     assert resp.status_code in (401, 403)
+
+
+def test_reports_top_games_empty_dataset_returns_empty_lists(app, client):
+    _create_admin(app)
+    _login(client)
+
+    resp = client.get("/api/admin/reports/top-games?days=0")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["by_rating"] == []
+    assert data["by_bookings"] == []
 
 
 # ---------------------------------------------------------------------------

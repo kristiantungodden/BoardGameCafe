@@ -354,6 +354,60 @@ def test_admin_can_get_and_update_pricing(app, client):
     assert after_high_priority_override["booking_base_fee_has_temporary_override"] is True
 
 
+def test_admin_pricing_rejects_invalid_payloads_and_expired_timestamp(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Pricing Validation Admin",
+            email="admin-pricing-validation@example.com",
+            password="AdminPass123",
+        )
+        table = TableDB(table_nr="T77", capacity=2, floor=1, zone="main", status="available", price_cents=9000)
+        game = GameDB(
+            title="Brass Birmingham",
+            min_players=2,
+            max_players=4,
+            playtime_min=120,
+            complexity=3.9,
+            price_cents=6500,
+        )
+        db.session.add(table)
+        db.session.add(game)
+        db.session.commit()
+        table_id = int(table.id)
+        game_id = int(game.id)
+
+    _login(client, email="admin-pricing-validation@example.com", password="AdminPass123")
+
+    negative_base_fee = client.put(
+        "/api/admin/pricing/base-fee",
+        json={"booking_base_fee_cents": -1},
+    )
+    assert negative_base_fee.status_code == 400
+
+    expired_override = client.put(
+        "/api/admin/pricing/base-fee",
+        json={
+            "booking_base_fee_cents": 2500,
+            "booking_base_fee_active_until": (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat(),
+        },
+    )
+    assert expired_override.status_code == 400
+    assert expired_override.get_json()["error"] == "booking_base_fee_active_until must be in the future"
+
+    invalid_table_price = client.put(
+        f"/api/admin/pricing/tables/{table_id}",
+        json={"price_cents": "not-an-int"},
+    )
+    assert invalid_table_price.status_code == 400
+
+    missing_game_price_field = client.put(
+        f"/api/admin/pricing/games/{game_id}",
+        json={},
+    )
+    assert missing_game_price_field.status_code == 400
+
+
 def test_admin_can_manage_catalogue_and_copies(app, client):
     with app.app_context():
         _create_user(
@@ -450,6 +504,84 @@ def test_admin_can_manage_catalogue_and_copies(app, client):
 
     delete_game = client.delete(f"/api/admin/catalogue/games/{game_id}")
     assert delete_game.status_code == 200
+
+
+def test_admin_catalogue_duplicate_copy_code_and_missing_entities(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Catalogue Validation Admin",
+            email="admin-catalogue-validation@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="admin-catalogue-validation@example.com", password="AdminPass123")
+
+    create_game = client.post(
+        "/api/admin/catalogue/games",
+        json={
+            "title": "Wingspan",
+            "min_players": 1,
+            "max_players": 5,
+            "playtime_min": 70,
+            "complexity": 2.5,
+            "price_cents": 4200,
+        },
+    )
+    assert create_game.status_code == 201
+    game_id = create_game.get_json()["id"]
+
+    first_copy = client.post(
+        "/api/admin/catalogue/copies",
+        json={
+            "game_id": game_id,
+            "copy_code": "WING-001",
+            "status": "available",
+        },
+    )
+    assert first_copy.status_code == 201
+    copy_id = first_copy.get_json()["id"]
+
+    duplicate_copy = client.post(
+        "/api/admin/catalogue/copies",
+        json={
+            "game_id": game_id,
+            "copy_code": "WING-001",
+            "status": "available",
+        },
+    )
+    assert duplicate_copy.status_code == 409
+
+    missing_game_copy = client.post(
+        "/api/admin/catalogue/copies",
+        json={
+            "game_id": 999999,
+            "copy_code": "MISSING-001",
+            "status": "available",
+        },
+    )
+    assert missing_game_copy.status_code == 404
+
+    missing_game_update = client.put(
+        "/api/admin/catalogue/games/999999",
+        json={"price_cents": 5000},
+    )
+    assert missing_game_update.status_code == 404
+
+    missing_copy_update = client.put(
+        "/api/admin/catalogue/copies/999999",
+        json={"status": "maintenance"},
+    )
+    assert missing_copy_update.status_code == 404
+
+    missing_copy_incidents = client.get("/api/admin/catalogue/copies/999999/incidents")
+    assert missing_copy_incidents.status_code == 404
+
+    missing_incident_resolve = client.post("/api/admin/catalogue/incidents/999999/resolve")
+    assert missing_incident_resolve.status_code == 404
+
+    delete_copy = client.delete(f"/api/admin/catalogue/copies/{copy_id}")
+    assert delete_copy.status_code == 200
 
 
 def test_admin_can_resolve_incident_and_restore_copy_to_available(app, client):
@@ -676,6 +808,95 @@ def test_admin_can_edit_announcement(app, client):
     assert match["title"] == "Updated Title"
 
 
+def test_admin_announcement_validation_errors(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Announcement Validation Admin",
+            email="admin-ann-validation@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="admin-ann-validation@example.com", password="AdminPass123")
+
+    blank_title = client.post(
+        "/api/admin/content/announcements",
+        json={"title": "   ", "body": "Valid body"},
+    )
+    assert blank_title.status_code == 400
+
+    blank_body = client.post(
+        "/api/admin/content/announcements",
+        json={"title": "Valid title", "body": "   "},
+    )
+    assert blank_body.status_code == 400
+
+    cta_pair_mismatch = client.post(
+        "/api/admin/content/announcements",
+        json={"title": "CTA mismatch", "body": "Missing URL", "cta_label": "Book now"},
+    )
+    assert cta_pair_mismatch.status_code == 400
+    assert cta_pair_mismatch.get_json()["error"] == "cta_label and cta_url must either both be set or both be empty"
+
+    invalid_cta_url = client.post(
+        "/api/admin/content/announcements",
+        json={
+            "title": "Bad URL",
+            "body": "Body",
+            "cta_label": "Book",
+            "cta_url": "javascript:alert(1)",
+        },
+    )
+    assert invalid_cta_url.status_code == 400
+
+    create = client.post(
+        "/api/admin/content/announcements",
+        json={"title": "Editable", "body": "Initial body"},
+    )
+    assert create.status_code == 201
+    ann_id = create.get_json()["id"]
+
+    blank_update_title = client.put(
+        f"/api/admin/content/announcements/{ann_id}",
+        json={"title": "   "},
+    )
+    assert blank_update_title.status_code == 400
+
+
+def test_admin_announcement_lifecycle_transition_conflicts(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Lifecycle Admin",
+            email="admin-lifecycle-ann@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="admin-lifecycle-ann@example.com", password="AdminPass123")
+
+    published = client.post(
+        "/api/admin/content/announcements",
+        json={"title": "Published", "body": "Already live", "publish_now": True},
+    )
+    assert published.status_code == 201
+    published_id = published.get_json()["id"]
+
+    draft = client.post(
+        "/api/admin/content/announcements",
+        json={"title": "Draft", "body": "Still draft", "publish_now": False},
+    )
+    assert draft.status_code == 201
+    draft_id = draft.get_json()["id"]
+
+    republish = client.post(f"/api/admin/content/announcements/{published_id}/publish")
+    assert republish.status_code == 409
+    assert republish.get_json()["error"] == "Announcement is already published"
+
+    re_unpublish = client.post(f"/api/admin/content/announcements/{draft_id}/unpublish")
+    assert re_unpublish.status_code == 409
+    assert re_unpublish.get_json()["error"] == "Announcement is already unpublished"
+
+
 def test_non_admin_cannot_access_catalogue_endpoints(app, client):
     with app.app_context():
         _create_user(
@@ -695,6 +916,22 @@ def test_non_admin_cannot_access_catalogue_endpoints(app, client):
     ]:
         resp = getattr(client, method)(path, json=body)
         assert resp.status_code in (401, 403), f"Expected 401/403 for {method.upper()} {path}, got {resp.status_code}"
+
+
+def test_admin_user_listing_rejects_invalid_role_filter(app, client):
+    with app.app_context():
+        _create_user(
+            role="admin",
+            name="Admin",
+            email="admin-invalid-role-filter@example.com",
+            password="AdminPass123",
+        )
+
+    _login(client, email="admin-invalid-role-filter@example.com", password="AdminPass123")
+
+    response = client.get("/api/admin/users?role=superadmin")
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "Invalid role filter"
 
 
 def test_non_admin_cannot_access_pricing_endpoints(app, client):
