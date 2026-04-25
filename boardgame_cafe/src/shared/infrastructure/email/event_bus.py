@@ -45,7 +45,6 @@ class EventBus:
                 celery.send_task(
                     task_name,
                     kwargs={"event_payload": task_payload},
-                    retry=False,
                 )
             except Exception as exc:
                 print(

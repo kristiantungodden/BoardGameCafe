@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from flask import current_app, has_app_context
 
 from shared.infrastructure.extensions import mail
@@ -7,6 +9,8 @@ from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.infrastructure.message_bus.celery_app import celery
 from shared.infrastructure.message_bus.realtime import publish_realtime_event
 from shared.infrastructure.qr_codes import generate_qr_svg, get_or_create_reservation_qr_token
+
+logger = logging.getLogger(__name__)
 
 
 def _public_base_url() -> str:
@@ -22,21 +26,39 @@ def _public_base_url() -> str:
     return "http://127.0.0.1:5000"
 
 
-@celery.task(name="shared.tasks.send_welcome_email")
-def send_welcome_email(event_payload: dict) -> None:
+@celery.task(
+    name="shared.tasks.send_welcome_email",
+    bind=True,
+    autoretry_for=(Exception,),
+    max_retries=3,
+    default_retry_delay=60,
+)
+def send_welcome_email(self, event_payload: dict) -> None:
     email = event_payload.get("data", {}).get("email")
     if not email:
         return
-    FlaskMailService(mail).send_email(
-        subject="Welcome to Dicer.no!",
-        sender=None,
-        recipients=[email],
-        body="Thank you for signing up at Dicer.no! \n\nWe are excited to have you as part of our community. Stay tuned for updates on events, new games, and special offers!"
-    )
+    logger.info("Sending welcome email to %s (attempt %d)", email, self.request.retries + 1)
+    try:
+        FlaskMailService(mail).send_email(
+            subject="Welcome to Dicer.no!",
+            sender=None,
+            recipients=[email],
+            body="Thank you for signing up at Dicer.no! \n\nWe are excited to have you as part of our community. Stay tuned for updates on events, new games, and special offers!"
+        )
+        logger.info("Welcome email sent to %s", email)
+    except Exception as exc:
+        logger.error("Failed to send welcome email to %s: %s", email, exc)
+        raise
 
 
-@celery.task(name="shared.tasks.send_reservation_confirmation_email")
-def send_reservation_confirmation_email(event_payload: dict) -> None:
+@celery.task(
+    name="shared.tasks.send_reservation_confirmation_email",
+    bind=True,
+    autoretry_for=(Exception,),
+    max_retries=3,
+    default_retry_delay=60,
+)
+def send_reservation_confirmation_email(self, event_payload: dict) -> None:
     data = event_payload.get("data", {})
     recipient = data.get("user_email")
     reservation_id = data.get("reservation_id")
@@ -48,6 +70,7 @@ def send_reservation_confirmation_email(event_payload: dict) -> None:
     if not recipient:
         return
 
+    logger.info("Sending reservation confirmation email to %s (attempt %d)", recipient, self.request.retries + 1)
     qr_lines = ""
     attachments = []
 
@@ -92,7 +115,12 @@ def send_reservation_confirmation_email(event_payload: dict) -> None:
     }
     if attachments:
         send_kwargs["attachments"] = attachments
-    FlaskMailService(mail).send_email(**send_kwargs)
+    try:
+        FlaskMailService(mail).send_email(**send_kwargs)
+        logger.info("Reservation confirmation email sent to %s", recipient)
+    except Exception as exc:
+        logger.error("Failed to send reservation confirmation email to %s: %s", recipient, exc)
+        raise
 
 # HER MÅ VÆRE NOE FOR RESET PASSORD SENERE.
 

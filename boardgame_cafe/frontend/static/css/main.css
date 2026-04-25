@@ -1320,6 +1320,12 @@ body.modal-open {
     color: var(--ink);
 }
 
+.form-hint {
+    font-size: 0.8rem;
+    color: var(--muted, #6b7280);
+    margin: 0.15rem 0 0;
+}
+
 .content-promo-checkbox {
     display: inline-flex;
     align-items: center;

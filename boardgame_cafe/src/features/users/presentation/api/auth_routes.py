@@ -59,7 +59,17 @@ def register():
                 "error": "Registration failed",
                 "details": exc.errors(include_context=False),
             }, 400
-        flash("Registration failed. Please check your input.", "error")
+        for error in exc.errors(include_context=False):
+            field = error.get("loc", ("field",))[-1]
+            msg = error.get("msg", "Invalid value")
+            if field == "password":
+                flash(f"Password: {msg}", "error")
+            elif field == "email":
+                flash(f"Email: {msg}", "error")
+            elif field == "name":
+                flash(f"Name: {msg}", "error")
+            else:
+                flash(msg, "error")
         return redirect(url_for("register_page"))
 
     use_case = get_register_use_case()
