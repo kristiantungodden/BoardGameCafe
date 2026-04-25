@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import html
 import logging
 
 from flask import current_app, has_app_context
@@ -24,6 +26,67 @@ def _public_base_url() -> str:
         return f"{scheme}://{server_name}".rstrip("/")
 
     return "http://127.0.0.1:5000"
+
+
+def _build_reservation_html_email(
+    *,
+    reservation_id: int | None,
+    table_numbers: list,
+    start_ts: str,
+    end_ts: str,
+    party_size,
+    checkin_url: str | None,
+    qr_data_uri: str | None,
+) -> str:
+    reservation_label = "-" if reservation_id is None else str(reservation_id)
+    table_label = ", ".join(str(table_number) for table_number in table_numbers) or "-"
+    start_label = start_ts or "-"
+    end_label = end_ts or "-"
+    party_label = "-" if party_size in (None, "") else str(party_size)
+
+    qr_block = ""
+    if qr_data_uri:
+        qr_block = (
+            '<div style="margin:24px 0;text-align:center;">'
+            '<img src="{src}" alt="Reservation check-in QR" '
+            'style="display:inline-block;max-width:260px;width:100%;height:auto;" />'
+            "</div>"
+        ).format(src=qr_data_uri)
+
+    checkin_block = ""
+    if checkin_url:
+        escaped_url = html.escape(checkin_url)
+        checkin_block = (
+            "<p style=\"margin:16px 0 0 0;line-height:1.5;\">"
+            "If the QR code does not render, open this check-in link: "
+            f'<a href="{escaped_url}">{escaped_url}</a>'
+            "</p>"
+        )
+
+    return (
+        "<html><body style=\"margin:0;padding:0;background:#f7f7f7;font-family:Arial,sans-serif;color:#1f2937;\">"
+        "<div style=\"max-width:640px;margin:0 auto;padding:24px;\">"
+        "<div style=\"background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;\">"
+        "<h2 style=\"margin:0 0 12px 0;font-size:22px;\">Your Reservation Is Confirmed</h2>"
+        f"<p style=\"margin:0 0 16px 0;line-height:1.5;\">Reservation #{html.escape(reservation_label)}</p>"
+        "<table style=\"width:100%;border-collapse:collapse;margin:0 0 16px 0;\">"
+        "<tr><td style=\"padding:8px 0;font-weight:600;\">Table(s)</td>"
+        f"<td style=\"padding:8px 0;\">{html.escape(table_label)}</td></tr>"
+        "<tr><td style=\"padding:8px 0;font-weight:600;\">Start</td>"
+        f"<td style=\"padding:8px 0;\">{html.escape(start_label)}</td></tr>"
+        "<tr><td style=\"padding:8px 0;font-weight:600;\">End</td>"
+        f"<td style=\"padding:8px 0;\">{html.escape(end_label)}</td></tr>"
+        "<tr><td style=\"padding:8px 0;font-weight:600;\">Party Size</td>"
+        f"<td style=\"padding:8px 0;\">{html.escape(party_label)}</td></tr>"
+        "</table>"
+        "<p style=\"margin:0 0 10px 0;line-height:1.5;\">"
+        "Show this QR code to staff when you arrive."
+        "</p>"
+        f"{qr_block}"
+        f"{checkin_block}"
+        "<p style=\"margin:20px 0 0 0;line-height:1.5;\">We look forward to seeing you soon!</p>"
+        "</div></div></body></html>"
+    )
 
 
 @celery.task(
@@ -72,6 +135,8 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
 
     logger.info("Sending reservation confirmation email to %s (attempt %d)", recipient, self.request.retries + 1)
     qr_lines = ""
+    checkin_url = None
+    qr_data_uri = None
     attachments = []
 
     if reservation_id and user_id and has_app_context():
@@ -85,6 +150,9 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
             checkin_path = f"/api/reservations/checkin/{token}"
             checkin_url = f"{_public_base_url()}{checkin_path}"
             qr_svg = generate_qr_svg(checkin_url)
+            qr_data_uri = "data:image/svg+xml;base64," + base64.b64encode(
+                qr_svg.encode("utf-8")
+            ).decode("ascii")
             attachments.append(
                 (
                     f"reservation-{reservation_id}-checkin-qr.svg",
@@ -102,6 +170,15 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
         f"table_numbers={table_numbers}, start_ts={start_ts}, "
         f"end_ts={end_ts}, party_size={party_size}"
     )
+    html_body = _build_reservation_html_email(
+        reservation_id=reservation_id,
+        table_numbers=table_numbers,
+        start_ts=start_ts,
+        end_ts=end_ts,
+        party_size=party_size,
+        checkin_url=checkin_url,
+        qr_data_uri=qr_data_uri,
+    )
     send_kwargs = {
         "subject": "Your Dicer.no Reservation Confirmation",
         "sender": None,
@@ -112,6 +189,7 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
             f"{qr_lines}"
             "\n\nWe look forward to seeing you soon!"
         ),
+        "html": html_body,
     }
     if attachments:
         send_kwargs["attachments"] = attachments

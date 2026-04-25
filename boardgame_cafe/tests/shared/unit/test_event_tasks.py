@@ -121,18 +121,21 @@ class TestSendReservationConfirmationEmailTask:
         send_reservation_confirmation_email(event_payload)
 
         mock_mail_service.assert_called_once()
-        mock_service_instance.send_email.assert_called_once_with(
-            subject="Your Dicer.no Reservation Confirmation",
-            sender=None,
-            recipients=["user@example.com"],
-            body=(
-                "Thank you for your reservation at Dicer.no! \n\n"
-                "Here are your reservation details:\n"
-                "table_numbers=[2], start_ts=2026-04-17T17:00:00, "
-                "end_ts=2026-04-17T19:00:00, party_size=4"
-                "\n\nWe look forward to seeing you soon!"
-            ),
+        mock_service_instance.send_email.assert_called_once()
+        send_kwargs = mock_service_instance.send_email.call_args.kwargs
+        assert send_kwargs["subject"] == "Your Dicer.no Reservation Confirmation"
+        assert send_kwargs["sender"] is None
+        assert send_kwargs["recipients"] == ["user@example.com"]
+        assert (
+            send_kwargs["body"]
+            == "Thank you for your reservation at Dicer.no! \n\n"
+            "Here are your reservation details:\n"
+            "table_numbers=[2], start_ts=2026-04-17T17:00:00, "
+            "end_ts=2026-04-17T19:00:00, party_size=4"
+            "\n\nWe look forward to seeing you soon!"
         )
+        assert "html" in send_kwargs
+        assert "Your Reservation Is Confirmed" in send_kwargs["html"]
 
     @patch("shared.infrastructure.message_bus.event_tasks.FlaskMailService")
     def test_send_reservation_confirmation_handles_missing_email(self, mock_mail_service):
