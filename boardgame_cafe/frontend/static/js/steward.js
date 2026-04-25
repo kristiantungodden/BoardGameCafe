@@ -29,6 +29,32 @@ async function fetchJson(path, opts={}){
     return res.json();
 }
 
+function extractApiErrorMessage(error, fallback){
+    const fallbackMessage = fallback || 'Operation failed.';
+    if (!error || !error.message) return fallbackMessage;
+
+    const raw = String(error.message || '').trim();
+    if (!raw) return fallbackMessage;
+
+    try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.error === 'string' && parsed.error.trim()) {
+            return parsed.error.trim();
+        }
+        if (parsed && typeof parsed.message === 'string' && parsed.message.trim()) {
+            return parsed.message.trim();
+        }
+    } catch (_e) {
+        // Not JSON. Continue with raw text.
+    }
+
+    return raw;
+}
+
+function showPopupMessage(message){
+    window.alert(String(message || 'Operation failed.'));
+}
+
 const DASHBOARD_SUMMARY = {
     pending: 0,
     seated: 0,
@@ -251,8 +277,17 @@ async function loadPending(){
 
             const seatBtn = document.createElement('button'); seatBtn.textContent='Seat'; seatBtn.className='button button-secondary';
             seatBtn.onclick = async ()=>{
-                await fetchJson(`/api/steward/reservations/${r.id}/seat`,{method:'PATCH'});
-                await reloadAll();
+                try {
+                    await fetchJson(`/api/steward/reservations/${r.id}/seat`,{method:'PATCH'});
+                    await reloadAll();
+                } catch (err) {
+                    showPopupMessage(
+                        extractApiErrorMessage(
+                            err,
+                            'Unable to seat reservation right now.'
+                        )
+                    );
+                }
             }
             seatBtn.addEventListener('click', (e)=>e.stopPropagation());
             actions.appendChild(seatBtn);
