@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import html
 import logging
 
@@ -36,7 +35,7 @@ def _build_reservation_html_email(
     end_ts: str,
     party_size,
     checkin_url: str | None,
-    qr_data_uri: str | None,
+    qr_cid: str | None,
 ) -> str:
     reservation_label = "-" if reservation_id is None else str(reservation_id)
     table_label = ", ".join(str(table_number) for table_number in table_numbers) or "-"
@@ -45,13 +44,13 @@ def _build_reservation_html_email(
     party_label = "-" if party_size in (None, "") else str(party_size)
 
     qr_block = ""
-    if qr_data_uri:
+    if qr_cid:
         qr_block = (
             '<div style="margin:24px 0;text-align:center;">'
             '<img src="{src}" alt="Reservation check-in QR" '
             'style="display:inline-block;max-width:260px;width:100%;height:auto;" />'
             "</div>"
-        ).format(src=qr_data_uri)
+        ).format(src=f"cid:{qr_cid}")
 
     checkin_block = ""
     if checkin_url:
@@ -136,7 +135,7 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
     logger.info("Sending reservation confirmation email to %s (attempt %d)", recipient, self.request.retries + 1)
     qr_lines = ""
     checkin_url = None
-    qr_data_uri = None
+    inline_attachments = []
     attachments = []
 
     if reservation_id and user_id and has_app_context():
@@ -150,14 +149,21 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
             checkin_path = f"/api/reservations/checkin/{token}"
             checkin_url = f"{_public_base_url()}{checkin_path}"
             qr_svg = generate_qr_svg(checkin_url)
-            qr_data_uri = "data:image/svg+xml;base64," + base64.b64encode(
-                qr_svg.encode("utf-8")
-            ).decode("ascii")
+            qr_payload = qr_svg.encode("utf-8")
+            qr_cid = f"reservation-{reservation_id}-checkin-qr"
+            inline_attachments.append(
+                (
+                    f"reservation-{reservation_id}-checkin-qr.svg",
+                    "image/svg+xml",
+                    qr_payload,
+                    qr_cid,
+                )
+            )
             attachments.append(
                 (
                     f"reservation-{reservation_id}-checkin-qr.svg",
                     "image/svg+xml",
-                    qr_svg.encode("utf-8"),
+                    qr_payload,
                 )
             )
             qr_lines = (
@@ -165,6 +171,7 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
                 f"reservation-{reservation_id}-checkin-qr.svg"
                 f"\nStaff check-in URL (fallback): {checkin_url}"
             )
+    qr_cid = inline_attachments[0][3] if inline_attachments else None
 
     details = (
         f"table_numbers={table_numbers}, start_ts={start_ts}, "
@@ -177,7 +184,7 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
         end_ts=end_ts,
         party_size=party_size,
         checkin_url=checkin_url,
-        qr_data_uri=qr_data_uri,
+        qr_cid=qr_cid,
     )
     send_kwargs = {
         "subject": "Your Dicer.no Reservation Confirmation",
@@ -193,6 +200,8 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
     }
     if attachments:
         send_kwargs["attachments"] = attachments
+    if inline_attachments:
+        send_kwargs["inline_attachments"] = inline_attachments
     try:
         FlaskMailService(mail).send_email(**send_kwargs)
         logger.info("Reservation confirmation email sent to %s", recipient)

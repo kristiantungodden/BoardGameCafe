@@ -11,5 +11,6 @@ class EmailServiceInterface(ABC):
         body: str,
         html: str | None = None,
         attachments: list[tuple[str, str, bytes]] | None = None,
+        inline_attachments: list[tuple[str, str, bytes, str]] | None = None,
     ) -> None:
         pass
