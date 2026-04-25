@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -238,7 +238,7 @@ def test_cancel_booking_refunds_paid_stripe_payment():
 def test_seat_booking_transition_works_without_payment_dependencies():
     booking_repo = FakeBookingRepo()
     history_repo = FakeStatusHistoryRepo()
-    start = datetime.now() + timedelta(days=2)
+    start = datetime.now(tz=timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
 
     booking = Booking(
         id=1,
@@ -271,7 +271,7 @@ def test_seat_booking_marks_linked_table_occupied():
     history_repo = FakeStatusHistoryRepo()
     table_reservation_repo = FakeTableReservationRepo()
     table_repo = FakeTableRepo()
-    start = datetime.now() + timedelta(days=2)
+    start = datetime.now(tz=timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
 
     booking = Booking(
         id=1,
@@ -298,6 +298,30 @@ def test_seat_booking_marks_linked_table_occupied():
 
     assert updated.status == "seated"
     assert table_repo.get_by_id(7).status == "occupied"
+
+
+def test_seat_booking_rejects_too_early_checkin():
+    booking_repo = FakeBookingRepo()
+    history_repo = FakeStatusHistoryRepo()
+    start = datetime.now(tz=timezone.utc).replace(tzinfo=None) + timedelta(minutes=40)
+
+    booking = Booking(
+        id=1,
+        customer_id=1,
+        start_ts=start,
+        end_ts=start + timedelta(hours=2),
+        party_size=2,
+        status="confirmed",
+    )
+    booking_repo._items[1] = booking
+
+    use_case = SeatBookingUseCase(
+        booking_repo=booking_repo,
+        status_history_repo=history_repo,
+    )
+
+    with pytest.raises(ValidationError, match="15 minutes"):
+        use_case.execute(1, actor_user_id=42, actor_role="staff")
 
 
 def test_complete_booking_frees_linked_table():

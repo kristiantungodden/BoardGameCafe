@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from shared.domain.exceptions import InvalidStatusTransition, ValidationError
@@ -15,6 +15,8 @@ VALID_BOOKING_STATUSES = {
     "cancelled",
     "no_show",
 }
+
+_SEATING_WINDOW = timedelta(minutes=15)
 
 
 @dataclass
@@ -43,11 +45,30 @@ class Booking:
                 f"status must be one of: {', '.join(sorted(VALID_BOOKING_STATUSES))}"
             )
 
-    def seat(self) -> None:
+    def seat(self, current_time: Optional[datetime] = None) -> None:
         if self.status != "confirmed":
             raise InvalidStatusTransition(
                 f"Cannot seat booking in status '{self.status}'"
             )
+
+        now = current_time
+        if now is None:
+            now = (
+                datetime.now(tz=self.start_ts.tzinfo)
+                if self.start_ts.tzinfo
+                else datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+
+        if self.start_ts.tzinfo is None and now.tzinfo is not None:
+            now = now.replace(tzinfo=None)
+        elif self.start_ts.tzinfo is not None and now.tzinfo is None:
+            now = now.replace(tzinfo=self.start_ts.tzinfo)
+
+        if now < self.start_ts - _SEATING_WINDOW:
+            raise ValidationError(
+                "Booking can only be seated 15 minutes before start time or later"
+            )
+
         self.status = "seated"
 
     def confirm(self) -> None:

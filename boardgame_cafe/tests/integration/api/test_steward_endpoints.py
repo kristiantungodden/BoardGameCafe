@@ -345,7 +345,7 @@ def test_steward_reservation_lists_enforce_status_boundaries(client, app, test_d
         db.session.add(tr_a)
 
         # Reservation to become seated (should appear only in /reservations/seated)
-        start_b = start_a + timedelta(minutes=30)
+        start_b = start_a + timedelta(minutes=10)
         booking_b = BookingDB(
             customer_id=user_id,
             start_ts=start_b,
@@ -367,7 +367,7 @@ def test_steward_reservation_lists_enforce_status_boundaries(client, app, test_d
         db.session.add(tr_b)
 
         # Reservation to become completed (should appear in neither list)
-        start_c = start_a + timedelta(minutes=60)
+        start_c = start_a + timedelta(minutes=12)
         booking_c = BookingDB(
             customer_id=user_id,
             start_ts=start_c,
@@ -412,6 +412,42 @@ def test_steward_reservation_lists_enforce_status_boundaries(client, app, test_d
     assert seated_id in seated_ids
     assert confirmed_id not in seated_ids
     assert completed_id not in seated_ids
+
+
+def test_steward_cannot_seat_more_than_15_minutes_before_start(client, app, test_data):
+    with app.app_context():
+        user_id = test_data["user"]["id"]
+        table_id = test_data["tables"][0]["id"]
+        start_ts = datetime.now(timezone.utc) + timedelta(minutes=30)
+        end_ts = start_ts + timedelta(hours=2)
+        booking = BookingDB(
+            customer_id=user_id,
+            start_ts=start_ts,
+            end_ts=end_ts,
+            party_size=2,
+            status="confirmed",
+        )
+        db.session.add(booking)
+        db.session.commit()
+
+        tr = TableReservationDB(
+            booking_id=booking.id,
+            table_id=table_id,
+            customer_id=user_id,
+            start_ts=start_ts,
+            end_ts=end_ts,
+            party_size=2,
+            status="confirmed",
+        )
+        db.session.add(tr)
+        db.session.commit()
+        reservation_id = tr.id
+
+    _register_and_login_staff(client, email="stewardtiming@example.com")
+
+    seat_resp = client.patch(f"/api/steward/reservations/{reservation_id}/seat")
+    assert seat_resp.status_code == 400
+    assert "15 minutes" in seat_resp.get_json()["error"]
 
 
 def test_steward_status_transitions_publish_domain_events(client, app, test_data):
