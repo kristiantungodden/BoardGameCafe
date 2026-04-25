@@ -39,6 +39,7 @@ class Config:
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", os.getenv("SMTP_USER"))
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", os.getenv("SMTP_PASSWORD"))
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", MAIL_USERNAME or "no-reply@localhost")
+    MAIL_DEBUG = os.getenv("MAIL_DEBUG", "false").lower() in {"1", "true", "yes", "on"}
     MAIL_SUPPRESS_SEND = os.getenv("MAIL_SUPPRESS_SEND", "false").lower() in {"1", "true", "yes", "on"}
 
 class DevelopmentConfig(Config):
