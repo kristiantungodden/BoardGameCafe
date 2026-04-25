@@ -34,7 +34,8 @@ def test_auth_redirect_to_booking_then_confirmation_and_my_bookings(client, test
     assert login_response.status_code == 302
     assert login_response.headers.get("Location", "") == "/booking"
 
-    now = datetime(2026, 4, 20, 18, 0)
+    now = datetime.now() + timedelta(days=7)
+    now = now.replace(hour=18, minute=0, second=0, microsecond=0)
     booking_response = client.post(
         "/api/reservations",
         json={

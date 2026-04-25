@@ -27,6 +27,7 @@ from features.reservations.domain.models.table_reservation import TableReservati
 from features.tables.application.interfaces.table_repository import (
     TableRepository as TableRepositoryInterface,
 )
+from shared.domain.datetime_utils import to_app_local
 from shared.domain.constants import OVERLAP_BLOCKING_STATUSES
 from shared.domain.exceptions import ValidationError
 
@@ -67,12 +68,15 @@ class CreateBookingRecordUseCase:
         enforce_time_window = _is_slot_aligned(cmd.start_ts) and _is_slot_aligned(cmd.end_ts)
 
         if enforce_time_window:
-            if cmd.start_ts.date() != cmd.end_ts.date():
+            start_local = to_app_local(cmd.start_ts)
+            end_local = to_app_local(cmd.end_ts)
+
+            if start_local.date() != end_local.date():
                 raise ValidationError(
                     "Reservations must start and end on the same day (no overnight bookings)."
                 )
 
-            if cmd.start_ts.time() < _OPENING_TIME or cmd.end_ts.time() > _CLOSING_TIME:
+            if start_local.time() < _OPENING_TIME or end_local.time() > _CLOSING_TIME:
                 raise ValidationError(
                     "Reservations must be within opening hours: 09:00 to 23:00."
                 )

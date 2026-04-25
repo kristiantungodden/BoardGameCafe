@@ -13,6 +13,7 @@ from features.tables.application.interfaces.table_repository import (
     TableFilters,
     TableRepository,
 )
+from shared.domain.datetime_utils import format_utc_iso
 from shared.domain.constants import OVERLAP_BLOCKING_STATUSES
 
 
@@ -97,8 +98,8 @@ class GetTableAvailabilityUseCase:
 
         return {
             "filters": {
-                "start_ts": start_ts.isoformat(),
-                "end_ts": end_ts.isoformat(),
+                "start_ts": format_utc_iso(start_ts),
+                "end_ts": format_utc_iso(end_ts),
                 "party_size": party_size,
                 "floor": floor,
             },

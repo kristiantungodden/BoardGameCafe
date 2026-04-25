@@ -6,6 +6,9 @@ from features.reservations.application.interfaces.available_game_copy_repository
 from features.reservations.application.interfaces.available_table_repository_interface import (
     AvailableTableRepositoryInterface,
 )
+from features.games.application.interfaces.game_repository_interface import (
+    GameRepositoryInterface,
+)
 from features.tables.application.interfaces.table_repository import TableRepository as TableRepositoryInterface
 from features.games.application.interfaces.game_copy_repository_interface import GameCopyRepository as GameCopyRepositoryInterface
 
@@ -19,11 +22,13 @@ class GetBookingAvailabilityUseCase:
         available_copy_repo: AvailableGameCopyRepositoryInterface,
         table_repo: TableRepositoryInterface,
         game_copy_repo: GameCopyRepositoryInterface,
+        game_repo: GameRepositoryInterface,
     ):
         self.available_table_repo = available_table_repo
         self.available_copy_repo = available_copy_repo
         self.table_repo = table_repo
         self.game_copy_repo = game_copy_repo
+        self.game_repo = game_repo
 
     def execute(self, start_ts: datetime, end_ts: datetime, party_size: int) -> dict:
         """Get availability data for the given time window and party size."""
@@ -46,7 +51,7 @@ class GetBookingAvailabilityUseCase:
         ]
 
         available_game_ids = {row.game_id for row in available_copies}
-        games = self.game_copy_repo.get_all_games() if hasattr(self.game_copy_repo, "get_all_games") else []
+        games = self.game_repo.get_all_games() or []
         copies_by_game = {}
         for copy in available_copies:
             copies_by_game.setdefault(copy.game_id, []).append(copy.id)

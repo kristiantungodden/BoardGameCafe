@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Blueprint, current_app, redirect, flash, request, url_for
 from flask_login import current_user
 from pydantic import ValidationError as PydanticValidationError
@@ -25,6 +27,7 @@ from features.reservations.application.use_cases.reservation_use_cases import (
 from shared.application.services.reservation_transition_event_publisher import (
     publish_reservation_transition_event,
 )
+from shared.domain.datetime_utils import format_utc_iso, to_utc_aware, to_utc_naive
 from shared.domain.exceptions import DomainError
 from shared.domain.events import (
     ReservationCreated,
@@ -111,8 +114,8 @@ def _serialize_reservation(reservation):
         "customer_id": reservation.customer_id,
         "table_id": table_id,
         "table_ids": table_ids,
-        "start_ts": reservation.start_ts.isoformat(),
-        "end_ts": reservation.end_ts.isoformat(),
+        "start_ts": format_utc_iso(reservation.start_ts),
+        "end_ts": format_utc_iso(reservation.end_ts),
         "party_size": reservation.party_size,
         "status": reservation.status,
         "notes": reservation.notes,
@@ -138,8 +141,12 @@ def _serialize_status_history(entry):
         "reason": entry.reason,
         "actor_user_id": entry.actor_user_id,
         "actor_role": entry.actor_role,
-        "created_at": entry.created_at.isoformat(),
+        "created_at": format_utc_iso(entry.created_at),
     }
+
+
+def _is_past_timestamp(ts: datetime) -> bool:
+    return to_utc_aware(ts) < datetime.now(tz=to_utc_aware(ts).tzinfo)
 
 
 @bp.get("")
@@ -185,8 +192,11 @@ def get_booking_availability():
     except PydanticValidationError as exc:
         return {"error": "Validation failed", "details": exc.errors()}, 400
 
+    start_ts_utc = to_utc_naive(payload.start_ts)
+    end_ts_utc = to_utc_naive(payload.end_ts)
+
     availability_handler = get_booking_availability_handler()
-    result = availability_handler(payload.start_ts, payload.end_ts, payload.party_size)
+    result = availability_handler(start_ts_utc, end_ts_utc, payload.party_size)
     return result, 200
 
 
@@ -246,13 +256,21 @@ def create_reservation():
     except PydanticValidationError as exc:
         return {"error": "Validation failed", "details": exc.errors()}, 400
 
+    if _is_past_timestamp(payload.start_ts):
+        return {"error": "Bookings cannot start in the past"}, 400
+
+    start_ts_utc = to_utc_naive(payload.start_ts)
+    end_ts_utc = to_utc_naive(payload.end_ts)
+
     create_booking = get_create_booking_handler()
 
     try:
         reservation, reservation_games, payment = create_booking(
             CreateReservationCommand(
                 customer_id=current_user.id,
-                **payload.model_dump(exclude={"games", "customer_id"}),
+                **payload.model_dump(exclude={"games", "customer_id", "start_ts", "end_ts"}),
+                start_ts=start_ts_utc,
+                end_ts=end_ts_utc,
             ),
             games=[item.model_dump() for item in payload.games],
         )
@@ -271,8 +289,8 @@ def create_reservation():
                 user_id=current_user.id,
                 user_email=getattr(current_user, "email", None),
                 table_numbers=response["table_ids"],
-                start_ts=reservation.start_ts.isoformat(),
-                end_ts=reservation.end_ts.isoformat(),
+                start_ts=format_utc_iso(reservation.start_ts),
+                end_ts=format_utc_iso(reservation.end_ts),
                 party_size=reservation.party_size,
             )
         )

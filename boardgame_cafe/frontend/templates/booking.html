@@ -181,7 +181,35 @@
         if (!dateValue || !timeValue) {
             return "";
         }
-        return `${dateValue}T${timeValue}:00`;
+
+        const localDate = new Date(`${dateValue}T${timeValue}:00`);
+        if (Number.isNaN(localDate.getTime())) {
+            return "";
+        }
+
+        return localDate.toISOString();
+    }
+
+    function toLocalDateAndSlot(isoValue) {
+        if (!isoValue) {
+            return { date: "", time: "" };
+        }
+
+        const utcDate = new Date(String(isoValue));
+        if (Number.isNaN(utcDate.getTime())) {
+            return { date: "", time: "" };
+        }
+
+        const year = String(utcDate.getFullYear());
+        const month = String(utcDate.getMonth() + 1).padStart(2, "0");
+        const day = String(utcDate.getDate()).padStart(2, "0");
+        const hours = String(utcDate.getHours()).padStart(2, "0");
+        const minutes = String(utcDate.getMinutes()).padStart(2, "0");
+
+        return {
+            date: `${year}-${month}-${day}`,
+            time: `${hours}:${minutes}`,
+        };
     }
 
     function parseSlotToMinutes(slot) {
@@ -1025,28 +1053,26 @@
                 state.pendingGames = [...body.games];
             }
 
-            // Load date/time directly from stored strings to avoid timezone drift.
+            // Convert stored UTC timestamps back to local date/time for the form.
             if (body.start_ts) {
-                const [bookingDate, startTimeRaw] = String(body.start_ts).split("T");
-                const startTime = (startTimeRaw || "").slice(0, 5);
+                const startLocal = toLocalDateAndSlot(body.start_ts);
                 
                 const dateInput = document.getElementById("booking-date");
-                if (dateInput) {
-                    dateInput.value = bookingDate;
+                if (dateInput && startLocal.date) {
+                    dateInput.value = startLocal.date;
                 }
 
                 const startSlotSelect = document.getElementById("start-slot");
-                if (startSlotSelect && startTime) {
-                    startSlotSelect.value = startTime;
+                if (startSlotSelect && startLocal.time) {
+                    startSlotSelect.value = startLocal.time;
                 }
             }
 
             if (body.end_ts) {
-                const [, endTimeRaw] = String(body.end_ts).split("T");
-                const endTime = (endTimeRaw || "").slice(0, 5);
+                const endLocal = toLocalDateAndSlot(body.end_ts);
                 const endSlotSelect = document.getElementById("end-slot");
-                if (endSlotSelect && endTime) {
-                    endSlotSelect.value = endTime;
+                if (endSlotSelect && endLocal.time) {
+                    endSlotSelect.value = endLocal.time;
                 }
             }
 

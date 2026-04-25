@@ -244,6 +244,7 @@ def get_booking_availability_handler():
             available_copy_repo=_available_copy_repo,
             table_repo=_table_repo,
             game_copy_repo=_game_copy_repo,
+            game_repo=_game_lookup_repo,
         )
         return availability_use_case.execute(start_ts, end_ts, party_size)
 

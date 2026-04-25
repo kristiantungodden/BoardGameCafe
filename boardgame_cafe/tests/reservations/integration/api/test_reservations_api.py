@@ -152,8 +152,8 @@ def test_post_reservations_creates_booking_with_real_logic(app, test_data):
                 response = client.post(
                     "/api/reservations",
                     json={
-                        "start_ts": "2026-03-30T18:00:00",
-                        "end_ts": "2026-03-30T20:00:00",
+                            "start_ts": "2099-03-30T18:00:00",
+                            "end_ts": "2099-03-30T20:00:00",
                         "party_size": 4,
                         "notes": "Birthday",
                         "games": [
@@ -167,11 +167,41 @@ def test_post_reservations_creates_booking_with_real_logic(app, test_data):
                 assert data["customer_id"] == user_id
                 assert data["party_size"] == 4
                 assert data["status"] == "created"
+                assert data["start_ts"].endswith("Z")
+                assert data["end_ts"].endswith("Z")
                 assert len(data["games"]) == 1
                 assert data["payment"] is not None
                 # Table should be auto-selected (the smallest one fitting the party)
                 assert data["table_id"] == table_id
                 assert data["table_ids"] == [table_id]
+
+
+def test_post_reservations_accepts_utc_payload_and_applies_norway_opening_hours(app, test_data):
+    """09:00-11:00 in Norway should be accepted when submitted as UTC payload."""
+    user_id = test_data["user"]["id"]
+
+    monkeypatch_user = FakeCurrentUser(user_id=user_id, is_authenticated=True)
+
+    with app.app_context():
+        with app.test_client() as client:
+            import features.reservations.presentation.api.reservation_routes as reservations_module
+            from unittest.mock import patch
+
+            with patch.object(reservations_module, "current_user", monkeypatch_user):
+                response = client.post(
+                    "/api/reservations",
+                    json={
+                        "start_ts": "2099-03-30T07:00:00Z",
+                        "end_ts": "2099-03-30T09:00:00Z",
+                        "party_size": 4,
+                        "games": [],
+                    },
+                )
+
+                assert response.status_code == 201
+                data = response.get_json()
+                assert data["start_ts"].endswith("Z")
+                assert data["end_ts"].endswith("Z")
 
 
 def test_get_reservation_returns_all_linked_table_ids(app, test_data):
@@ -191,8 +221,8 @@ def test_get_reservation_returns_all_linked_table_ids(app, test_data):
                     json={
                         "table_id": table_ids[0],
                         "table_ids": table_ids,
-                        "start_ts": "2026-03-30T18:00:00",
-                        "end_ts": "2026-03-30T20:00:00",
+                            "start_ts": "2099-03-30T18:00:00",
+                            "end_ts": "2099-03-30T20:00:00",
                         "party_size": 1,
                         "games": [],
                     },
@@ -222,8 +252,8 @@ def test_post_reservations_requires_authentication(monkeypatch):
     response = client.post(
         "/api/reservations",
         json={
-            "start_ts": "2026-03-30T18:00:00",
-            "end_ts": "2026-03-30T20:00:00",
+                "start_ts": "2099-03-30T18:00:00",
+                "end_ts": "2099-03-30T20:00:00",
             "party_size": 4,
         },
     )
@@ -249,8 +279,8 @@ def test_post_reservations_accepts_multiple_selected_tables(app, test_data):
                     json={
                         "table_id": table_ids[0],
                         "table_ids": table_ids,
-                        "start_ts": "2026-03-30T18:00:00",
-                        "end_ts": "2026-03-30T20:00:00",
+                        "start_ts": "2099-03-30T18:00:00",
+                        "end_ts": "2099-03-30T20:00:00",
                         "party_size": 1,
                         "games": [],
                     },
@@ -280,8 +310,8 @@ def test_post_reservations_rejects_selected_tables_with_insufficient_combined_ca
                     json={
                         "table_id": table_ids[0],
                         "table_ids": table_ids,
-                        "start_ts": "2026-03-30T18:00:00",
-                        "end_ts": "2026-03-30T20:00:00",
+                        "start_ts": "2099-03-30T18:00:00",
+                        "end_ts": "2099-03-30T20:00:00",
                         "party_size": 11,
                         "games": [],
                     },
@@ -290,6 +320,32 @@ def test_post_reservations_rejects_selected_tables_with_insufficient_combined_ca
                 assert response.status_code == 400
                 data = response.get_json()
                 assert "combined capacity" in data["error"]
+
+
+def test_post_reservations_rejects_past_start_time(app, test_data):
+    user_id = test_data["user"]["id"]
+
+    monkeypatch_user = FakeCurrentUser(user_id=user_id, is_authenticated=True)
+
+    with app.app_context():
+        with app.test_client() as client:
+            import features.reservations.presentation.api.reservation_routes as reservations_module
+            from unittest.mock import patch
+
+            with patch.object(reservations_module, "current_user", monkeypatch_user):
+                response = client.post(
+                    "/api/reservations",
+                    json={
+                        "start_ts": "2020-03-30T18:00:00",
+                        "end_ts": "2020-03-30T20:00:00",
+                        "party_size": 4,
+                        "games": [],
+                    },
+                )
+
+                assert response.status_code == 400
+                data = response.get_json()
+                assert "past" in data["error"].lower()
 
 
 def test_get_reservation_availability_returns_suggestions(monkeypatch):

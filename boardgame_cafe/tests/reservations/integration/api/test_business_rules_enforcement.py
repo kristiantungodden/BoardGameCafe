@@ -8,7 +8,7 @@ These tests enforce critical business rules at API boundaries:
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from features.bookings.domain.models.booking import Booking
 
 from tests.reservations.test_fixtures import FakeCurrentUser
@@ -47,8 +47,8 @@ class TestOpeningHoursEnforcement:
 					CreateReservationCommand(
 						customer_id=user_id,
 						table_id=None,
-						start_ts=datetime(2026, 3, 30, 8, 30),  # Before 09:00
-						end_ts=datetime(2026, 3, 30, 10, 0),
+						start_ts=datetime(2026, 3, 30, 6, 30, tzinfo=timezone.utc),  # 08:30 Oslo
+						end_ts=datetime(2026, 3, 30, 8, 0, tzinfo=timezone.utc),
 						party_size=4,
 					),
 					games=[]
@@ -81,8 +81,8 @@ class TestOpeningHoursEnforcement:
 					CreateReservationCommand(
 						customer_id=user_id,
 						table_id=None,
-						start_ts=datetime(2026, 3, 30, 22, 0),
-						end_ts=datetime(2026, 3, 30, 23, 30),  # After 23:00
+						start_ts=datetime(2026, 3, 30, 20, 0, tzinfo=timezone.utc),
+						end_ts=datetime(2026, 3, 30, 21, 30, tzinfo=timezone.utc),  # 23:30 Oslo
 						party_size=4,
 					),
 					games=[]
@@ -110,14 +110,14 @@ class TestOpeningHoursEnforcement:
 				CreateReservationCommand(
 					customer_id=user_id,
 					table_id=None,
-					start_ts=datetime(2026, 3, 30, 9, 0),  # Exactly at opening
-					end_ts=datetime(2026, 3, 30, 11, 0),
+					start_ts=datetime(2026, 3, 30, 7, 0, tzinfo=timezone.utc),  # 09:00 Oslo
+					end_ts=datetime(2026, 3, 30, 9, 0, tzinfo=timezone.utc),
 					party_size=4,
 				),
 				games=[]
 			)
 			
-			assert result[0].start_ts.hour == 9
+			assert result[0].start_ts.hour == 7
 	
 	def test_booking_until_closing_hour_accepted(self, app, test_data):
 		"""REQUIREMENT: Bookings ending at exactly 23:00 should be accepted."""
@@ -136,14 +136,14 @@ class TestOpeningHoursEnforcement:
 				CreateReservationCommand(
 					customer_id=user_id,
 					table_id=None,
-					start_ts=datetime(2026, 3, 30, 21, 0),
-					end_ts=datetime(2026, 3, 30, 23, 0),  # Exactly at closing
+					start_ts=datetime(2026, 3, 30, 19, 0, tzinfo=timezone.utc),
+					end_ts=datetime(2026, 3, 30, 21, 0, tzinfo=timezone.utc),  # 23:00 Oslo
 					party_size=4,
 				),
 				games=[]
 			)
 			
-			assert result[0].end_ts.hour == 23
+			assert result[0].end_ts.hour == 21
 
 
 class TestAutoAssignmentLogic:
