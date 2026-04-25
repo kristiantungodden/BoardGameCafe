@@ -1,11 +1,10 @@
-from flask import Blueprint, request, jsonify, redirect, url_for, flash, render_template, current_app
+from flask import Blueprint, request, jsonify, redirect, url_for, flash, current_app
 from flask_login import logout_user, login_required, current_user
 
 from werkzeug.exceptions import BadRequest
 from pydantic import ValidationError as PydanticValidationError
 
 from shared.domain.exceptions import ValidationError as DomainValidationError
-from shared.infrastructure import csrf
 from features.users.application.use_cases.auth_use_cases import LoginCommand, RegisterCommand
 from features.users.application.use_cases.user_use_cases import ChangePasswordCommand
 from features.users.composition.auth_use_case_factories import (

@@ -26,6 +26,8 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       REDIS_URL: redis://redis:6379/2
       REALTIME_EVENTS_CHANNEL: boardgame_cafe.events
+      STRIPE_SECRET_KEY: sk_test_placeholder_seed_only
+      APP_BASE_URL: http://localhost:5001
     volumes:
       - boardgame-cafe-db:/data
     command: ["python", "boardgame_cafe/scripts/seed_demo_data.py"]

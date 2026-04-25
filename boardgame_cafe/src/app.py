@@ -1,17 +1,14 @@
 import os
 from pathlib import Path
 
-from flask import Flask, Response, request, jsonify, stream_with_context, redirect, url_for
-from flask_login import login_required
+from flask import Flask, request, redirect, url_for
 from flask_wtf.csrf import CSRFError
 from dotenv import load_dotenv
-import stripe
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
-from shared.infrastructure import db, csrf, mail, login_manager, celery, init_celery, EventBus, init_db
+from shared.infrastructure import db, csrf, mail, login_manager, init_celery, EventBus, init_db
 from shared.infrastructure import init_booking_draft_store
-from shared.infrastructure.message_bus.realtime import stream_realtime_events
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.application.event_handlers.email_event_handler import register_email_event_handlers
 from shared.application.event_handlers.realtime_event_handler import (

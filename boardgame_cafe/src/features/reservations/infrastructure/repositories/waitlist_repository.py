@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Sequence
 
 from shared.infrastructure import db
 from features.reservations.application.interfaces.waitlist_repository_interface import (

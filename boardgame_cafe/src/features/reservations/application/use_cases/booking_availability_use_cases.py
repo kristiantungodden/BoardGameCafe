@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from features.reservations.application.interfaces.available_game_copy_repository_interface import (
     AvailableGameCopyRepositoryInterface,

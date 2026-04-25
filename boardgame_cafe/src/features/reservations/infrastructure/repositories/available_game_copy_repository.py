@@ -5,7 +5,6 @@ from features.reservations.application.interfaces.available_game_copy_repository
     AvailableGameCopyRepositoryInterface,
 )
 from features.bookings.infrastructure.database.booking_db import BookingDB
-from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
 from features.games.infrastructure.database.game_copy_db import GameCopyDB
 from shared.domain.constants import OVERLAP_BLOCKING_STATUSES

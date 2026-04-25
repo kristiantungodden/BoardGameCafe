@@ -17,7 +17,6 @@ from features.reservations.application.use_cases.reservation_use_cases import (
     CancelReservationUseCase,
     CompleteReservationUseCase,
     CreateReservationCommand,
-    CreateReservationUseCase,
     GetReservationByIdUseCase,
     ListReservationsUseCase,
     MarkReservationNoShowUseCase,
@@ -30,7 +29,6 @@ from shared.domain.exceptions import DomainError
 from shared.domain.events import (
     ReservationCreated,
 )
-from shared.infrastructure import csrf
 from shared.infrastructure.draft_store import clear_booking_draft, get_booking_draft, save_booking_draft
 from shared.infrastructure.qr_codes import (
     decode_reservation_qr_token,
@@ -38,7 +36,6 @@ from shared.infrastructure.qr_codes import (
     get_or_create_reservation_qr_token,
 )
 from features.payments.presentation.schemas.payment_schema import PaymentSchema
-from features.reservations.presentation.schemas.reservation_schema import CreateReservationRequest
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationBookingRequest
 from features.reservations.presentation.schemas.reservation_game_schema import AddReservationGameRequest
 from features.reservations.composition.reservation_use_case_factories import (
@@ -47,7 +44,6 @@ from features.reservations.composition.reservation_use_case_factories import (
     get_add_game_to_reservation_use_case,
     get_cancel_reservation_use_case,
     get_complete_reservation_use_case,
-    get_create_reservation_use_case,
     get_no_show_reservation_use_case,
     get_list_reservations_use_case,
     get_reservation_lookup_use_case,

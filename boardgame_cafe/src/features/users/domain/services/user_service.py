@@ -4,7 +4,6 @@ Domain services contain business logic that doesn't naturally belong
 to a single entity but involves multiple entities or complex business rules.
 """
 
-from typing import Optional
 from features.users.domain.models.user import User, Role
 from shared.domain.exceptions import ValidationError
 

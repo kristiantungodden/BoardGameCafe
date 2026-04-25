@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from app import create_app
-from shared.infrastructure import celery, init_celery
+from shared.infrastructure import init_celery
 
 # Create Flask app and bind Celery so tasks run with app context.
 flask_app = create_app()

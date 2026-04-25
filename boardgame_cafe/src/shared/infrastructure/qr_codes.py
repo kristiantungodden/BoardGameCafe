@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from shared.infrastructure import db
 
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 import qrcode
 import qrcode.image.svg
 
