@@ -209,24 +209,7 @@ def seed_games() -> tuple[int, int, int]:
 def _build_demo_users() -> list[dict]:
     now = datetime.now()
     users: list[dict] = [
-        # Quick-login dev shortcuts
-        {
-            "role": "customer",
-            "name": "a",
-            "email": "a@a.a",
-            "phone": None,
-            "password": "Aaaaaaa1!",
-            "created_at": now - timedelta(days=320),
-        },
-        {
-            "role": "customer",
-            "name": "b",
-            "email": "b@b.b",
-            "phone": None,
-            "password": "Bbbbbbb1!",
-            "created_at": now - timedelta(days=300),
-        },
-        # Realistic customers
+        # Customers
         {
             "role": "customer",
             "name": "Emma Hansen",
@@ -279,7 +262,7 @@ def _build_demo_users() -> list[dict]:
         # Admin
         {
             "role": "admin",
-            "name": "admin",
+            "name": "Adam Admin",
             "email": "admin@example.com",
             "phone": None,
             "password": "AdminPw123!",

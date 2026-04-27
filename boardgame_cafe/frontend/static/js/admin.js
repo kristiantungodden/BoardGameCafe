@@ -106,11 +106,6 @@ function datetimeLocalToIso(value) {
     return date.toISOString();
 }
 
-function setAdminConnection(text) {
-    const node = document.getElementById('admin-connection-status');
-    if (node) node.textContent = text;
-}
-
 function setUserManagementMessage(message, isError = false) {
     const node = document.getElementById('admin-user-message');
     if (!node) return;
@@ -1380,7 +1375,6 @@ async function createSteward(form) {
 
 async function loadAdminStats() {
     try {
-        setAdminConnection('Loading admin stats...');
         const data = await fetchJson('/api/admin/dashboard/stats');
 
         ADMIN_SUMMARY.users = data.users_total || 0;
@@ -1393,10 +1387,8 @@ async function loadAdminStats() {
         ADMIN_SUMMARY.lastUpdated = new Date();
 
         updateAdminSummaryUI();
-        setAdminConnection('Admin stats loaded');
     } catch (error) {
         console.error(error);
-        setAdminConnection('Error loading admin stats');
     }
 }
 
@@ -2081,19 +2073,6 @@ async function saveBaseFee(form) {
 function bindAdminDashboard() {
     setupAdminWidgetCollapse();
 
-    const refresh = document.getElementById('admin-refresh');
-    refresh?.addEventListener('click', () => {
-        loadAdminStats();
-    });
-
-    const snapshotDate = document.getElementById('admin-snapshot-date');
-    if (snapshotDate) {
-        snapshotDate.valueAsDate = new Date();
-        snapshotDate.addEventListener('change', () => {
-            loadAdminStats();
-        });
-    }
-
     const stewardForm = document.getElementById('create-steward-form');
     stewardForm?.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -2205,7 +2184,6 @@ function bindAdminDashboard() {
 
     try {
         const es = new EventSource('/api/events/stream');
-        setAdminConnection('Realtime: connected');
         es.addEventListener('domain_event', (e) => {
             try {
                 const payload = JSON.parse(e.data);
@@ -2236,10 +2214,8 @@ function bindAdminDashboard() {
                 console.error('Failed to handle admin realtime event', error);
             }
         });
-        es.addEventListener('error', () => setAdminConnection('Realtime: reconnecting...'));
     } catch (error) {
         console.error('Failed to connect admin realtime stream', error);
-        setAdminConnection('Realtime: unavailable');
     }
 }
 

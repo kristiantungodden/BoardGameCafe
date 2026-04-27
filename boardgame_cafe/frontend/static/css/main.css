@@ -714,7 +714,22 @@ footer {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.7rem;
-    align-items: start;
+    align-items: stretch;
+}
+
+#floor .admin-location-grid > .steward-item-list {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+}
+
+#floor .admin-location-grid > .steward-item-list > .steward-item {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#floor .admin-location-grid > .steward-item-list > .steward-item .action-row {
+    margin-top: auto;
 }
 
 #floor .admin-location-lists {
@@ -892,6 +907,21 @@ footer {
     width: 100%;
     max-width: none;
     margin-bottom: 0.6rem;
+}
+
+#content .form-stack {
+    max-width: none;
+}
+
+#content .form-stack .form-input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#content .form-grid-two > div {
+    display: grid;
+    gap: 0.3rem;
+    align-content: start;
 }
 
 @media (max-width: 940px) {

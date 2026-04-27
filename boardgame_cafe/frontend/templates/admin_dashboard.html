@@ -8,16 +8,6 @@
 		<p class="hero-kicker">WELCOME TO THE ADMIN DASHBOARD</p>
 		<h1 class="page-header">Admin Dashboard</h1>
 		<p class="page-intro compact">In here you can govern users, policies, floor setup, catalogue content, and reporting from one control center.</p>
-		<section class="steward-toolbar card">
-			<div class="steward-toolbar-left">
-				<label class="form-label" for="admin-snapshot-date">Snapshot date</label>
-				<input class="form-input" type="date" id="admin-snapshot-date" />
-			</div>
-			<div class="steward-toolbar-right">
-				<button class="button button-subtle" type="button" id="admin-refresh">Refresh stats</button>
-				<span class="steward-connection" id="admin-connection-status">Loading admin stats...</span>
-			</div>
-		</section>
 	</header>
 
 	<section class="steward-metrics" aria-label="Admin summary">
@@ -64,7 +54,7 @@
 			</section>
 			<section class="card" id="stewards">
 				<h3>Create Steward</h3>
-				<p class="hero-copy">Admins create steward accounts directly. New stewards are forced to change password on first login.</p>
+				<p class="hero-copy">Create steward accounts directly. New stewards are forced to change password on first login.</p>
 				<form class="form-stack" id="create-steward-form">
 					<label class="form-label" for="steward-name">Name</label>
 					<input class="form-input" id="steward-name" name="name" required>
@@ -86,7 +76,7 @@
 			</section>
 			<section class="card" id="catalogue">
 				<h3>Catalogue & Copies</h3>
-				<p class="hero-copy">Admin-only controls for creating, editing, and deleting games and physical copies.</p>
+				<p class="hero-copy">Controls for creating, editing, and deleting games and physical copies.</p>
 				<p class="quick-links" id="catalogue-message"></p>
 
 				<div class="catalogue-sections">
@@ -245,7 +235,6 @@
 				</div>
 				</div>
 
-				<p class="quick-links">Edit buttons open a popup where you can rename or delete floor, zone, or table records.</p>
 			</section>
 			<section class="card" id="policies">
 				<h3>Policies & Fees</h3>
