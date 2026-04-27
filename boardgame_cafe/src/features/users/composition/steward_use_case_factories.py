@@ -1,7 +1,6 @@
 from features.games.application.interfaces.game_copy_repository_interface import GameCopyRepository
 from features.games.application.interfaces.incident_repository_interface import IncidentRepositoryInterface
 from features.games.application.use_cases.game_copy_use_cases import (
-    ListGameCopiesUseCase,
     UpdateGameCopyStatusUseCase,
 )
 from features.games.application.use_cases.game_copy_browse_use_cases import (
@@ -26,9 +25,6 @@ from features.reservations.application.use_cases.reservation_game_use_cases impo
     SwapGameCopyUseCase,
 )
 from features.reservations.application.use_cases.reservation_use_cases import (
-    ListActiveReservationsUseCase,
-    ListConfirmedReservationsUseCase,
-    ListSeatedReservationsUseCase,
     UpdateReservationUseCase,
 )
 from features.reservations.application.use_cases.steward_reservation_browse_use_cases import (
@@ -77,18 +73,6 @@ def get_status_history_repo():
     return SqlAlchemyBookingStatusHistoryRepository()
 
 
-def get_list_confirmed_reservations_use_case() -> ListConfirmedReservationsUseCase:
-    return ListConfirmedReservationsUseCase(get_reservation_repo())
-
-
-def get_list_seated_reservations_use_case() -> ListSeatedReservationsUseCase:
-    return ListSeatedReservationsUseCase(get_reservation_repo())
-
-
-def get_list_active_reservations_use_case() -> ListActiveReservationsUseCase:
-    return ListActiveReservationsUseCase(get_reservation_repo())
-
-
 def get_browse_steward_reservations_use_case() -> BrowseStewardReservationsUseCase:
     return BrowseStewardReservationsUseCase(
         reservation_repo=get_reservation_repo(),
@@ -131,10 +115,6 @@ def get_update_reservation_use_case() -> UpdateReservationUseCase:
 
 def get_update_game_copy_status_use_case() -> UpdateGameCopyStatusUseCase:
     return UpdateGameCopyStatusUseCase(get_game_copy_repo())
-
-
-def get_list_game_copies_use_case() -> ListGameCopiesUseCase:
-    return ListGameCopiesUseCase(get_game_copy_repo())
 
 
 def get_browse_game_copies_use_case() -> BrowseGameCopiesUseCase:
