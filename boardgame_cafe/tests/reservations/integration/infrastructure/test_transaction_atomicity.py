@@ -159,7 +159,7 @@ class TestConcurrentBookingConflicts:
 			
 			# Second booking for same table+time should either:
 			# A) Be rejected by use case overlap check, OR
-			# B) Be queued/waitlisted
+			# B) Be rejected due to conflict
 			# But definitely NOT both confirmed
 			
 			booking2 = _make_reservation(

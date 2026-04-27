@@ -49,7 +49,6 @@
 - `GET /api/reservations/{id}` - Retrieves reservation details.
 - `PATCH /api/reservations/{id}/cancel` - Cancels a reservation (applies policy-aware refund logic).
 - `POST /api/reservations/{id}/pay` - Initiates Vipps payment integration.
-- `POST /api/reservations/waitlist` - Adds a customer to the waitlist.
 
 ### Steward (`steward.py`)
 

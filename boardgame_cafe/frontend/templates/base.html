@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>{% block title %}Dicer{% endblock %}</title>
-	<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260422-1') }}">
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260426-5') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body>
@@ -13,13 +13,41 @@
 			<div class="topbar">
 				<a class="brand" href="/">
 					<span class="brand-mark" aria-hidden="true">
-						<svg viewBox="0 0 24 24" focusable="false">
+						<svg viewBox="0 0 24 24" focusable="false" data-face="5">
 							<rect x="2" y="2" width="20" height="20" rx="5"></rect>
-							<circle cx="7" cy="7" r="1.6"></circle>
-							<circle cx="17" cy="7" r="1.6"></circle>
-							<circle cx="12" cy="12" r="1.6"></circle>
-							<circle cx="7" cy="17" r="1.6"></circle>
-							<circle cx="17" cy="17" r="1.6"></circle>
+							<g class="dice-face dice-face-1">
+								<circle cx="12" cy="12" r="1.6"></circle>
+							</g>
+							<g class="dice-face dice-face-2">
+								<circle cx="7" cy="7" r="1.6"></circle>
+								<circle cx="17" cy="17" r="1.6"></circle>
+							</g>
+							<g class="dice-face dice-face-3">
+								<circle cx="7" cy="7" r="1.6"></circle>
+								<circle cx="12" cy="12" r="1.6"></circle>
+								<circle cx="17" cy="17" r="1.6"></circle>
+							</g>
+							<g class="dice-face dice-face-4">
+								<circle cx="7" cy="7" r="1.6"></circle>
+								<circle cx="17" cy="7" r="1.6"></circle>
+								<circle cx="7" cy="17" r="1.6"></circle>
+								<circle cx="17" cy="17" r="1.6"></circle>
+							</g>
+							<g class="dice-face dice-face-5">
+								<circle cx="7" cy="7" r="1.6"></circle>
+								<circle cx="17" cy="7" r="1.6"></circle>
+								<circle cx="12" cy="12" r="1.6"></circle>
+								<circle cx="7" cy="17" r="1.6"></circle>
+								<circle cx="17" cy="17" r="1.6"></circle>
+							</g>
+							<g class="dice-face dice-face-6">
+								<circle cx="7" cy="6.8" r="1.6"></circle>
+								<circle cx="17" cy="6.8" r="1.6"></circle>
+								<circle cx="7" cy="12" r="1.6"></circle>
+								<circle cx="17" cy="12" r="1.6"></circle>
+								<circle cx="7" cy="17.2" r="1.6"></circle>
+								<circle cx="17" cy="17.2" r="1.6"></circle>
+							</g>
 						</svg>
 					</span>
 					<span class="brand-name">Dicer</span>
@@ -74,5 +102,6 @@
 	<footer>
 		<div class="wrap">Dicer &copy; 2026 | DAT240</div>
 	</footer>
+	<script src="{{ url_for('static', filename='js/brand_dice.js', v='20260426-4') }}" defer></script>
 </body>
 </html>

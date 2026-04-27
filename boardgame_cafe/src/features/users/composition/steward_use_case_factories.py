@@ -48,14 +48,6 @@ from features.tables.infrastructure.repositories.table_repository import (
 from features.reservations.infrastructure.repositories.game_reservation_repository import (
     SqlAlchemyGameReservationRepository,
 )
-from features.reservations.infrastructure.repositories.waitlist_repository import (
-    SqlAlchemyWaitlistRepository,
-)
-from features.reservations.application.use_cases.waitlist_use_cases import (
-    ListWaitlistUseCase,
-    AddToWaitlistUseCase,
-    RemoveFromWaitlistUseCase,
-)
 from features.reservations.infrastructure.repositories.reservation_repository import (
     SqlAlchemyReservationRepository,
 )
@@ -79,10 +71,6 @@ def get_game_reservation_repo() -> GameReservationRepositoryInterface:
 
 def get_incident_repo() -> IncidentRepositoryInterface:
     return SqlAlchemyIncidentRepository()
-
-
-def get_waitlist_repo():
-    return SqlAlchemyWaitlistRepository()
 
 
 def get_status_history_repo():
@@ -174,15 +162,3 @@ def get_list_incidents_for_game_copy_use_case() -> ListIncidentsForGameCopyUseCa
 
 def get_delete_incident_use_case(event_bus=None) -> DeleteIncidentUseCase:
     return DeleteIncidentUseCase(get_incident_repo(), event_bus=event_bus)
-
-
-def get_list_waitlist_use_case() -> ListWaitlistUseCase:
-    return ListWaitlistUseCase(get_waitlist_repo())
-
-
-def get_add_waitlist_use_case() -> AddToWaitlistUseCase:
-    return AddToWaitlistUseCase(get_waitlist_repo())
-
-
-def get_remove_waitlist_use_case() -> RemoveFromWaitlistUseCase:
-    return RemoveFromWaitlistUseCase(get_waitlist_repo())

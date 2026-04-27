@@ -43,5 +43,4 @@ python boardgame_cafe/scripts/seed_demo_data.py
 | Bookings         | 4 upcoming confirmed, 1 seated (now), 4 past completed, 1 cancelled, 1 no-show |
 | Payments         | Paid for completed/seated · Refunded for cancelled/no-show · Calculated for confirmed |
 | Incidents        | 2 open incidents on damaged/maintenance copies                          |
-| Waitlist         | 3 entries (Jonas, Lars, b)                                              |
 | Announcements    | 1 published (Grand Opening), 1 draft (Game Night)                      |

@@ -90,38 +90,6 @@ def test_steward_list_and_seat_flow(client, app, test_data):
     assert any(r["id"] == reservation_id for r in seated)
 
 
-def test_steward_waitlist_mutations_publish_realtime_events(client, test_data, monkeypatch):
-    _register_and_login_staff(client, email="steward-events@example.com")
-
-    published = []
-
-    def _capture(payload, channel=None):
-        published.append(payload)
-
-    monkeypatch.setattr(
-        "features.users.presentation.api.steward_routes.publish_realtime_event",
-        _capture,
-    )
-
-    create_resp = client.post(
-        "/api/steward/waitlist",
-        json={
-            "customer_id": test_data["user"]["id"],
-            "party_size": 2,
-            "notes": "Window seat preferred",
-        },
-    )
-    assert create_resp.status_code == 201
-    created = create_resp.get_json()
-
-    delete_resp = client.delete(f"/api/steward/waitlist/{created['id']}")
-    assert delete_resp.status_code == 204
-
-    event_types = [item.get("event_type") for item in published]
-    assert "waitlist.created" in event_types
-    assert "waitlist.deleted" in event_types
-
-
 def test_steward_complete_flow(client, app, test_data):
     # Create a booking and table reservation, seat it, then complete
     from datetime import datetime, timedelta, timezone

@@ -25,7 +25,6 @@ in the café.
 - **Steward** (staff user, permissions)
 - **Payment** (provider, amount, status, type: ReservationFee/LateFee/DamageFee)
 - **Review/Rating** (per Game; optional comments)
-- **WaitlistEntry** (for fully booked times)
 
 ### Aggregates & invariants
 
@@ -50,7 +49,6 @@ in the café.
 - `GameReturned`
 - `DamageReported`
 - `PaymentCaptured`
-- `WaitlistTriggered`
 
 ---
 
@@ -73,8 +71,7 @@ in the café.
 11. See assigned games; request swaps.
 12. Rate games post-session.
 13. See reservation history.
-14. Join waitlist for fully booked slots.
-15. Receive notifications.
+14. Receive notifications.
 
 ### Game Steward (staff)
 
@@ -86,9 +83,8 @@ in the café.
 4. Assign/Swap games.
 5. Check out & check in GameCopies.
 6. Mark incident (damage/loss).
-7. Manage waitlist.
-8. See personal dashboard.
-9. View earnings/tip pool (optional).
+7. See personal dashboard.
+8. View earnings/tip pool (optional).
 
 ### Administrator
 
@@ -155,7 +151,7 @@ in the café.
 
 1. Password self-reset via email.
 2. Social logins (Google, Microsoft, etc.).
-3. Email sending (welcome, confirmation, waitlist, damage fee).
+3. Email sending (welcome, confirmation, damage fee).
 4. External payment provider (Stripe/Klarna).
 5. Realtime push notifications.
 6. AI game recommender.
@@ -191,11 +187,6 @@ in the café.
 
 **Rating**
 `id, customer_id, game_id, stars, comment, created_at`
-
-**WaitlistEntry**
-`id, customer_id, desired_time_range, party_size, created_at, status`
-
----
 
 ## API surface (illustrative)
 
