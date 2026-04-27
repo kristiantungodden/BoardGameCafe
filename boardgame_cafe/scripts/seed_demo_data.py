@@ -20,7 +20,6 @@ from features.payments.infrastructure.database.payments_db import PaymentDB
 from features.reservations.infrastructure.database.game_reservations_db import GameReservationDB
 from features.reservations.infrastructure.database.table_reservations_db import TableReservationDB
 from features.reservations.composition.reservation_use_case_factories import get_create_booking_handler
-from features.reservations.infrastructure.database.waitlist_db import WaitlistDB
 from features.tables.infrastructure.database.table_db import TableDB
 from features.users.infrastructure.database.admin_policy_db import AdminPolicyDB
 from features.users.infrastructure.database.announcement_db import AnnouncementDB
@@ -1007,35 +1006,6 @@ def seed_incidents() -> int:
     return inserted
 
 
-def seed_waitlist() -> int:
-    """Seed a few waitlist entries for testing."""
-    inserted = 0
-
-    users_by_email = {u.email: u for u in UserDB.query.all()}
-
-    entries = [
-        {"email": "jonas.vik@example.com", "party_size": 4, "notes": "Any table for Saturday evening"},
-        {"email": "lars.olsen@example.com", "party_size": 2, "notes": "Window seat preferred"},
-        {"email": "b@b.b", "party_size": 6, "notes": "Large group, floor 2 if possible"},
-    ]
-
-    existing_customer_ids = {w.customer_id for w in WaitlistDB.query.all()}
-
-    for entry in entries:
-        customer = users_by_email.get(entry["email"])
-        if customer is None or customer.id in existing_customer_ids:
-            continue
-        db.session.add(WaitlistDB(
-            customer_id=customer.id,
-            party_size=entry["party_size"],
-            notes=entry["notes"],
-        ))
-        existing_customer_ids.add(customer.id)
-        inserted += 1
-
-    return inserted
-
-
 def seed_announcements() -> int:
     """Seed one published and one draft announcement."""
     inserted = 0
@@ -1126,7 +1096,6 @@ def seed_demo_data() -> None:
         gr_inserted = seed_game_ratings()
         db.session.flush()
         i_inserted = seed_incidents()
-        w_inserted = seed_waitlist()
         a_inserted = seed_announcements()
 
         db.session.commit()
@@ -1144,7 +1113,6 @@ def seed_demo_data() -> None:
         f"bookings inserted={b_inserted}, game-links inserted={bg_inserted}, payments inserted={bp_inserted}; "
         f"game-ratings inserted={gr_inserted}; "
         f"incidents inserted={i_inserted}; "
-        f"waitlist inserted={w_inserted}; "
         f"announcements inserted={a_inserted}; "
         f"demo table-links total={link_count}, demo game-links total={game_link_count}, demo payments total={payment_count}"
     )

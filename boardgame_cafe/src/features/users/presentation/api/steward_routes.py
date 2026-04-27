@@ -23,11 +23,6 @@ from features.games.application.use_cases.incident_use_cases import (
     ListIncidentsUseCase,
     ReportIncidentUseCase,
 )
-from features.reservations.application.use_cases.waitlist_use_cases import (
-    ListWaitlistUseCase,
-    AddToWaitlistUseCase,
-    RemoveFromWaitlistUseCase,
-)
 from shared.application.services.reservation_transition_event_publisher import (
     publish_reservation_transition_event,
 )
@@ -47,9 +42,6 @@ from features.users.composition.steward_use_case_factories import (
     get_swap_game_copy_use_case,
     get_update_game_copy_status_use_case,
     get_update_reservation_use_case,
-    get_list_waitlist_use_case,
-    get_add_waitlist_use_case,
-    get_remove_waitlist_use_case,
 )
 
 bp = Blueprint("steward", __name__, url_prefix="/api/steward")
@@ -118,27 +110,12 @@ def _serialize_reservation_game(reservation_game):
     }
 
 
-def _serialize_waitlist_entry(entry):
-    return {
-        "id": entry.id,
-        "customer_id": entry.customer_id,
-        "party_size": entry.party_size,
-        "notes": entry.notes,
-        "created_at": entry.created_at.isoformat() if getattr(entry, "created_at", None) else None,
-    }
-
-
 def _publish_steward_board_event(event_type: str, data: dict) -> None:
     # Best-effort realtime fan-out for steward dashboard sync.
     try:
         publish_realtime_event({"event_type": event_type, "data": data})
     except Exception:
         pass
-
-
-def _current_actor_role() -> str | None:
-    role = getattr(current_user, "role", None)
-    return getattr(role, "value", role)
 
 
 def _parse_reservation_date_arg():
@@ -477,71 +454,4 @@ def delete_incident(incident_id: int):
     if not ok:
         return {"error": "Not found"}, 404
     # Event publishing is handled by application/domain event handlers.
-    return {}, 204
-
-
-@bp.get("/waitlist")
-@login_required
-def list_waitlist():
-    err = _require_staff()
-    if err:
-        return err
-
-    use_case: ListWaitlistUseCase = get_list_waitlist_use_case()
-    entries = use_case.execute()
-    return [_serialize_waitlist_entry(e) for e in entries], 200
-
-
-@bp.post("/waitlist")
-@login_required
-def add_waitlist_entry():
-    err = _require_staff()
-    if err:
-        return err
-
-    data = request.get_json() or {}
-    customer_id = data.get("customer_id")
-    party_size = data.get("party_size")
-    notes = data.get("notes")
-    if not customer_id or not party_size:
-        return {"error": "customer_id and party_size are required"}, 400
-
-    use_case: AddToWaitlistUseCase = get_add_waitlist_use_case()
-    entry = use_case.execute(
-        type("C", (), {"customer_id": customer_id, "party_size": party_size, "notes": notes})
-    )
-
-    _publish_steward_board_event(
-        "waitlist.created",
-        {
-            **_serialize_waitlist_entry(entry),
-            "created_by_user_id": getattr(current_user, "id", None),
-            "created_by_role": _current_actor_role(),
-        },
-    )
-
-    return _serialize_waitlist_entry(entry), 201
-
-
-@bp.delete("/waitlist/<int:entry_id>")
-@login_required
-def remove_waitlist_entry(entry_id: int):
-    err = _require_staff()
-    if err:
-        return err
-
-    use_case: RemoveFromWaitlistUseCase = get_remove_waitlist_use_case()
-    ok = use_case.execute(entry_id)
-    if not ok:
-        return {"error": "Not found"}, 404
-
-    _publish_steward_board_event(
-        "waitlist.deleted",
-        {
-            "id": entry_id,
-            "deleted_by_user_id": getattr(current_user, "id", None),
-            "deleted_by_role": _current_actor_role(),
-        },
-    )
-
     return {}, 204

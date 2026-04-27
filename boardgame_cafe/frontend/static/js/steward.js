@@ -687,26 +687,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
                     return;
                 }
 
-                if (et === 'waitlist.created') {
-                    const data = payload.data || {};
-                    const eventKey = `waitlist.created:${data.id || 'unknown'}`;
-                    if (!shouldHandleRealtimeEvent(eventKey)) return;
-
-                    showRealtimeNotice(`Waitlist entry #${data.id || 'unknown'} added.`, 'info');
-                    reloadAll();
-                    return;
-                }
-
-                if (et === 'waitlist.deleted') {
-                    const data = payload.data || {};
-                    const eventKey = `waitlist.deleted:${data.id || 'unknown'}`;
-                    if (!shouldHandleRealtimeEvent(eventKey)) return;
-
-                    showRealtimeNotice(`Waitlist entry #${data.id || 'unknown'} removed.`, 'info');
-                    reloadAll();
-                    return;
-                }
-
                 if (et === 'reservation.game.swap') {
                     const data = payload.data || {};
                     const eventKey = `reservation.game.swap:${data.reservation_game_id || 'unknown'}`;
@@ -717,7 +697,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
                     return;
                 }
 
-                if (et.startsWith('game.copy') || et.startsWith('game_copy') || et.startsWith('reservation') || et.startsWith('waitlist')) {
+                if (et.startsWith('game.copy') || et.startsWith('game_copy') || et.startsWith('reservation')) {
                     // For simplicity, reload the lists that may be affected
                     reloadAll();
                 }
