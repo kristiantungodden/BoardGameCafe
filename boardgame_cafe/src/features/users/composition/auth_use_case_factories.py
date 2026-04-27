@@ -41,3 +41,7 @@ def get_user_by_id_use_case() -> GetUserByIdUseCase:
 
 def get_password_hasher() -> WerkzeugPasswordHasher:
     return WerkzeugPasswordHasher()
+
+
+def get_logout_handler() -> FlaskLoginSessionAdapter:
+    return FlaskLoginSessionAdapter()

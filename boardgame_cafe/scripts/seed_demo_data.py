@@ -553,28 +553,6 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
     rows = [
         # ── Upcoming confirmed bookings (next 1-7 days) ──────────────────────────────
         {
-            "email": "a@a.a",
-            "table_nr": "T2",
-            "start_ts": (td + timedelta(days=1)).replace(hour=17, minute=0, second=0, microsecond=0),
-            "end_ts": (td + timedelta(days=1)).replace(hour=19, minute=0, second=0, microsecond=0),
-            "party_size": 4,
-            "notes": "Demo booking with two game requests",
-            "game_slots": [0, 1],
-            "final_status": "confirmed",
-            "created_at": td - timedelta(days=4),
-        },
-        {
-            "email": "b@b.b",
-            "table_nr": "T9",
-            "start_ts": (td + timedelta(days=1)).replace(hour=19, minute=30, second=0, microsecond=0),
-            "end_ts": (td + timedelta(days=1)).replace(hour=21, minute=30, second=0, microsecond=0),
-            "party_size": 5,
-            "notes": "Demo booking with one game request",
-            "game_slots": [2],
-            "final_status": "confirmed",
-            "created_at": td - timedelta(days=5),
-        },
-        {
             "email": "emma.hansen@example.com",
             "table_nr": "T15",
             "start_ts": (td + timedelta(days=2)).replace(hour=16, minute=0, second=0, microsecond=0),
@@ -650,28 +628,6 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
         },
         # ── Past completed bookings ───────────────────────────────────
         {
-            "email": "a@a.a",
-            "table_nr": "T4",
-            "start_ts": (td - timedelta(days=3)).replace(hour=15, minute=0, second=0, microsecond=0),
-            "end_ts": (td - timedelta(days=3)).replace(hour=17, minute=0, second=0, microsecond=0),
-            "party_size": 2,
-            "notes": "Past booking — completed",
-            "game_slots": [3],
-            "final_status": "completed",
-            "created_at": td - timedelta(days=5),
-        },
-        {
-            "email": "b@b.b",
-            "table_nr": "T2",
-            "start_ts": (td - timedelta(days=7)).replace(hour=19, minute=0, second=0, microsecond=0),
-            "end_ts": (td - timedelta(days=7)).replace(hour=21, minute=0, second=0, microsecond=0),
-            "party_size": 4,
-            "notes": "Past booking — completed",
-            "game_slots": [1, 2],
-            "final_status": "completed",
-            "created_at": td - timedelta(days=9),
-        },
-        {
             "email": "emma.hansen@example.com",
             "table_nr": "T9",
             "start_ts": (td - timedelta(days=14)).replace(hour=17, minute=0, second=0, microsecond=0),
@@ -740,8 +696,6 @@ def _booking_seed_rows(now: datetime) -> list[dict]:
 
     # Historical timeline data for reports (revenue + most booked games).
     timeline_users = [
-        "a@a.a",
-        "b@b.b",
         "emma.hansen@example.com",
         "lars.olsen@example.com",
         "sofie.berg@example.com",

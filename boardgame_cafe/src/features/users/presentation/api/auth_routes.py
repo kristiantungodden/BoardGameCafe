@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, redirect, url_for, flash, current_app
-from flask_login import logout_user, login_required, current_user
+from flask_login import login_required, current_user
 
 from werkzeug.exceptions import BadRequest
 from pydantic import ValidationError as PydanticValidationError
@@ -11,6 +11,7 @@ from features.users.application.use_cases.user_use_cases import GetUserByIdQuery
 from features.users.composition.auth_use_case_factories import (
     get_change_password_use_case,
     get_login_use_case,
+    get_logout_handler,
     get_password_hasher,
     get_register_use_case,
     get_user_by_id_use_case,
@@ -156,14 +157,17 @@ def login():
 @bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
-    logout_user()
+    get_logout_handler().logout()
     return jsonify({'message': 'Logged out'}), 200
 
 
 @bp.route('/me', methods=['GET'])
 @login_required
 def me():
-    return jsonify({'user': current_user.to_dict()}), 200
+    user = get_user_by_id_use_case().execute(GetUserByIdQuery(user_id=int(current_user.get_id())))
+    if user is None:
+        return jsonify({'error': 'User not found'}), 404
+    return jsonify({'user': UserResponse.from_domain(user).model_dump()}), 200
 
 
 @bp.post('/change-password')

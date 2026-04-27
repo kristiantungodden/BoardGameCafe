@@ -1,102 +1,149 @@
 # BoardGameCafe
 
-Repo for boardgamecafe in dat240
+A Flask web application for managing a board game café — bookings, reservations, payments, game catalogue, and staff operations — built with Domain-Driven Design.
 
-## Setup
+## Quick start
 
-Opprett virtual environment (første gang):
+### Prerequisites
+
+- Python 3.11+
+- A `.env` file in `boardgame_cafe/` (see [Environment variables](#environment-variables))
+
+### Windows
 
 ```powershell
 py -m venv .venv
+.\startup.bat --install-deps   # first time or after requirements change
+.\startup.bat                  # subsequent starts
 ```
 
-Installer/oppdater dependencies via startup-script:
+### macOS / Linux
+
+```bash
+python3 -m venv .venv
+chmod +x startup.sh
+./startup.sh --install-deps    # first time or after requirements change
+./startup.sh
+```
+
+The app runs on **http://127.0.0.1:5000** by default.
+
+---
+
+## Docker (recommended for full stack)
+
+Runs Flask, Celery worker, and Redis together with demo data pre-loaded:
+
+```bash
+docker compose up --build
+```
+
+App will be available on **http://localhost:5001**.
+
+---
+
+## Demo accounts (after seeding)
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@example.com | AdminPw123! |
+| Steward | steward@example.com | StewardPw1! |
+| Customer | customer accounts use | Password1! |
+
+Seed demo data manually:
 
 ```powershell
-.\startup.bat --install-deps
+.\.venv\Scripts\python.exe boardgame_cafe/scripts/seed_demo_data.py
 ```
 
-Start appen normalt:
+---
 
-```powershell
-.\startup.bat
+## Environment variables
+
+Create `boardgame_cafe/.env`. Minimum for local development:
+
+```env
+SECRET_KEY=change-me
+FLASK_ENV=development
+DATABASE_URL=sqlite:///boardgame_cafe.db
+
+# Stripe (use test keys)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Email (optional locally)
+MAIL_SERVER=localhost
+MAIL_PORT=587
+MAIL_USERNAME=
+MAIL_PASSWORD=
+
+# Redis / Celery (only needed for background tasks and realtime)
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
+REDIS_URL=redis://localhost:6379/2
 ```
 
-Alternativ manuel start med venv-python:
+---
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r boardgame_cafe\requirements.txt
-.\.venv\Scripts\python.exe -m flask --app run.py run --debug
-```
+## Background tasks and realtime
 
-## Pub/Sub med Celery + Redis
+Email notifications and realtime SSE events are handled by Celery + Redis.
 
-For å bruke distribuert event system (email + realtime events):
-
-1. Start Redis lokalt (port 6379).
-2. Start Flask app som normalt.
-3. Start Celery worker i egen terminal:
+Start Redis locally (or use Docker), then start the worker in a separate terminal:
 
 ```powershell
 .\.venv\Scripts\python.exe -m celery -A boardgame_cafe.src.celery_worker.celery_app worker -l info
 ```
 
-Event stream for realtime-klienter er tilgjengelig på:
+Realtime event stream endpoint (used by the frontend via `EventSource`):
 
-```text
+```
 GET /api/events/stream
 ```
 
-SSE klienter kan abonnere via EventSource i frontend.
+Without Redis running, the app still works — background tasks and realtime updates are simply skipped.
 
-MacOS startup:
-```bash
-chmod +x startup.sh
-./startup.sh --install-deps   # optional first time / updates
-./startup.sh
+---
+
+## Running tests
+
+```powershell
+.\.venv\Scripts\pytest
 ```
 
-Når flask serveren kjører skal det da lytte på http://127.0.0.1:5000, som er spesifisert i [run.py](run.py)
+Tests live in `boardgame_cafe/tests/` and are configured via `pytest.ini` at the project root.
 
-Dersom du prøver ulike paths så vil alle gi error kode "404", og i nettleser får man opp error: "Resource not found", som igjen er spesifisert i enden av [src/app.py](boardgame_cafe/src/app.py):
+---
 
-```py
-@app.error_handler(404)
-def not_found(error):
-    return {"error": "Resource not found"}, 404
+## Project structure
+
+```
+BoardGameCafe/
+├── run.py                        
+├── startup.bat / startup.sh      # Start scripts
+├── docker-compose.yml
+├── pytest.ini
+└── boardgame_cafe/
+    ├── src/
+    │   ├── app.py                
+    │   ├── config.py             
+    │   ├── features/             # DDD features
+    │   │   ├── bookings/
+    │   │   ├── games/
+    │   │   ├── payments/
+    │   │   ├── reservations/
+    │   │   ├── tables/
+    │   │   ├── users/
+    │   │   └── waitlists/
+    │   ├── shared/               # Cross-cutting infrastructure
+    │   └── ui/                   # Flask page blueprints
+    ├── frontend/
+    │   ├── templates/            
+    │   └── static/               
+    ├── scripts/
+    │   └── seed_demo_data.py     # Demo data seeder
+    ├── tests/
+    └── requirements.txt
 ```
 
-## Domain
-
-Har lagt til simpel implementasjon av TableReservation i [src/domain/models/reservation.py](boardgame_cafe/src/domain/models/reservation.py). Kan bruke dette som "mal" for de andre domene emnene. Minner også veldig om DDD i C# fra labbene
-NB: Kan være greit å lese seg opp på dataclass og typing i python. Eks:
-
-```py
-from dataclasses import dataclass
-
-@dataclass
-class Ball:
-    x_coord: float
-    y_coord: float
-    radius: int
-    color: str
-    ...
-```
-
-Syntaks minner litt om flask routes med '@app'.
-
-Også, i [src/domain/exceptions.py](boardgame_cafe/src/domain/exceptions.py) er det lagt til noen basic exceptions. Dette minner også om de vi hadde i C# labbene.
-
-`__init__.py` filene gjør at alt i det directoryet blir sett på som en modul/package, som man kan eksportere. Dette gjør at man slipper importere hver fil, men heller importere fra packagen, som inneholder flere filer og også flere packages.
-
-For eksempel i [src/infrastructure](boardgame_cafe/src/infrastructure) eksporterer [__init__.py](boardgame_cafe/src/infrastructure/__init__.py) både fra [extensions.py](boardgame_cafe/src/infrastructure/extensions.py) og fra packagen i [message_bus](boardgame_cafe/src/infrastructure/message_bus). Dette gjør at i [src/app.py](boardgame_cafe/src/app.py) kan man importere alt i samme import:
-
-```py
-from infrastructure import db, migrate, csrf, mail, login_manager, celery, init_celery
-```
-
-Hvordan domene blir brukt vil bli implementert senere igjennom [src/application](boardgame_cafe/src/application), hovedsakelig i [src/application/use_cases](boardgame_cafe/src/application/use_cases).
-
-
-### Kommando visst du ikke har pip til siste opptadeting (Windows)
-python.exe -m pip install --upgrade pip
+Each feature follows the same layered structure: `domain → application → infrastructure → presentation`.
