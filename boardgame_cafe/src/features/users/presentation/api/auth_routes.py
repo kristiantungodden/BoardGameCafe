@@ -200,9 +200,10 @@ def change_password():
         flash("Authentication required.", "error")
         return redirect(url_for("login_page"))
 
+    hasher = get_password_hasher()
+
     # Only enforce current password when user is not in forced reset flow.
     if not requesting_user.force_password_change:
-        hasher = get_password_hasher()
         if not payload.current_password:
             if is_json_request:
                 return {"error": "current_password is required"}, 400
@@ -214,8 +215,13 @@ def change_password():
             flash("Current password is incorrect.", "error")
             return redirect(url_for("password_change_page"))
 
+    if hasher.verify(requesting_user.password_hash, payload.new_password):
+        if is_json_request:
+            return {"error": "New password must be different from current password"}, 400
+        flash("New password must be different from current password.", "error")
+        return redirect(url_for("password_change_page"))
+
     use_case = get_change_password_use_case()
-    hasher = get_password_hasher()
     try:
         updated_user = use_case.execute(
             ChangePasswordCommand(
