@@ -1,11 +1,8 @@
 import os
-from pathlib import Path
 
+from dotenv import load_dotenv
 from flask import Flask, request, redirect, url_for
 from flask_wtf.csrf import CSRFError
-from dotenv import load_dotenv
-
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from shared.infrastructure import db, csrf, mail, login_manager, init_celery, EventBus, init_db
 from shared.infrastructure import init_booking_draft_store
@@ -60,7 +57,7 @@ def create_app(config_name: str = None):
     # Configuration
     if config_name is None:
         config_name = os.getenv("FLASK_ENV", "development")
-    app.config.from_object(f"config.{config_name.capitalize()}Config")
+    app.config.from_object(f"shared.infrastructure.config.{config_name.capitalize()}Config")
 
     # Initialize extensions with app
     db.init_app(app)

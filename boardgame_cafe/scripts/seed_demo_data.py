@@ -77,7 +77,7 @@ SEED_GAMES = [
         "price_cents": 1900,
         "complexity": Decimal("1.00"),
         "description": "Dice rolling game",
-        "image_url": "https://sandbox.dodona.be/en/activities/203584369/description/BrvnwuB6EfTdPIHc/media/chutes-and-ladders.jpg",
+        "image_url": "https://d189539ycils2q.cloudfront.net/media/catalog/product/e/g/egmont-stigespill-damm-15033.jpg",
     },
     {
         "title": "Secret Hitler",
@@ -86,7 +86,7 @@ SEED_GAMES = [
         "playtime_min": 60,
         "price_cents": 5900,
         "complexity": Decimal("2.50"),
-        "description": "Natzi game",
+        "description": "Secret Hitler is a fast-paced social deduction party game for 5-10 players about political intrigue and betrayal in 1930s Germany",
         "image_url": "https://www.outland.no/media/catalog/product/7/1/711746875073__a45f93c3df2f3fcff01ff924782e4a4c.jpg",
     },
     {
@@ -167,7 +167,7 @@ SEED_GAMES = [
         "price_cents": 6100,
         "complexity": Decimal("2.20"),
         "description": "Three decks of cards featuring images of historical civilizations, armed conflicts, and commercial activity are used in the card drafting game 7 Wonders.",
-        "image_url": None,
+        "image_url": "https://gamezone.no/Media/Cache/Images/7/9/WEB_Image_7_Wonders_Brettspill_-_Norsk_Grunnspill__sev_front913413104_plid_74499.jpeg?v=639120565944370000",
     },
 ]
 
