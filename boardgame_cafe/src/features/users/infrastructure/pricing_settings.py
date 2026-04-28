@@ -6,8 +6,6 @@ from typing import Optional
 from features.users.infrastructure.database.admin_policy_db import AdminPolicyDB
 
 BASE_FEE_DEFAULT = 2500
-BASE_FEE_PRIORITY_DEFAULT = 0
-BASE_FEE_OVERRIDE_PRIORITY_DEFAULT = 100
 CANCEL_TIME_LIMIT_DEFAULT_HOURS = 24
 
 
@@ -28,9 +26,7 @@ def _get_or_create_policy(session) -> AdminPolicyDB:
     row = AdminPolicyDB(
         id=1,
         booking_base_fee_cents=BASE_FEE_DEFAULT,
-        booking_base_fee_priority=BASE_FEE_PRIORITY_DEFAULT,
         booking_base_fee_override_cents=None,
-        booking_base_fee_override_priority=BASE_FEE_OVERRIDE_PRIORITY_DEFAULT,
         booking_base_fee_override_until_epoch=None,
         booking_cancel_time_limit_hours=CANCEL_TIME_LIMIT_DEFAULT_HOURS,
     )
@@ -51,24 +47,17 @@ def configure_base_fee(
     session,
     cents: int,
     active_until_epoch: Optional[int] = None,
-    priority: Optional[int] = None,
 ) -> None:
     row = _get_or_create_policy(session)
 
     if active_until_epoch is None:
         row.booking_base_fee_cents = int(cents)
-        if priority is not None:
-            row.booking_base_fee_priority = int(priority)
         row.booking_base_fee_override_cents = None
         row.booking_base_fee_override_until_epoch = None
-        row.booking_base_fee_override_priority = BASE_FEE_OVERRIDE_PRIORITY_DEFAULT
         return
 
     row.booking_base_fee_override_cents = int(cents)
     row.booking_base_fee_override_until_epoch = int(active_until_epoch)
-    row.booking_base_fee_override_priority = int(
-        BASE_FEE_OVERRIDE_PRIORITY_DEFAULT if priority is None else priority
-    )
 
 
 def set_cancel_time_limit_hours(session, hours: int) -> None:
@@ -86,16 +75,8 @@ def resolve_base_fee(
         getattr(row, "booking_base_fee_cents", BASE_FEE_DEFAULT),
         BASE_FEE_DEFAULT,
     )
-    base_priority = _coerce_int(
-        getattr(row, "booking_base_fee_priority", BASE_FEE_PRIORITY_DEFAULT),
-        BASE_FEE_PRIORITY_DEFAULT,
-    )
     override_fee = getattr(row, "booking_base_fee_override_cents", None)
     override_until = getattr(row, "booking_base_fee_override_until_epoch", None)
-    override_priority = _coerce_int(
-        getattr(row, "booking_base_fee_override_priority", BASE_FEE_OVERRIDE_PRIORITY_DEFAULT),
-        BASE_FEE_OVERRIDE_PRIORITY_DEFAULT,
-    )
     cancel_limit_hours = _coerce_int(
         getattr(row, "booking_cancel_time_limit_hours", CANCEL_TIME_LIMIT_DEFAULT_HOURS),
         CANCEL_TIME_LIMIT_DEFAULT_HOURS,
@@ -112,26 +93,20 @@ def resolve_base_fee(
     if cleanup_expired and override_until is not None and now_epoch > override_until:
         row.booking_base_fee_override_cents = None
         row.booking_base_fee_override_until_epoch = None
-        row.booking_base_fee_override_priority = BASE_FEE_OVERRIDE_PRIORITY_DEFAULT
         changed = True
         override_is_active = False
 
     effective_fee = int(base_fee)
-    effective_priority = int(base_priority)
     active_until_epoch: Optional[int] = None
 
-    if override_is_active and int(override_priority) >= int(base_priority):
+    if override_is_active:
         effective_fee = int(override_fee)
-        effective_priority = int(override_priority)
         active_until_epoch = int(override_until)
 
     return {
         "effective_fee_cents": int(effective_fee),
-        "effective_priority": int(effective_priority),
         "base_fee_cents": int(base_fee),
-        "base_priority": int(base_priority),
         "override_fee_cents": int(override_fee) if override_fee is not None else None,
-        "override_priority": int(override_priority),
         "active_until_epoch": active_until_epoch,
         "override_is_active": bool(active_until_epoch is not None),
         "booking_cancel_time_limit_hours": int(cancel_limit_hours),

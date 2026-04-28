@@ -46,9 +46,7 @@ class SqlAlchemyReservationLookupRepository(ReservationLookupRepositoryInterface
         fee_state = resolve_base_fee(self.session)
         return {
             "booking_base_fee_cents": int(fee_state["effective_fee_cents"]),
-            "booking_base_fee_priority": int(fee_state["effective_priority"]),
             "booking_base_fee_default_cents": int(fee_state["base_fee_cents"]),
-            "booking_base_fee_default_priority": int(fee_state["base_priority"]),
             "booking_base_fee_active_until_epoch": fee_state["active_until_epoch"],
         }
 

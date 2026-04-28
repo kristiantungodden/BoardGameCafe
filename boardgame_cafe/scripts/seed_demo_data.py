@@ -365,9 +365,7 @@ def seed_admin_policy() -> tuple[int, int]:
             AdminPolicyDB(
                 id=1,
                 booking_base_fee_cents=2500,
-                booking_base_fee_priority=0,
                 booking_base_fee_override_cents=None,
-                booking_base_fee_override_priority=100,
                 booking_base_fee_override_until_epoch=None,
                 booking_cancel_time_limit_hours=24,
             )
@@ -377,9 +375,7 @@ def seed_admin_policy() -> tuple[int, int]:
 
     target_values = {
         "booking_base_fee_cents": 2500,
-        "booking_base_fee_priority": 0,
         "booking_base_fee_override_cents": None,
-        "booking_base_fee_override_priority": 100,
         "booking_base_fee_override_until_epoch": None,
         "booking_cancel_time_limit_hours": 24,
     }

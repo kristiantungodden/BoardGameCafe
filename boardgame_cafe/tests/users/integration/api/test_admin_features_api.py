@@ -307,7 +307,6 @@ def test_admin_can_get_and_update_pricing(app, client):
         "/api/admin/pricing/base-fee",
         json={
             "booking_base_fee_cents": 3600,
-            "booking_base_fee_priority": 50,
             "booking_cancel_time_limit_hours": 12,
         },
     )
@@ -320,38 +319,21 @@ def test_admin_can_get_and_update_pricing(app, client):
     assert refreshed_after_permanent["booking_base_fee_active_until"] is None
     assert refreshed_after_permanent["booking_cancel_time_limit_hours"] == 12
 
-    lower_priority_until = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
-    low_priority_override = client.put(
+    override_until = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+    override_response = client.put(
         "/api/admin/pricing/base-fee",
         json={
             "booking_base_fee_cents": 1500,
-            "booking_base_fee_active_until": lower_priority_until,
-            "booking_base_fee_priority": 0,
+            "booking_base_fee_active_until": override_until,
             "booking_cancel_time_limit_hours": 12,
         },
     )
-    assert low_priority_override.status_code == 200
+    assert override_response.status_code == 200
 
-    after_low_priority_override = client.get("/api/admin/pricing").get_json()
-    assert after_low_priority_override["booking_base_fee_default_cents"] == 3600
-    assert after_low_priority_override["booking_base_fee_cents"] == 3600
-    assert after_low_priority_override["booking_base_fee_default_priority"] == 50
-
-    high_priority_override = client.put(
-        "/api/admin/pricing/base-fee",
-        json={
-            "booking_base_fee_cents": 1500,
-            "booking_base_fee_active_until": lower_priority_until,
-            "booking_base_fee_priority": 100,
-            "booking_cancel_time_limit_hours": 12,
-        },
-    )
-    assert high_priority_override.status_code == 200
-
-    after_high_priority_override = client.get("/api/admin/pricing").get_json()
-    assert after_high_priority_override["booking_base_fee_default_cents"] == 3600
-    assert after_high_priority_override["booking_base_fee_cents"] == 1500
-    assert after_high_priority_override["booking_base_fee_has_temporary_override"] is True
+    after_override = client.get("/api/admin/pricing").get_json()
+    assert after_override["booking_base_fee_default_cents"] == 3600
+    assert after_override["booking_base_fee_cents"] == 1500
+    assert after_override["booking_base_fee_has_temporary_override"] is True
 
 
 def test_admin_pricing_rejects_invalid_payloads_and_expired_timestamp(app, client):

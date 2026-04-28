@@ -30,7 +30,6 @@ class AdminUserResponse(BaseModel):
 
 class PricingBaseFeeUpdateRequest(BaseModel):
     booking_base_fee_cents: int = Field(ge=0)
-    booking_base_fee_priority: int = Field(default=0, ge=0)
     booking_cancel_time_limit_hours: int = Field(default=24, ge=0)
     booking_base_fee_active_until: Optional[str] = None
 

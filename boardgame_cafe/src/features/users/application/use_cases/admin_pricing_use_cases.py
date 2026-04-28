@@ -11,7 +11,6 @@ from features.users.application.interfaces.admin_pricing_port_interface import (
 @dataclass(frozen=True)
 class UpdateBaseFeeCommand:
     booking_base_fee_cents: int
-    booking_base_fee_priority: int = 0
     booking_cancel_time_limit_hours: int = 24
     booking_base_fee_active_until: str | None = None
 
@@ -33,7 +32,6 @@ class PricingManagementUseCase:
 
         return self.port.update_base_fee(
             booking_base_fee_cents=cmd.booking_base_fee_cents,
-            booking_base_fee_priority=cmd.booking_base_fee_priority,
             booking_cancel_time_limit_hours=cmd.booking_cancel_time_limit_hours,
             booking_base_fee_active_until_epoch=active_until_epoch,
         )

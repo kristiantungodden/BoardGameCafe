@@ -482,7 +482,6 @@ def update_base_fee():
         payload = get_pricing_management_use_case().update_base_fee(
             UpdateBaseFeeCommand(
                 booking_base_fee_cents=req.booking_base_fee_cents,
-                booking_base_fee_priority=req.booking_base_fee_priority,
                 booking_cancel_time_limit_hours=req.booking_cancel_time_limit_hours,
                 booking_base_fee_active_until=req.booking_base_fee_active_until,
             )

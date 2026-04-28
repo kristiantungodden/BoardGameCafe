@@ -1992,16 +1992,12 @@ async function loadPricing() {
         const data = await fetchJson('/api/admin/pricing');
         const baseInput = document.getElementById('pricing-base-fee');
         const untilInput = document.getElementById('pricing-base-fee-until');
-        const priorityInput = document.getElementById('pricing-base-fee-priority');
         const cancelLimitInput = document.getElementById('pricing-cancel-time-limit');
         if (baseInput) {
             baseInput.value = centsToNok(data.booking_base_fee_cents);
         }
         if (untilInput) {
             untilInput.value = isoToDatetimeLocal(data.booking_base_fee_active_until);
-        }
-        if (priorityInput) {
-            priorityInput.value = String(data.booking_base_fee_priority ?? 0);
         }
         if (cancelLimitInput) {
             cancelLimitInput.value = String(data.booking_cancel_time_limit_hours ?? 24);
@@ -2022,13 +2018,10 @@ async function loadPricing() {
 async function saveBaseFee(form) {
     const input = form.elements.namedItem('booking_base_fee');
     const untilInput = form.elements.namedItem('booking_base_fee_active_until');
-    const priorityInput = form.elements.namedItem('booking_base_fee_priority');
     const cancelLimitInput = form.elements.namedItem('booking_cancel_time_limit_hours');
     const cents = nokToCents(input ? input.value : null);
     const activeUntilIso = datetimeLocalToIso(untilInput ? untilInput.value : '');
-    const priorityRaw = priorityInput ? priorityInput.value : '0';
     const cancelLimitRaw = cancelLimitInput ? cancelLimitInput.value : '24';
-    const priority = Number(priorityRaw);
     const cancelLimitHours = Number(cancelLimitRaw);
 
     if (cents === null) {
@@ -2038,11 +2031,6 @@ async function saveBaseFee(form) {
 
     if (untilInput && untilInput.value && !activeUntilIso) {
         setPricingMessage('Active-until timestamp must be a valid datetime.', true);
-        return;
-    }
-
-    if (!Number.isInteger(priority) || priority < 0) {
-        setPricingMessage('Priority must be a non-negative whole number.', true);
         return;
     }
 
@@ -2058,7 +2046,6 @@ async function saveBaseFee(form) {
             body: JSON.stringify({
                 booking_base_fee_cents: cents,
                 booking_base_fee_active_until: activeUntilIso,
-                booking_base_fee_priority: priority,
                 booking_cancel_time_limit_hours: cancelLimitHours,
             }),
         });

@@ -27,11 +27,8 @@ class SqlAlchemyAdminPricingAdapter:
 
         return {
             "booking_base_fee_cents": int(fee_state["effective_fee_cents"]),
-            "booking_base_fee_priority": int(fee_state["effective_priority"]),
             "booking_base_fee_default_cents": int(fee_state["base_fee_cents"]),
-            "booking_base_fee_default_priority": int(fee_state["base_priority"]),
             "booking_base_fee_override_cents": fee_state["override_fee_cents"],
-            "booking_base_fee_override_priority": int(fee_state["override_priority"]),
             "booking_base_fee_active_until": self._epoch_to_iso(fee_state["active_until_epoch"]),
             "booking_base_fee_has_temporary_override": bool(fee_state["override_is_active"]),
             "booking_cancel_time_limit_hours": int(fee_state["booking_cancel_time_limit_hours"]),
@@ -59,7 +56,6 @@ class SqlAlchemyAdminPricingAdapter:
     def update_base_fee(
         self,
         booking_base_fee_cents: int,
-        booking_base_fee_priority: int,
         booking_cancel_time_limit_hours: int,
         booking_base_fee_active_until_epoch: int | None,
     ) -> dict[str, Any]:
@@ -67,18 +63,14 @@ class SqlAlchemyAdminPricingAdapter:
             db.session,
             booking_base_fee_cents,
             active_until_epoch=booking_base_fee_active_until_epoch,
-            priority=booking_base_fee_priority,
         )
         set_cancel_time_limit_hours(db.session, booking_cancel_time_limit_hours)
         db.session.commit()
         fee_state = resolve_base_fee(db.session)
         return {
             "booking_base_fee_cents": int(fee_state["effective_fee_cents"]),
-            "booking_base_fee_priority": int(fee_state["effective_priority"]),
             "booking_base_fee_default_cents": int(fee_state["base_fee_cents"]),
-            "booking_base_fee_default_priority": int(fee_state["base_priority"]),
             "booking_base_fee_override_cents": fee_state["override_fee_cents"],
-            "booking_base_fee_override_priority": int(fee_state["override_priority"]),
             "booking_base_fee_active_until": self._epoch_to_iso(fee_state["active_until_epoch"]),
             "booking_base_fee_has_temporary_override": bool(fee_state["override_is_active"]),
             "booking_cancel_time_limit_hours": int(fee_state["booking_cancel_time_limit_hours"]),

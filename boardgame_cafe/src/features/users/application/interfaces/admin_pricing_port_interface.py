@@ -10,7 +10,6 @@ class AdminPricingPortInterface(Protocol):
     def update_base_fee(
         self,
         booking_base_fee_cents: int,
-        booking_base_fee_priority: int,
         booking_cancel_time_limit_hours: int,
         booking_base_fee_active_until_epoch: int | None,
     ) -> dict[str, Any]:
