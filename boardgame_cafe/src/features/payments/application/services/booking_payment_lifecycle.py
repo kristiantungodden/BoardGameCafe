@@ -94,13 +94,11 @@ def fail_payment_and_cleanup_created_booking(
     reservation_qr_repo: ReservationQRCodeRepositoryInterface,
     payment_id: int | None = None,
     booking_id: int | None = None,
-    reason: str,
 ) -> tuple[int | None, bool]:
     """Mark payment failed and delete booking aggregate when still in created state.
 
     Returns (resolved_booking_id, deleted).
     """
-    _ = reason
     resolved_booking_id = _resolve_booking_id(payment_repo, payment_id, booking_id)
     if resolved_booking_id is None:
         return None, False

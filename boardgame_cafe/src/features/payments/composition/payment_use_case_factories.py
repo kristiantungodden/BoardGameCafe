@@ -67,10 +67,6 @@ def _create_payment_provider() -> PaymentProviderInterface:
     return StripeAdapter(stripe_key, app_base_url)
 
 
-def create_default_payment_provider() -> PaymentProviderInterface:
-    return _create_payment_provider()
-
-
 def _build_payment_service() -> PaymentApplicationService:
     return PaymentApplicationService(
         payment_repository=_payment_repo,
@@ -99,13 +95,6 @@ def get_payment_success_handler():
     return _finalize_payment
 
 
-def get_payment_status_handler():
-    def _get_status(payment_id: int, user: Any):
-        return _sync_and_finalize_payment(payment_id=payment_id, user=user)
-
-    return _get_status
-
-
 def get_payment_cancel_handler():
     def _get_payment(payment_id: int, user: Any):
         payment_service = _build_payment_service()
@@ -119,7 +108,6 @@ def get_payment_cancel_handler():
             reservation_qr_repo=_reservation_qr_repo,
             payment_id=payment.id,
             booking_id=payment.booking_id,
-            reason="customer_cancelled",
         )
         return payment
 

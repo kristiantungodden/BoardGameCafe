@@ -12,28 +12,12 @@ from features.payments.application.services.payment_service import (
     PaymentNotFoundError,
 )
 from features.payments.composition.payment_use_case_factories import (
-    get_payment_status_handler,
+    get_payment_success_handler,
 )
 from features.payments.presentation.schemas.payment_schema import PaymentSchema
 
 payment_bp = Blueprint("payments", __name__, url_prefix="/api/payments")
 _payment_service: PaymentApplicationService | None = None
-_pending_repository: PaymentRepositoryInterface | None = None
-_pending_provider: PaymentProviderInterface | None = None
-_pending_booking_repository: BookingRepositoryInterface | None = None
-
-
-def _maybe_configure_from_pending() -> None:
-    if (
-        _pending_repository is not None
-        and _pending_provider is not None
-        and _pending_booking_repository is not None
-    ):
-        configure_payment_service(
-            repository=_pending_repository,
-            provider=_pending_provider,
-            booking_repository=_pending_booking_repository,
-        )
 
 
 def configure_payment_service(
@@ -47,24 +31,6 @@ def configure_payment_service(
         payment_provider=provider,
         booking_repository=booking_repository,
     )
-
-
-def configure_payment_routes(repository: PaymentRepositoryInterface) -> None:
-    global _pending_repository
-    _pending_repository = repository
-    _maybe_configure_from_pending()
-
-
-def configure_booking_repository(repository: BookingRepositoryInterface) -> None:
-    global _pending_booking_repository
-    _pending_booking_repository = repository
-    _maybe_configure_from_pending()
-
-
-def configure_payment_provider(provider: PaymentProviderInterface) -> None:
-    global _pending_provider
-    _pending_provider = provider
-    _maybe_configure_from_pending()
 
 
 def _require_authenticated():
@@ -197,7 +163,7 @@ def check_payment_status_route(payment_id: int):
         return auth_error
 
     try:
-        saved = get_payment_status_handler()(payment_id, current_user)
+        saved = get_payment_success_handler()(payment_id, current_user)
         return jsonify(PaymentSchema.dump(saved)), HTTPStatus.OK
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), HTTPStatus.INTERNAL_SERVER_ERROR

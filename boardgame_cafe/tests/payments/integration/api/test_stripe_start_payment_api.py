@@ -5,11 +5,6 @@ from features.payments.infrastructure.repositories.payment_repository import Pay
 from features.payments.presentation.api import payment_routes
 
 
-class StubBookingRepository:
-    def get_by_id(self, booking_id: int):
-        return SimpleNamespace(id=booking_id, customer_id=1)
-
-
 payment_routes.current_user = SimpleNamespace(
     id=1,
     is_authenticated=True,
@@ -17,7 +12,6 @@ payment_routes.current_user = SimpleNamespace(
     is_staff=True,
     is_admin=True,
 )
-payment_routes.configure_booking_repository(StubBookingRepository())
 
 
 def test_start_payment_route_sets_provider_and_returns_redirect_url(client, app, monkeypatch):
