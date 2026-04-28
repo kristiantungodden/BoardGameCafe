@@ -128,10 +128,12 @@ class TestSendReservationConfirmationEmailTask:
         assert send_kwargs["recipients"] == ["user@example.com"]
         assert (
             send_kwargs["body"]
-            == "Thank you for your reservation at Dicer.no! \n\n"
-            "Here are your reservation details:\n"
-            "table_numbers=[2], start_ts=2026-04-17T17:00:00, "
-            "end_ts=2026-04-17T19:00:00, party_size=4"
+            == "Thank you for your reservation at Dicer.no!"
+            "\n\nReservation #:  456\n"
+            "Table(s):       2\n"
+            "Start:          2026-04-17T17:00:00\n"
+            "End:            2026-04-17T19:00:00\n"
+            "Party size:     4"
             "\n\nWe look forward to seeing you soon!"
         )
         assert "html" in send_kwargs

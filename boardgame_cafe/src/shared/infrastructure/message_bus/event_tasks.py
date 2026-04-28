@@ -173,9 +173,13 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
             )
     qr_cid = inline_attachments[0][3] if inline_attachments else None
 
+    table_str = ", ".join(str(t) for t in table_numbers)
     details = (
-        f"table_numbers={table_numbers}, start_ts={start_ts}, "
-        f"end_ts={end_ts}, party_size={party_size}"
+        f"{'Reservation #:':<16}{reservation_id}\n"
+        f"{'Table(s):':<16}{table_str}\n"
+        f"{'Start:':<16}{start_ts}\n"
+        f"{'End:':<16}{end_ts}\n"
+        f"{'Party size:':<16}{party_size}"
     )
     html_body = _build_reservation_html_email(
         reservation_id=reservation_id,
@@ -191,8 +195,8 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
         "sender": None,
         "recipients": [recipient],
         "body": (
-            "Thank you for your reservation at Dicer.no! "
-            f"\n\nHere are your reservation details:\n{details}"
+            "Thank you for your reservation at Dicer.no!"
+            f"\n\n{details}"
             f"{qr_lines}"
             "\n\nWe look forward to seeing you soon!"
         ),
