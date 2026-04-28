@@ -116,5 +116,20 @@ def get_featured_picks_use_case() -> GetFeaturedPicksUseCase:
     return GetFeaturedPicksUseCase(_featured_repository)
 
 
+def get_game_copy_qr_use_case():
+    from shared.application.use_cases.qr_use_cases import GameCopyQrUseCase
+    from shared.infrastructure.qr_codes import (
+        generate_qr_svg,
+        get_game_copy_id_by_qr_token,
+        get_or_create_game_copy_qr_token,
+    )
+
+    return GameCopyQrUseCase(
+        get_or_create_token_fn=get_or_create_game_copy_qr_token,
+        get_copy_id_by_token_fn=get_game_copy_id_by_qr_token,
+        generate_svg_fn=generate_qr_svg,
+    )
+
+
 def rollback_games_transaction() -> None:
     db.session.rollback()

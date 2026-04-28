@@ -55,6 +55,18 @@ class FakeSeatReservationUseCase:
         return reservation
 
 
+class FakeReservationQrUseCase:
+    def __init__(self, secret_key: str):
+        self._secret_key = secret_key
+
+    def get_or_create_token(self, secret_key: str, *, user_id: int, reservation_id: int) -> str:
+        from shared.infrastructure.qr_codes import create_reservation_qr_token
+        return create_reservation_qr_token(secret_key, reservation_id)
+
+    def generate_svg(self, data: str) -> str:
+        return "<svg>fake</svg>"
+
+
 def make_app() -> Flask:
     app = Flask(__name__)
     app.config["TESTING"] = True
@@ -80,10 +92,8 @@ def test_reservation_qr_endpoint_returns_svg(monkeypatch):
     )
     monkeypatch.setattr(
         reservations_module,
-        "get_or_create_reservation_qr_token",
-        lambda _secret, *, user_id, reservation_id: create_reservation_qr_token(
-            app.config["SECRET_KEY"], reservation_id
-        ),
+        "get_reservation_qr_use_case",
+        lambda: FakeReservationQrUseCase(app.config["SECRET_KEY"]),
     )
 
     response = client.get("/api/reservations/1/qr")
@@ -110,10 +120,8 @@ def test_reservation_qr_endpoint_rejects_other_users(monkeypatch):
     )
     monkeypatch.setattr(
         reservations_module,
-        "get_or_create_reservation_qr_token",
-        lambda _secret, *, user_id, reservation_id: create_reservation_qr_token(
-            app.config["SECRET_KEY"], reservation_id
-        ),
+        "get_reservation_qr_use_case",
+        lambda: FakeReservationQrUseCase(app.config["SECRET_KEY"]),
     )
 
     response = client.get("/api/reservations/1/qr")

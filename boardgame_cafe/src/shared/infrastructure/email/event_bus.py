@@ -5,7 +5,11 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
+import logging
+
 from shared.infrastructure.message_bus import celery
+
+logger = logging.getLogger(__name__)
 
 
 class EventBus:
@@ -33,7 +37,7 @@ class EventBus:
             try:
                 handler(event)
             except Exception as exc:
-                print(f"Error in event handler for {event_type.__name__}: {exc}")
+                logger.error("Error in event handler for %s: %s", event_type.__name__, exc)
 
         task_payload = {
             "event_type": event_type.__name__,
@@ -47,8 +51,8 @@ class EventBus:
                     kwargs={"event_payload": task_payload},
                 )
             except Exception as exc:
-                print(
-                    f"Error publishing event '{event_type.__name__}' to task '{task_name}': {exc}"
+                logger.error(
+                    "Error publishing event '%s' to task '%s': %s", event_type.__name__, task_name, exc
                 )
 
     def _serialize_event(self, event) -> dict[str, Any]:

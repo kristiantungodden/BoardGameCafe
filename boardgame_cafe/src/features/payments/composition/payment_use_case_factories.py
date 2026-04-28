@@ -18,8 +18,8 @@ from features.payments.infrastructure.repositories.payment_repository import (
 )
 from features.payments.infrastructure.stripe.stripe_adapter import StripeAdapter
 from features.payments.application.services.booking_payment_lifecycle import (
-    confirm_booking_after_success,
     fail_payment_and_cleanup_created_booking,
+    finalize_paid_payment,
 )
 from features.reservations.infrastructure.repositories.game_reservation_repository import (
     SqlAlchemyGameReservationRepository,
@@ -79,25 +79,16 @@ def _build_payment_service() -> PaymentApplicationService:
     )
 
 
-def _finalize_paid_payment(payment) -> None:
-    if str(payment.status) != "paid":
-        return
-
-    resolved_booking_id, changed = confirm_booking_after_success(
-        payment_repo=_payment_repo,
-        booking_repo=_booking_repo,
-        status_history_repo=_status_history_repo,
-        payment_id=payment.id,
-        booking_id=payment.booking_id,
-    )
-    if changed and resolved_booking_id is not None:
-        publish_reservation_payment_completed(resolved_booking_id)
-
-
 def _sync_and_finalize_payment(payment_id: int, user: Any):
     payment_service = _build_payment_service()
     payment = payment_service.sync_payment_status(payment_id=payment_id, user=user)
-    _finalize_paid_payment(payment)
+    finalize_paid_payment(
+        payment,
+        payment_repo=_payment_repo,
+        booking_repo=_booking_repo,
+        status_history_repo=_status_history_repo,
+        publish_event_fn=publish_reservation_payment_completed,
+    )
     return payment
 
 

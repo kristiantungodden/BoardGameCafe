@@ -9,7 +9,7 @@ from shared.infrastructure.extensions import mail
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
 from shared.infrastructure.message_bus.celery_app import celery
 from shared.infrastructure.message_bus.realtime import publish_realtime_event
-from shared.infrastructure.qr_codes import generate_qr_svg, get_or_create_reservation_qr_token
+from shared.infrastructure.qr_codes import generate_qr_png, get_or_create_reservation_qr_token
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +18,9 @@ def _public_base_url() -> str:
     configured = current_app.config.get("PUBLIC_BASE_URL") or current_app.config.get("APP_BASE_URL")
     if configured:
         return str(configured).rstrip("/")
-
-    server_name = current_app.config.get("SERVER_NAME")
-    scheme = current_app.config.get("PREFERRED_URL_SCHEME", "http")
-    if server_name:
-        return f"{scheme}://{server_name}".rstrip("/")
-
-    return "http://127.0.0.1:5000"
+    raise RuntimeError(
+        "APP_BASE_URL is not configured. Set it in your .env file "
+    )
 
 
 def _build_reservation_html_email(
@@ -147,21 +143,21 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
             )
             checkin_path = f"/api/reservations/checkin/{token}"
             checkin_url = f"{_public_base_url()}{checkin_path}"
-            qr_svg = generate_qr_svg(checkin_url)
-            qr_payload = qr_svg.encode("utf-8")
+            qr_png = generate_qr_png(checkin_url)
+            qr_payload = qr_png
             qr_cid = f"reservation-{reservation_id}-checkin-qr"
             inline_attachments.append(
                 (
-                    f"reservation-{reservation_id}-checkin-qr.svg",
-                    "image/svg+xml",
+                    f"reservation-{reservation_id}-checkin-qr.png",
+                    "image/png",
                     qr_payload,
                     qr_cid,
                 )
             )
             attachments.append(
                 (
-                    f"reservation-{reservation_id}-checkin-qr.svg",
-                    "image/svg+xml",
+                    f"reservation-{reservation_id}-checkin-qr.png",
+                    "image/png",
                     qr_payload,
                 )
             )
@@ -180,7 +176,7 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
     if checkin_url:
         plain_lines += [
             "",
-            f"Check-in QR attached: reservation-{reservation_id}-checkin-qr.svg",
+            f"Check-in QR attached: reservation-{reservation_id}-checkin-qr.png",
             f"Direct check-in link: {checkin_url}",
         ]
     plain_lines += ["", "We look forward to seeing you soon!"]
@@ -189,7 +185,7 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
         reservation_id=reservation_id,
         table_numbers=table_numbers,
         start_ts=start_ts,
-        end_ts=end_ts,
+        end_ts=end_ts,  
         party_size=party_size,
         checkin_url=checkin_url,
         qr_cid=qr_cid,

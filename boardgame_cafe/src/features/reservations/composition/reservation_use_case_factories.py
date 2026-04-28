@@ -251,9 +251,40 @@ def get_booking_availability_handler():
     return _get_availability
 
 
+def get_reservation_qr_use_case():
+    from shared.application.use_cases.qr_use_cases import ReservationQrUseCase
+    from shared.infrastructure.qr_codes import (
+        decode_reservation_qr_token,
+        generate_qr_svg,
+        get_or_create_reservation_qr_token,
+    )
+
+    return ReservationQrUseCase(
+        get_or_create_token_fn=get_or_create_reservation_qr_token,
+        decode_token_fn=decode_reservation_qr_token,
+        generate_svg_fn=generate_qr_svg,
+    )
+
+
+def get_booking_draft_use_case():
+    from shared.application.use_cases.booking_draft_use_cases import BookingDraftUseCase
+    from shared.infrastructure.draft_store import (
+        clear_booking_draft,
+        get_booking_draft,
+        save_booking_draft,
+    )
+
+    return BookingDraftUseCase(
+        get_fn=get_booking_draft,
+        save_fn=save_booking_draft,
+        clear_fn=clear_booking_draft,
+    )
+
+
 __all__ = [
     "get_add_game_to_reservation_use_case",
     "get_booking_availability_handler",
+    "get_booking_draft_use_case",
     "get_cancel_reservation_use_case",
     "get_complete_reservation_use_case",
     "get_create_booking_handler",
@@ -266,6 +297,7 @@ __all__ = [
     "get_remove_game_from_reservation_use_case",
     "get_reservation_by_id_use_case",
     "get_reservation_lookup_use_case",
+    "get_reservation_qr_use_case",
     "get_reservation_status_history_use_case",
     "get_seat_reservation_use_case",
 ]

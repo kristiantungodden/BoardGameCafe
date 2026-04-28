@@ -8,14 +8,25 @@ from shared.domain.events import (
     ReservationUpdated,
 )
 from shared.domain.events import IncidentReported, IncidentDeleted
-from shared.infrastructure.message_bus import realtime as realtime_bus
+import logging
+
+from shared.application.interface.realtime_publisher_port import RealtimePublisherPort
+
+logger = logging.getLogger(__name__)
+
+# Module-level reference so tests can monkeypatch `publish_realtime_event`
+# without touching the publisher instance.
+_publisher: RealtimePublisherPort | None = None
 
 
 def publish_realtime_event(payload: dict, channel: str | None = None) -> None:
-    """Publish a realtime payload through the infrastructure adapter."""
+    """Publish a realtime payload through the injected publisher port."""
+    if _publisher is None:
+        return
     if channel is None:
-        return realtime_bus.publish_realtime_event(payload)
-    return realtime_bus.publish_realtime_event(payload, channel=channel)
+        _publisher.publish(payload)
+    else:
+        _publisher.publish(payload, channel=channel)
 
 
 def _safe_publish(payload: dict, channel: str | None = None) -> None:
@@ -26,7 +37,7 @@ def _safe_publish(payload: dict, channel: str | None = None) -> None:
         else:
             publish_realtime_event(payload, channel=channel)
     except Exception as e:
-        print(f"Error in event handler for {payload.get('event_type', '')}: {e}")
+        logger.error("Error in event handler for %s: %s", payload.get('event_type', ''), e)
 
 
 def _publish_reservation_payment_completed(event: ReservationPaymentCompleted) -> None:
@@ -119,8 +130,10 @@ def _publish_reservation_updated(event: ReservationUpdated) -> None:
     )
 
 
-def register_realtime_event_handlers(event_bus) -> None:
+def register_realtime_event_handlers(event_bus, realtime_publisher: RealtimePublisherPort | None = None) -> None:
     """Wire domain events to realtime pub/sub payloads."""
+    global _publisher
+    _publisher = realtime_publisher
 
     event_bus.subscribe(
         ReservationPaymentCompleted,

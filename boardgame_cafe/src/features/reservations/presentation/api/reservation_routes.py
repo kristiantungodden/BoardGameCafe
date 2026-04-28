@@ -32,17 +32,12 @@ from shared.domain.exceptions import DomainError
 from shared.domain.events import (
     ReservationCreated,
 )
-from shared.infrastructure.draft_store import clear_booking_draft, get_booking_draft, save_booking_draft
-from shared.infrastructure.qr_codes import (
-    decode_reservation_qr_token,
-    generate_qr_svg,
-    get_or_create_reservation_qr_token,
-)
 from features.payments.presentation.schemas.payment_schema import PaymentSchema
 from features.reservations.presentation.schemas.reservation_schema import CreateReservationBookingRequest
 from features.reservations.presentation.schemas.reservation_game_schema import AddReservationGameRequest
 from features.reservations.composition.reservation_use_case_factories import (
     get_booking_availability_handler,
+    get_booking_draft_use_case,
     get_create_booking_handler,
     get_add_game_to_reservation_use_case,
     get_cancel_reservation_use_case,
@@ -52,6 +47,7 @@ from features.reservations.composition.reservation_use_case_factories import (
     get_reservation_lookup_use_case,
     get_list_reservation_games_use_case,
     get_reservation_by_id_use_case,
+    get_reservation_qr_use_case,
     get_reservation_status_history_use_case,
     get_remove_game_from_reservation_use_case,
     get_seat_reservation_use_case,
@@ -294,7 +290,7 @@ def create_reservation():
                 party_size=reservation.party_size,
             )
         )
-    get_or_create_reservation_qr_token(
+    get_reservation_qr_use_case().get_or_create_token(
         current_app.config["SECRET_KEY"],
         user_id=current_user.id,
         reservation_id=reservation.id,
@@ -494,13 +490,14 @@ def get_reservation_qr(reservation_id: int):
     if auth_error:
         return auth_error
 
-    token = get_or_create_reservation_qr_token(
+    qr_use_case = get_reservation_qr_use_case()
+    token = qr_use_case.get_or_create_token(
         current_app.config["SECRET_KEY"],
         user_id=reservation.customer_id,
         reservation_id=reservation_id,
     )
     checkin_url = url_for("reservations.check_in_with_token", token=token, _external=True)
-    svg = generate_qr_svg(checkin_url)
+    svg = qr_use_case.generate_svg(checkin_url)
     response = current_app.response_class(svg, mimetype="image/svg+xml")
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -513,7 +510,8 @@ def check_in_with_token(token: str):
         return auth_error
 
     try:
-        reservation_id = decode_reservation_qr_token(current_app.config["SECRET_KEY"], token)
+        qr_use_case = get_reservation_qr_use_case()
+        reservation_id = qr_use_case.decode_token(current_app.config["SECRET_KEY"], token)
     except SignatureExpired:
         return {"error": "Reservation QR code expired"}, 400
     except BadSignature:
@@ -549,7 +547,7 @@ def get_reservation_draft():
     if not current_user.is_authenticated:
         return {"error": "Authentication required"}, 401
 
-    draft = get_booking_draft(current_user.id)
+    draft = get_booking_draft_use_case().get(current_user.id)
     return draft, 200
 
 
@@ -572,13 +570,14 @@ def save_reservation_draft():
         raw = {}
 
     # Empty payload means explicit clear request.
+    draft_use_case = get_booking_draft_use_case()
     if raw == {}:
-        clear_booking_draft(current_user.id)
+        draft_use_case.clear(current_user.id)
         return {"saved": True, "draft": {}}, 200
 
     # Accept partial payloads because the user may still be filling the form.
     try:
-        existing_draft = get_booking_draft(current_user.id)
+        existing_draft = draft_use_case.get(current_user.id)
 
         # Extract only supported fields present in this update payload.
         draft_update = {}
@@ -599,7 +598,7 @@ def save_reservation_draft():
 
         draft_data = {**existing_draft, **draft_update}
 
-        save_booking_draft(current_user.id, draft_data)
+        draft_use_case.save(current_user.id, draft_data)
 
         return {"saved": True, "draft": draft_data}, 200
     except Exception as exc:

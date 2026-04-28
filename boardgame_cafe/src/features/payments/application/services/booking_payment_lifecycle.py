@@ -134,3 +134,33 @@ def fail_payment_and_cleanup_created_booking(
     booking_repo.delete(resolved_booking_id)
 
     return resolved_booking_id, True
+
+
+def finalize_paid_payment(
+    payment,
+    *,
+    payment_repo: PaymentRepositoryInterface,
+    booking_repo: BookingRepositoryInterface,
+    status_history_repo: BookingStatusHistoryRepositoryInterface,
+    publish_event_fn,
+) -> None:
+    """Confirm the booking and publish the payment-completed event.
+
+    This is the application-layer entry point called by composition after a
+    payment is confirmed as paid.  ``publish_event_fn`` is a callable that
+    accepts a *booking_id* and fires the domain event; it is injected by the
+    composition layer so the application service has no knowledge of
+    infrastructure publishing details.
+    """
+    if str(payment.status) != "paid":
+        return
+
+    resolved_booking_id, changed = confirm_booking_after_success(
+        payment_repo=payment_repo,
+        booking_repo=booking_repo,
+        status_history_repo=status_history_repo,
+        payment_id=payment.id,
+        booking_id=payment.booking_id,
+    )
+    if changed and resolved_booking_id is not None:
+        publish_event_fn(resolved_booking_id)

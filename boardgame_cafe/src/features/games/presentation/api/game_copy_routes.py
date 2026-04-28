@@ -9,6 +9,7 @@ from features.games.application.use_cases.game_copy_use_cases import (
 )
 from features.games.composition.game_use_case_factories import (
     get_game_copy_use_cases,
+    get_game_copy_qr_use_case,
     rollback_games_transaction,
 )
 from features.games.domain.models.game_copy import GameCopy
@@ -19,11 +20,6 @@ from features.games.presentation.schemas.game_copy_schema import (
     GameCopyStatusUpdateRequest,
 )
 from shared.domain.exceptions import DomainError
-from shared.infrastructure.qr_codes import (
-    generate_qr_svg,
-    get_game_copy_id_by_qr_token,
-    get_or_create_game_copy_qr_token,
-)
 
 bp = Blueprint("game_copies", __name__, url_prefix="/api/game-copies")
 
@@ -245,9 +241,10 @@ def get_game_copy_qr(copy_id: int):
     if not game_copy:
         return jsonify({"error": "Game copy not found"}), 404
 
-    token = get_or_create_game_copy_qr_token(copy_id)
+    qr_use_case = get_game_copy_qr_use_case()
+    token = qr_use_case.get_or_create_token(copy_id)
     info_url = url_for("game_copies.get_game_copy_by_qr", token=token, _external=True)
-    svg = generate_qr_svg(info_url)
+    svg = qr_use_case.generate_svg(info_url)
     response = current_app.response_class(svg, mimetype="image/svg+xml")
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -259,7 +256,7 @@ def get_game_copy_by_qr(token: str):
     if err:
         return err
 
-    copy_id = get_game_copy_id_by_qr_token(token)
+    copy_id = get_game_copy_qr_use_case().get_copy_id_by_token(token)
     if copy_id is None:
         return jsonify({"error": "Invalid game copy QR code"}), 404
 

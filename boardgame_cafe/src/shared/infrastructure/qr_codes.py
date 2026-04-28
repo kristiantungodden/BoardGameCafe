@@ -57,6 +57,21 @@ def generate_qr_svg(data: str) -> str:
     )
 
 
+def generate_qr_png(data: str) -> bytes:
+    import io
+    qr = qrcode.QRCode(
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=8,
+        border=2,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf)
+    return buf.getvalue()
+
+
 def get_reservation_qr_token(reservation_id: int, *, session: Session | None = None) -> str | None:
     from features.reservations.infrastructure.database.reservation_qr_codes_db import (
         ReservationQRCodeDB,

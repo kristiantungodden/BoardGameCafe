@@ -10,6 +10,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 from shared.infrastructure import db, csrf, mail, login_manager, init_celery, EventBus, init_db
 from shared.infrastructure import init_booking_draft_store
 from shared.infrastructure.email.flask_mail_service import FlaskMailService
+from shared.infrastructure.message_bus.realtime_publisher import RedisRealtimePublisher
 from shared.application.event_handlers.email_event_handler import register_email_event_handlers
 from shared.application.event_handlers.realtime_event_handler import (
     register_realtime_event_handlers,
@@ -23,7 +24,7 @@ from features.payments.presentation.api.payment_routes import (
     payment_bp,
 )
 from features.payments.infrastructure.stripe.stripe_adapter import StripeAdapter
-from features.payments.infrastructure.stripe.stripe_webhook import bp as stripe_webhook_bp
+from features.payments.presentation.stripe.stripe_webhook import bp as stripe_webhook_bp
 from features.reservations.presentation.api import reservation_routes
 from features.tables.presentation.api import table_routes
 try:
@@ -139,7 +140,7 @@ def create_app(config_name: str = None):
     event_bus = EventBus()
     email_service = FlaskMailService(mail)
     register_email_event_handlers(event_bus, email_service)
-    register_realtime_event_handlers(event_bus)
+    register_realtime_event_handlers(event_bus, RedisRealtimePublisher())
     app.event_bus = event_bus
 
     # Register blueprints

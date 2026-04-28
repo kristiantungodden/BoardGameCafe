@@ -21,7 +21,7 @@ def test_realtime_handler_registers_and_publishes(monkeypatch):
     def fake_publish(payload):
         published.append(payload)
 
-    monkeypatch.setattr('shared.infrastructure.message_bus.realtime.publish_realtime_event', fake_publish)
+    monkeypatch.setattr('shared.application.event_handlers.realtime_event_handler.publish_realtime_event', fake_publish)
 
     # Register handlers
     realtime_event_handler.register_realtime_event_handlers(bus)

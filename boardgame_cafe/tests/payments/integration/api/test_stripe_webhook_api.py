@@ -39,7 +39,7 @@ def test_stripe_webhook_marks_payment_paid(client, app, monkeypatch):
         }
 
     monkeypatch.setattr(
-        "features.payments.infrastructure.stripe.stripe_webhook.stripe.Webhook.construct_event",
+        "features.payments.presentation.stripe.stripe_webhook.stripe.Webhook.construct_event",
         fake_construct_event,
     )
 
@@ -79,7 +79,7 @@ def test_stripe_webhook_expired_session_deletes_created_booking(client, app, mon
         }
 
     monkeypatch.setattr(
-        "features.payments.infrastructure.stripe.stripe_webhook.stripe.Webhook.construct_event",
+        "features.payments.presentation.stripe.stripe_webhook.stripe.Webhook.construct_event",
         fake_construct_event,
     )
 
@@ -101,7 +101,7 @@ def test_stripe_webhook_rejects_invalid_signature(client, monkeypatch):
         raise ValueError("invalid signature")
 
     monkeypatch.setattr(
-        "features.payments.infrastructure.stripe.stripe_webhook.stripe.Webhook.construct_event",
+        "features.payments.presentation.stripe.stripe_webhook.stripe.Webhook.construct_event",
         fake_construct_event,
     )
 

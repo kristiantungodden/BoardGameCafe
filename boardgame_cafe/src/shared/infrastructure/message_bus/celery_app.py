@@ -5,6 +5,8 @@ celery = Celery(__name__, broker=None, backend=None)
 def init_celery(app):
     celery.conf.broker_url = app.config["CELERY_BROKER_URL"]
     celery.conf.result_backend = app.config["CELERY_RESULT_BACKEND"]
+    celery.conf.task_always_eager = bool(app.config.get("CELERY_TASK_ALWAYS_EAGER", False))
+    celery.conf.task_eager_propagates = bool(app.config.get("CELERY_TASK_EAGER_PROPAGATES", False))
     celery.conf.update(app.config)  # optional for shared keys
     celery.conf.task_serializer = "json"
     celery.conf.accept_content = ["json"]
