@@ -156,6 +156,110 @@ function hydrateGameCopyGameFilter(copies){
     }
 }
 
+const GAME_COPY_EDIT_STATE = {
+    copy: null,
+};
+
+function setGameCopyMessage(message, isError = false) {
+    const node = document.getElementById('game-copy-message');
+    if (!node) return;
+    node.textContent = message;
+    node.style.color = isError ? '#8d2430' : '';
+}
+
+function getGameCopyStatusLabel(status) {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized === 'in_use') return 'Checked out';
+    if (normalized === 'available') return 'Checked in';
+    if (normalized === 'maintenance') return 'Maintenance';
+    if (normalized === 'reserved') return 'Reserved';
+    return normalized || 'Unknown';
+}
+
+function closeGameCopyModal() {
+    const overlay = document.getElementById('game-copy-modal');
+    if (overlay) overlay.hidden = true;
+    document.body.classList.remove('modal-open');
+    GAME_COPY_EDIT_STATE.copy = null;
+}
+
+function openGameCopyModal(copy) {
+    const overlay = document.getElementById('game-copy-modal');
+    const title = document.getElementById('game-copy-modal-title');
+    const meta = document.getElementById('game-copy-modal-meta');
+    const statusSelect = document.getElementById('game-copy-modal-status');
+    if (!overlay || !title || !meta || !statusSelect) return;
+
+    GAME_COPY_EDIT_STATE.copy = {
+        id: Number(copy.id),
+        copy_code: String(copy.copy_code || ''),
+        game_title: String(copy.game_title || `Game #${copy.game_id}`),
+        status: String(copy.status || 'available'),
+    };
+
+    title.textContent = `Edit ${GAME_COPY_EDIT_STATE.copy.copy_code || `Copy #${GAME_COPY_EDIT_STATE.copy.id}`}`;
+    meta.textContent = `${GAME_COPY_EDIT_STATE.copy.game_title} · ${getGameCopyStatusLabel(GAME_COPY_EDIT_STATE.copy.status)}`;
+    statusSelect.value = GAME_COPY_EDIT_STATE.copy.status;
+    overlay.hidden = false;
+    document.body.classList.add('modal-open');
+    statusSelect.focus();
+}
+
+async function submitGameCopyModal(event) {
+    event.preventDefault();
+    const copy = GAME_COPY_EDIT_STATE.copy;
+    if (!copy) return;
+
+    const statusSelect = document.getElementById('game-copy-modal-status');
+    const status = String(statusSelect?.value || '').trim().toLowerCase();
+    if (!status || status === copy.status) {
+        setGameCopyMessage(`No changes to save for copy #${copy.id}.`);
+        closeGameCopyModal();
+        return;
+    }
+
+    let action = null;
+    if (status === 'available') action = 'return';
+    if (status === 'in_use') action = 'use';
+    if (status === 'reserved') action = 'reserve';
+    if (status === 'maintenance') action = 'maintenance';
+
+    if (!action) {
+        setGameCopyMessage('Unsupported status selected.', true);
+        return;
+    }
+
+    try {
+        await fetchJson(`/api/steward/game-copies/${copy.id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+        });
+        setGameCopyMessage(`Copy #${copy.id} updated.`);
+        closeGameCopyModal();
+        await reloadAll();
+    } catch (error) {
+        console.error(error);
+        setGameCopyMessage(`Could not update copy #${copy.id}.`, true);
+    }
+}
+
+function ensureGameCopyModalHandlers() {
+    const form = document.getElementById('game-copy-modal-form');
+    form?.addEventListener('submit', submitGameCopyModal);
+
+    document.querySelectorAll('[data-game-copy-modal-close]').forEach((button) => {
+        button.addEventListener('click', closeGameCopyModal);
+    });
+
+    const overlay = document.getElementById('game-copy-modal');
+    overlay?.addEventListener('click', (event) => {
+        if (event.target === overlay) {
+            closeGameCopyModal();
+        }
+    });
+}
+
 const RECENT_REALTIME_EVENTS = new Map();
 
 function shouldHandleRealtimeEvent(eventKey){
@@ -452,8 +556,20 @@ async function loadGameCopies(){
 
             const meta = document.createElement('p');
             meta.className = 'steward-item-meta';
-            meta.textContent = `${c.game_title || `Game #${c.game_id}`} · ${c.location || 'No location set'} · ${c.status}`;
+            meta.textContent = `${c.game_title || `Game #${c.game_id}`} · ${c.location || 'No location set'} · ${getGameCopyStatusLabel(c.status)}`;
             item.appendChild(meta);
+
+            const actions = document.createElement('div');
+            actions.className = 'steward-item-actions';
+
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'button button-secondary';
+            editBtn.textContent = 'Edit';
+            editBtn.addEventListener('click', () => openGameCopyModal(c));
+            actions.appendChild(editBtn);
+
+            item.appendChild(actions);
             list.appendChild(item);
         });
         container.appendChild(list);
@@ -654,6 +770,7 @@ async function reloadAll(){
 }
 
 window.addEventListener('DOMContentLoaded', ()=>{
+    ensureGameCopyModalHandlers();
     const gameFilter = document.getElementById('game-copy-game-filter');
     if (gameFilter) gameFilter.addEventListener('change', () => loadGameCopies());
     const gameSearch = document.getElementById('game-copy-search');

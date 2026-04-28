@@ -347,7 +347,7 @@ def list_game_copies():
 @bp.patch("/game-copies/<int:copy_id>/status")
 @login_required
 def update_game_copy_status(copy_id: int):
-    err = _require_admin()
+    err = _require_staff()
     if err:
         return err
 
@@ -368,7 +368,7 @@ def update_game_copy_status(copy_id: int):
         {
             **_serialize_game_copy(game_copy),
             "updated_by_user_id": getattr(current_user, "id", None),
-            "updated_by_role": "admin",
+            "updated_by_role": "staff",
             "action": action,
         },
     )
