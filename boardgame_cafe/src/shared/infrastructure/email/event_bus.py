@@ -37,7 +37,9 @@ class EventBus:
             try:
                 handler(event)
             except Exception as exc:
-                logger.error("Error in event handler for %s: %s", event_type.__name__, exc)
+                message = f"Error in event handler for {event_type.__name__}: {exc}"
+                logger.error(message)
+                print(message)
 
         task_payload = {
             "event_type": event_type.__name__,
@@ -51,9 +53,9 @@ class EventBus:
                     kwargs={"event_payload": task_payload},
                 )
             except Exception as exc:
-                logger.error(
-                    "Error publishing event '%s' to task '%s': %s", event_type.__name__, task_name, exc
-                )
+                message = f"Error publishing event '{event_type.__name__}' to task '{task_name}': {exc}"
+                logger.error(message)
+                print(message)
 
     def _serialize_event(self, event) -> dict[str, Any]:
         if is_dataclass(event):

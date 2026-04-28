@@ -114,12 +114,14 @@
                 </ul>
             </section>
 
+            {% if current_user.is_authenticated and current_user.role in ["staff", "admin"] %}
             <section class="game-copies-block" aria-labelledby="game-copies-title">
                 <h3 id="game-copies-title">Game Copies</h3>
                 <div id="game-copies-list">
                     <p class="game-copy-state">No copies listed for this game.</p>
                 </div>
             </section>
+            {% endif %}
         </div>
     </article>
 </section>
@@ -698,6 +700,7 @@
 
 <script>
     const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const canViewGameCopyQr = {{ 'true' if current_user.is_authenticated and current_user.role in ['staff', 'admin'] else 'false' }};
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
     let currentPage = 1;
     let currentPageSize = 10;
@@ -877,7 +880,7 @@
         const formSlot = document.getElementById("game-rating-form-slot");
         const ratingsList = document.getElementById("game-rating-list");
         const copiesList = document.getElementById("game-copies-list");
-        if (!titleEl || !detailsGrid || !averageEl || !formSlot || !ratingsList || !copiesList) {
+        if (!titleEl || !detailsGrid || !averageEl || !formSlot || !ratingsList) {
             return;
         }
 
@@ -904,7 +907,9 @@
 
         averageEl.textContent = `Average: ${formatAverageLabel(averagesByGameId.get(gameId))}`;
         formSlot.innerHTML = renderRatingForm(gameId);
-        copiesList.innerHTML = renderCopies(copiesByGameId.get(gameId) || []);
+        if (canViewGameCopyQr && copiesList) {
+            copiesList.innerHTML = renderCopies(copiesByGameId.get(gameId) || []);
+        }
 
         ratingsList.innerHTML = '<li class="game-state">Loading ratings...</li>';
         const ratings = await fetchRatingsForGame(gameId);
@@ -988,8 +993,11 @@
             }
 
             const data = await response.json();
-            const copyResponse = await fetch("/api/game-copies/");
-            const gameCopies = copyResponse.ok ? await copyResponse.json() : [];
+            let gameCopies = [];
+            if (canViewGameCopyQr) {
+                const copyResponse = await fetch("/api/game-copies/");
+                gameCopies = copyResponse.ok ? await copyResponse.json() : [];
+            }
 
             copiesByGameId.clear();
             for (const copy of gameCopies) {

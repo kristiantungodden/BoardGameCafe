@@ -89,6 +89,29 @@
 		</aside>
 	</section>
 
+	<div id="game-copy-modal" class="booking-details-overlay" hidden>
+		<div class="booking-details-backdrop" data-game-copy-modal-close></div>
+		<section class="booking-details-card steward-game-copy-modal-card" role="dialog" aria-modal="true" aria-labelledby="game-copy-modal-title">
+			<div class="booking-details-head">
+				<h3 id="game-copy-modal-title">Edit Game Copy</h3>
+				<button class="button button-subtle" type="button" data-game-copy-modal-close>Close</button>
+			</div>
+			<p class="steward-item-meta" id="game-copy-modal-meta"></p>
+			<form id="game-copy-modal-form" class="form-stack">
+				<label class="form-label" for="game-copy-modal-status">Status</label>
+				<select class="form-input" id="game-copy-modal-status">
+					<option value="available">available</option>
+					<option value="in_use">in_use</option>
+					<option value="reserved">reserved</option>
+					<option value="maintenance">maintenance</option>
+				</select>
+				<div class="action-row action-row-top-gap">
+					<button class="button" type="submit">Save</button>
+				</div>
+			</form>
+		</section>
+	</div>
+
 	<section class="card steward-floorplan-card">
 		<div class="steward-floorplan-head">
 			<h3>Floorplan</h3>
@@ -102,5 +125,5 @@
 	<p class="steward-last-update" id="metric-last-updated">Last updated: --</p>
 </section>
 
-<script src="{{ url_for('static', filename='js/steward.js', v='20260425-1') }}"></script>
+<script src="{{ url_for('static', filename='js/steward.js', v='20260428-4') }}"></script>
 {% endblock %}
