@@ -1,11 +1,10 @@
 import pytest
 
-from features.payments.application.use_cases.payment_use_cases import (
-    PRICE_PER_CAPACITY_CENTS,
-    PRICE_BASE_TABLE,
+from features.payments.application.use_cases.payment_use_cases import create_and_save_payment
+from features.payments.domain.models.payment import PRICE_BASE_TABLE, PRICE_PER_CAPACITY_CENTS
+from features.payments.domain.services.payment_calculation import (
     calculate_amount_cents,
     calculate_amount_kroner,
-    create_and_save_payment,
     create_calculated_payment,
 )
 from features.payments.domain.models.payment import Payment, PaymentStatus

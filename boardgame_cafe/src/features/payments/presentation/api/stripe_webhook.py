@@ -54,7 +54,6 @@ def webhook():
             game_reservation_repo=_game_reservation_repo,
             reservation_qr_repo=_reservation_qr_repo,
             payment_id=int(payment_id) if payment_id else None,
-            reason=event["type"],
         )
 
     return {"status": "ok"}

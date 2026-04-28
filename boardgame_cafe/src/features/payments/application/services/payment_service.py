@@ -11,11 +11,11 @@ from features.payments.application.interfaces.payment_provider_interface import 
 from features.payments.application.interfaces.payment_repository_interface import (
     PaymentRepositoryInterface,
 )
-from features.payments.application.use_cases.payment_use_cases import (
+from features.payments.application.use_cases.payment_use_cases import get_payment_by_id
+from features.payments.domain.services.payment_calculation import (
     calculate_amount_cents,
     calculate_amount_kroner,
     create_calculated_payment,
-    get_payment_by_id,
 )
 from features.payments.domain.models.payment import Payment, PaymentStatus
 

@@ -151,7 +151,6 @@ def test_fail_payment_and_cleanup_created_booking_removes_aggregate(app):
             reservation_qr_repo=qr_repo,
             payment_id=saved.id,
             booking_id=booking.id,
-            reason="customer_cancelled",
         )
 
         assert resolved_booking_id == booking.id

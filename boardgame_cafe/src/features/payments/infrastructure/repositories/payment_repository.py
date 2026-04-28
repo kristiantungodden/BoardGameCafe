@@ -54,12 +54,6 @@ class PaymentRepository(PaymentRepositoryInterface):
         else:
             self.session.flush()
 
-    def get_by_provider_ref(self, provider_ref: str) -> DomainPayment | None:
-        db_payment = self.session.query(PaymentDB).filter_by(provider_ref=provider_ref).first()
-        if db_payment is None:
-            return None
-        return db_payment.to_domain()
-
     def update(self, payment: DomainPayment) -> DomainPayment:
         if payment.id is None:
             raise ValueError("Cannot update payment without id")
