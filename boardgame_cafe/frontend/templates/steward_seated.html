@@ -3,9 +3,29 @@
 {% block title %}Seated Reservations{% endblock %}
 
 {% block content %}
-<h1 class="page-header">Seated Reservations</h1>
-<p class="page-intro">Currently seated parties.</p>
-<div id="seated-list">(loading...)</div>
-<p><a class="button" href="/steward">Back to Dashboard</a></p>
+<section class="steward-dashboard">
+	<header class="steward-hero">
+		<div>
+			<h1 class="page-header">Seated Reservations</h1>
+			<p class="page-intro compact">Currently seated parties.</p>
+		</div>
+		<div class="steward-hero-actions">
+			<a class="button" href="/steward">Back to Dashboard</a>
+		</div>
+	</header>
+
+	<section class="steward-layout">
+		<div class="steward-main-grid">
+			<section class="card">
+				<div id="seated-list" class="steward-scroll-list">(loading...)</div>
+			</section>
+		</div>
+
+		<aside class="card steward-side-panel" id="reservation-sidepanel">
+			<h3>Reservation Details</h3>
+			<div id="reservation-panel-content">Select a reservation to view/edit.</div>
+		</aside>
+	</section>
+</section>
 <script src="{{ url_for('static', filename='js/steward.js', v='20260425-1') }}"></script>
 {% endblock %}

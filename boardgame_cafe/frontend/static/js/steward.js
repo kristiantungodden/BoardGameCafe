@@ -234,6 +234,37 @@ function showRealtimeNotice(message, tone='info'){
     }, 12000);
 }
 
+function getStewardTableDisplayStatus(table, reservedTableIds = new Set()){
+    const persisted = String(table?.status || '').trim().toLowerCase();
+    const reasons = Array.isArray(table?.unavailable_reasons)
+        ? table.unavailable_reasons.map((reason) => String(reason || '').trim().toLowerCase())
+        : [];
+
+    if (persisted === 'available' && reservedTableIds.has(Number(table?.id))) {
+        return 'reserved';
+    }
+
+    if (persisted === 'available' && reasons.includes('reservation_overlap')) {
+        return 'reserved';
+    }
+
+    return persisted || (table?.available ? 'available' : 'unavailable');
+}
+
+function getStewardTableTileClass(status){
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized === 'available') {
+        return 'table-tile-available';
+    }
+    if (normalized === 'reserved') {
+        return 'table-tile-reserved';
+    }
+    if (normalized === 'occupied') {
+        return 'table-tile-alert';
+    }
+    return 'table-tile-unavailable';
+}
+
 async function loadPending(){
     const container = document.getElementById('pending-list');
     if (!container) return;
@@ -444,7 +475,31 @@ async function loadFloorplan(){
         const start = new Date(date + 'T00:00:00');
         const end = new Date(date + 'T23:59:59');
         const qs = `?start_ts=${encodeURIComponent(start.toISOString())}&end_ts=${encodeURIComponent(end.toISOString())}&party_size=1`;
-        const resp = await fetchJson('/api/tables/availability' + qs);
+        const [resp, confirmedReservations] = await Promise.all([
+            fetchJson('/api/tables/availability' + qs),
+            fetchJson('/api/steward/reservations').catch(() => []),
+        ]);
+
+        const reservedTableIds = new Set();
+        (Array.isArray(confirmedReservations) ? confirmedReservations : []).forEach((reservation) => {
+            const ts = Date.parse(String(reservation?.start_ts || ''));
+            if (!Number.isFinite(ts) || ts <= Date.now()) {
+                return;
+            }
+
+            const primaryTableId = Number(reservation?.table_id);
+            if (Number.isFinite(primaryTableId) && primaryTableId > 0) {
+                reservedTableIds.add(primaryTableId);
+            }
+
+            const linkedTableIds = Array.isArray(reservation?.table_ids) ? reservation.table_ids : [];
+            linkedTableIds.forEach((tableIdRaw) => {
+                const tableId = Number(tableIdRaw);
+                if (Number.isFinite(tableId) && tableId > 0) {
+                    reservedTableIds.add(tableId);
+                }
+            });
+        });
 
         floorplan.innerHTML = '';
         floorSelect.innerHTML = '';
@@ -462,29 +517,85 @@ async function loadFloorplan(){
         const render = (floorNum) => {
             floorplan.innerHTML = '';
             const floor = floors.find(x => String(x.floor) === String(floorNum)) || floors[0];
+            const floorCard = document.createElement('article');
+            floorCard.className = 'steward-item admin-floor-tree-item';
+
+            const floorHead = document.createElement('div');
+            floorHead.className = 'steward-item-head';
+
+            const floorTitle = document.createElement('p');
+            floorTitle.className = 'steward-item-title';
+            floorTitle.textContent = `Floor ${floor.floor}`;
+            floorHead.appendChild(floorTitle);
+            floorCard.appendChild(floorHead);
+
+            const zoneList = document.createElement('div');
+            zoneList.className = 'steward-item-list';
+
             floor.zones.forEach(zone => {
-                const zdiv = document.createElement('div');
-                zdiv.style.marginBottom = '8px';
-                const zh = document.createElement('div'); zh.textContent = zone.zone; zh.style.fontWeight='600';
-                zdiv.appendChild(zh);
+                const zoneSection = document.createElement('section');
+                zoneSection.className = 'floor-zone';
+
+                const zoneHead = document.createElement('div');
+                zoneHead.className = 'steward-item-head';
+
+                const zoneTitle = document.createElement('h5');
+                zoneTitle.className = 'floor-zone-title';
+                zoneTitle.textContent = `Zone ${zone.zone}`;
+                zoneHead.appendChild(zoneTitle);
+                zoneSection.appendChild(zoneHead);
+
                 const grid = document.createElement('div');
-                grid.style.display='flex'; grid.style.flexWrap='wrap'; grid.style.gap='8px';
+                grid.className = 'floor-zone-grid';
+
                 zone.tables.forEach(t => {
-                    const box = document.createElement('div');
-                    box.style.width='80px'; box.style.height='50px'; box.style.border='1px solid #bbb'; box.style.display='flex'; box.style.flexDirection='column'; box.style.alignItems='center'; box.style.justifyContent='center'; box.style.borderRadius='4px';
-                    box.style.background = t.available ? '#d4ffd4' : '#ffd6d6';
-                    box.title = `Table ${t.table_nr} (cap ${t.capacity})` + (t.available ? ' — available' : ' — reserved/unavailable');
-                    const tn = document.createElement('div'); tn.textContent = 'T' + t.table_nr; tn.style.fontWeight='600';
-                    const cap = document.createElement('div'); cap.textContent = t.capacity + 'p'; cap.style.fontSize='12px';
-                    box.appendChild(tn); box.appendChild(cap);
-                    grid.appendChild(box);
+                    const tile = document.createElement('article');
+                    const displayStatus = getStewardTableDisplayStatus(t, reservedTableIds);
+                    const tileClass = getStewardTableTileClass(displayStatus);
+                    tile.className = `table-tile ${tileClass}`;
+                    tile.title = `Table ${t.table_nr} (cap ${t.capacity}) - ${displayStatus}`;
+
+                    const tableNumber = document.createElement('span');
+                    tableNumber.className = 'table-tile-name';
+                    tableNumber.textContent = `T${t.table_nr}`;
+
+                    const tableCapacity = document.createElement('span');
+                    tableCapacity.className = 'table-tile-cap';
+                    tableCapacity.textContent = `Cap ${t.capacity}`;
+
+                    const tableStatus = document.createElement('span');
+                    tableStatus.className = 'table-tile-status';
+                    tableStatus.textContent = displayStatus;
+
+                    tile.appendChild(tableNumber);
+                    tile.appendChild(tableCapacity);
+                    tile.appendChild(tableStatus);
+                    grid.appendChild(tile);
                 });
-                zdiv.appendChild(grid);
-                floorplan.appendChild(zdiv);
+
+                if (!zone.tables.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'steward-item-meta';
+                    empty.textContent = 'No tables in this zone.';
+                    grid.appendChild(empty);
+                }
+
+                zoneSection.appendChild(grid);
+                zoneList.appendChild(zoneSection);
             });
+
+            if (!floor.zones.length) {
+                const emptyZones = document.createElement('p');
+                emptyZones.className = 'steward-item-meta';
+                emptyZones.textContent = 'No zones in this floor.';
+                zoneList.appendChild(emptyZones);
+            }
+
+            floorCard.appendChild(zoneList);
+            floorplan.appendChild(floorCard);
         };
 
-        floorSelect.addEventListener('change', ()=>render(floorSelect.value));
+        floorSelect.onchange = () => render(floorSelect.value);
         render(floorSelect.value || floors[0].floor);
     }catch(e){
         console.error(e);
@@ -543,22 +654,6 @@ async function reloadAll(){
 }
 
 window.addEventListener('DOMContentLoaded', ()=>{
-    const bindLink = (id, fn) => {
-        const a = document.getElementById(id);
-        if (!a) return;
-        a.addEventListener('click', (e) => {
-            const href = a.getAttribute('href') || '';
-            // If the link points to a real path, allow normal navigation so the server renders page.
-            if (href.startsWith('/')) return;
-            e.preventDefault();
-            fn();
-        });
-    };
-
-    bindLink('link-pending', loadPending);
-    bindLink('link-seated', loadSeated);
-    bindLink('link-game-copies', loadGameCopies);
-    bindLink('link-incidents', loadIncidents);
     const gameFilter = document.getElementById('game-copy-game-filter');
     if (gameFilter) gameFilter.addEventListener('change', () => loadGameCopies());
     const gameSearch = document.getElementById('game-copy-search');

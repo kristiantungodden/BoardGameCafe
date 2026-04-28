@@ -1035,6 +1035,61 @@ footer {
     min-width: 14rem;
 }
 
+.steward-floorplan-map {
+    margin-top: 0.2rem;
+    min-height: 170px;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+}
+
+.steward-floorplan-map .admin-floor-tree-item {
+    border-color: #cfdcf4;
+    background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+}
+
+.steward-floorplan-map .steward-item-list {
+    margin-top: 0.5rem;
+}
+
+.steward-floorplan-map .floor-zone-title {
+    margin: 0;
+}
+
+.steward-floorplan-map .table-tile {
+    cursor: default;
+}
+
+.steward-floorplan-map .table-tile-available {
+    border-color: #a7d8bf;
+    background: #dff4e9;
+}
+
+.steward-floorplan-map .table-tile-available .table-tile-status {
+    color: #22543d;
+}
+
+.steward-floorplan-map .table-tile-reserved {
+    border-color: #ffc107;
+    background: #fff9e6;
+}
+
+.steward-floorplan-map .table-tile-reserved .table-tile-status {
+    color: #856404;
+}
+
+.steward-floorplan-map .table-tile-alert {
+    border-color: #efb6bc;
+    background: #fbe5e7;
+}
+
+.steward-floorplan-map .table-tile-alert .table-tile-status {
+    color: #8a2630;
+}
+
+.steward-floorplan-map .table-tile-unavailable {
+    border-color: #d0d5db;
+    background: #e9ecef;
+}
+
 .steward-last-update {
     margin: 0;
     color: var(--muted);

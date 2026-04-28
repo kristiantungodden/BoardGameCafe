@@ -133,7 +133,6 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
         return
 
     logger.info("Sending reservation confirmation email to %s (attempt %d)", recipient, self.request.retries + 1)
-    qr_lines = ""
     checkin_url = None
     inline_attachments = []
     attachments = []
@@ -166,21 +165,26 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
                     qr_payload,
                 )
             )
-            qr_lines = (
-                "\n\nCheck-in QR included as attachment: "
-                f"reservation-{reservation_id}-checkin-qr.svg"
-                f"\nStaff check-in URL (fallback): {checkin_url}"
-            )
     qr_cid = inline_attachments[0][3] if inline_attachments else None
 
-    table_str = ", ".join(str(t) for t in table_numbers)
-    details = (
-        f"{'Reservation #:':<16}{reservation_id}\n"
-        f"{'Table(s):':<16}{table_str}\n"
-        f"{'Start:':<16}{start_ts}\n"
-        f"{'End:':<16}{end_ts}\n"
-        f"{'Party size:':<16}{party_size}"
-    )
+    table_label_plain = ", ".join(str(t) for t in table_numbers) or "-"
+    plain_lines = [
+        "Thank you for your reservation at Dicer.no!",
+        "",
+        f"Reservation #:  {reservation_id or '-'}",
+        f"Table(s):       {table_label_plain}",
+        f"Start:          {start_ts or '-'}",
+        f"End:            {end_ts or '-'}",
+        f"Party size:     {party_size or '-'}",
+    ]
+    if checkin_url:
+        plain_lines += [
+            "",
+            f"Check-in QR attached: reservation-{reservation_id}-checkin-qr.svg",
+            f"Direct check-in link: {checkin_url}",
+        ]
+    plain_lines += ["", "We look forward to seeing you soon!"]
+    plain_body = "\n".join(plain_lines)
     html_body = _build_reservation_html_email(
         reservation_id=reservation_id,
         table_numbers=table_numbers,
@@ -194,12 +198,7 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
         "subject": "Your Dicer.no Reservation Confirmation",
         "sender": None,
         "recipients": [recipient],
-        "body": (
-            "Thank you for your reservation at Dicer.no!"
-            f"\n\n{details}"
-            f"{qr_lines}"
-            "\n\nWe look forward to seeing you soon!"
-        ),
+        "body": plain_body,
         "html": html_body,
     }
     if attachments:
@@ -213,7 +212,6 @@ def send_reservation_confirmation_email(self, event_payload: dict) -> None:
         logger.error("Failed to send reservation confirmation email to %s: %s", recipient, exc)
         raise
 
-# HER MÅ VÆRE NOE FOR RESET PASSORD SENERE.
 
 
 @celery.task(name="shared.tasks.publish_realtime_event")
