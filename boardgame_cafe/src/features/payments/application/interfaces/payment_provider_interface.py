@@ -8,19 +8,6 @@ class StartPaymentResult:
     redirect_url: str | None = None
     provider_name: str = "unknown"
 
-    def __str__(self) -> str:
-        return self.provider_ref
-
-    def __eq__(self, other) -> bool:
-        if isinstance(other, str):
-            return self.provider_ref == other
-        if isinstance(other, StartPaymentResult):
-            return (
-                self.provider_ref == other.provider_ref
-                and self.redirect_url == other.redirect_url
-                and self.provider_name == other.provider_name
-            )
-        return False
 
 
 class PaymentProviderInterface(ABC):

@@ -23,7 +23,7 @@ from features.payments.presentation.api.payment_routes import (
     payment_bp,
 )
 from features.payments.infrastructure.stripe.stripe_adapter import StripeAdapter
-from features.payments.infrastructure.stripe.stripe_webhook import bp as stripe_webhook_bp
+from features.payments.presentation.api.stripe_webhook import bp as stripe_webhook_bp
 from features.reservations.presentation.api import reservation_routes
 from features.tables.presentation.api import table_routes
 try:

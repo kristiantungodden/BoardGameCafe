@@ -5,9 +5,7 @@ from types import SimpleNamespace
 from features.payments.domain.models.payment import Payment
 from features.payments.presentation.api import payment_routes
 from features.payments.presentation.api.payment_routes import (
-    configure_booking_repository,
-    configure_payment_provider,
-    configure_payment_routes,
+    configure_payment_service,
     payment_bp,
 )
 
@@ -56,9 +54,6 @@ def create_test_client(repository=None):
 
     from features.payments.presentation.api import payment_routes
     payment_routes._payment_service = None
-    payment_routes._pending_repository = None
-    payment_routes._pending_provider = None
-    payment_routes._pending_booking_repository = None
     payment_routes.current_user = SimpleNamespace(
         id=1,
         is_authenticated=True,
@@ -66,11 +61,12 @@ def create_test_client(repository=None):
         is_staff=True,
         is_admin=True,
     )
-    configure_booking_repository(StubBookingRepository())
-    configure_payment_provider(StubProvider())
-    
     if repository is not None:
-        configure_payment_routes(repository)
+        configure_payment_service(
+            repository=repository,
+            provider=StubProvider(),
+            booking_repository=StubBookingRepository(),
+        )
     return app.test_client()
 
 
