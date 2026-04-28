@@ -98,6 +98,22 @@ def test_admin_can_list_users_and_force_password_reset(app, client):
     reset_payload = reset_response.get_json()
     assert reset_payload["force_password_change"] is True
 
+    client.post("/api/auth/logout")
+    _login(client, email="target-user@example.com", password="CustomerPass123")
+
+    same_password_change = client.post(
+        "/api/auth/change-password",
+        json={"new_password": "CustomerPass123"},
+    )
+    assert same_password_change.status_code == 400
+    assert same_password_change.get_json()["error"] == "New password must be different from current password"
+
+    valid_change = client.post(
+        "/api/auth/change-password",
+        json={"new_password": "CustomerPass456"},
+    )
+    assert valid_change.status_code == 200
+
 
 def test_admin_can_suspend_user_but_not_self(app, client):
     with app.app_context():
