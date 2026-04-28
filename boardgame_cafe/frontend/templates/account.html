@@ -9,7 +9,6 @@
 		<div class="profile-hero-copy">
 			<p class="hero-kicker">Account profile</p>
 			<h1 class="page-header profile-title">{{ user.name }}</h1>
-			<p class="page-intro">A clean place to review your account and open edit mode only when needed.</p>
 		</div>
 		{% if user.role != "customer" %}
 			<div class="profile-badge">{{ user.role|title }} access</div>
